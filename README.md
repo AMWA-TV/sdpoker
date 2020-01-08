@@ -8,6 +8,10 @@ This is an open source tool contributed for the benefit of anyone developing and
 
 SDPoker is part of the [zenmos](https://github.com/Streampunk/zenmos) project to develop an automatic testing tool for AMWAs [Network Media Open Specifications](https://nmos.tv/).
 
+# Important Note
+
+This is a fork of the original repository from [Streampunk/sdpoker](https://github.com/Streampunk/sdpoker) including additional features and bug fixes. It is intended to be used alongside the [NMOS Testing Tool](https://github.com/AMWA-TV/nmos-testing).
+
 # Installation
 
 ## Prerequisite
@@ -18,7 +22,7 @@ If not already installed, install [Node.JS LTS](https://nodejs.org/) for your pl
 
 Install SDPoker globally as follows (use `sudo` where appropriate):
 
-    npm install -g sdpoker
+    npm install -g AMWA-TV/sdpoker
 
 To run SDPoker, append a filename or URL to a SDP file:
 
