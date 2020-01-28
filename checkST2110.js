@@ -177,12 +177,16 @@ const test_10_82_3 = sdp => {
           errors.push(new Error(`Line ${x + 1}: PTP domain number must be a value between 0 and 127 inclusive, as per RFC 7273 Section 4.8.`));
         }
       }
+      else {
+          // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not
+          errors.push(new Error(`Line ${x + 1}: PTP domain number must be specified, as per SMPTE ST 2110-10 Section 8.2.`));
+      }
     }
   }
   return errors;
 };
 
-// Teest ST2110-10 Section 8.2 - If local mac clock, check MAC address
+// Test ST2110-10 Section 8.2 - If local mac clock, check MAC address
 const test_10_82_4 = sdp => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -378,16 +382,16 @@ const test_20_71_3 = sdp => {
       continue;
     }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (!rtpmapMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'rtpmap' attribute that is not an acceptable pattern.`));
-        continue;
-      }
       if (rtpmapInStream) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found more than one 'rtpmap' attribute.`));
         continue;
       }
       rtpmapInStream = true;
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (!rtpmapMatch) {
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'rtpmap' attribute that is not an acceptable pattern.`));
+        continue;
+      }
       if (+rtpmapMatch[1] !== payloadType) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'rtpmap' attribute with payload type '${rtpmapMatch[1]}' when stream has payload type '${payloadType}'.`));
       }
@@ -440,17 +444,17 @@ const test_20_71_4 = (sdp, params) => {
       }
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
+      if (fmtpInStream) {
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found more than one 'fmtp' attribute.`));
+        continue;
+      }
+      fmtpInStream = true;
       let fmtpLine = params.whitespace === true ? lines[x] : lines[x].trim() + ' ';
       let fmtpMatch = fmtpLine.match(fmtpPattern);
       if (!fmtpMatch) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'fmtp' attribute that is not an acceptable pattern. Note: In strict whitespace adherence, line must have a space after the last semicolon.`));
         continue;
       }
-      if (fmtpInStream) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found more than one 'fmtp' attribute.`));
-        continue;
-      }
-      fmtpInStream = true;
       if (+fmtpMatch[1] !== payloadType) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'fmtp' attribute with payload type '${fmtpMatch[1]}' when stream has payload type '${payloadType}'.`));
       }
