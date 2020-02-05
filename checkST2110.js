@@ -177,10 +177,9 @@ const test_10_82_3 = sdp => {
         if (domainNmbr < 0 || domainNmbr > 127) {
           errors.push(new Error(`Line ${x + 1}: PTP domain number must be a value between 0 and 127 inclusive, as per RFC 7273 Section 4.8.`));
         }
-      }
-      else {
-          // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not
-          errors.push(new Error(`Line ${x + 1}: PTP domain number must be specified, as per SMPTE ST 2110-10 Section 8.2.`));
+      } else {
+        // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not
+        errors.push(new Error(`Line ${x + 1}: PTP domain number must be specified, as per SMPTE ST 2110-10 Section 8.2.`));
       }
     }
   }
@@ -367,7 +366,6 @@ const test_20_71_3 = sdp => {
   let errors = [];
   let lines = splitLines(sdp);
   let rtpmapInStream = true;
-  let isAncillary = false;
   let payloadType = -1;
   let streamCount = 0;
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -378,7 +376,6 @@ const test_20_71_3 = sdp => {
       let videoMatch = lines[x].match(videoPattern);
       payloadType = videoMatch ? +videoMatch[4] : -1;
       rtpmapInStream = false;
-      isAncillary = false;
       streamCount++;
       continue;
     }
@@ -397,10 +394,8 @@ const test_20_71_3 = sdp => {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'rtpmap' attribute with payload type '${rtpmapMatch[1]}' when stream has payload type '${payloadType}'.`));
       }
       if (rtpmapMatch[2] == 'smpte291') { // ancillary data also has 'm=video'
-        isAncillary = true;
         continue;
-      }
-      else if (rtpmapMatch[2] !== 'raw') {
+      } else if (rtpmapMatch[2] !== 'raw') {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, encoding name must be media sub-type 'raw', as per SMPTE ST 2110-20 Section 7.1.`));
       }
       if (rtpmapMatch[3] !== '90000') {
