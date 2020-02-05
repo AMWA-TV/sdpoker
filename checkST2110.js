@@ -28,8 +28,8 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
-const fmtpPattern = /a=fmtp:(\d+)\s+(?:([^\s=;]+)(?:=([^\s;]+))?;\s+)*$/;
-const fmtpParams = /([^\s=;]+(?:=[^\s;]+)?);/g;
+const fmtpPattern = /a=fmtp:(\d+)\s+(?:([^\s=;]+)(?:=([^\s;]+))*(?:;\s*)*)+$/;
+const fmtpParams = /([^\s=;]+(?:=[^\s;]+)?)(?:;{0,1})/g;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
@@ -445,10 +445,9 @@ const test_20_71_4 = (sdp, params) => {
         continue;
       }
       fmtpInStream = true;
-      let fmtpLine = params.whitespace === true ? lines[x] : lines[x].trim() + ' ';
-      let fmtpMatch = fmtpLine.match(fmtpPattern);
+      let fmtpMatch = lines[x].match(fmtpPattern);
       if (!fmtpMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'fmtp' attribute that is not an acceptable pattern. Note: In strict whitespace adherence, line must have a space after the last semicolon.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'fmtp' attribute that is not an acceptable pattern.`));
         continue;
       }
       if (+fmtpMatch[1] !== payloadType) {
@@ -486,11 +485,10 @@ const extractMTParams = (sdp, params = {}) => {
       }
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isAncillary) {
-      let fmtpLine = params.whitespace === true ? lines[x] : lines[x].trim() + ' ';
-      if (!fmtpPattern.test(fmtpLine)) {
+      if (!fmtpPattern.test(lines[x])) {
         continue;
       }
-      let paramsMatch = lines[x].match(fmtpParams);
+      let paramsMatch = lines[x].split(/a=fmtp:\d+\s+/)[1].match(fmtpParams);
       let splitParams = paramsMatch.map(p => p.split(/[=;]/));
       if (params.checkDups) {
         let keys = splitParams.map(p => p[0]);
