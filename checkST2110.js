@@ -28,7 +28,7 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
-const fmtpPattern = /a=fmtp:(\d+)\s+(?:([^\s=;]+)(?:=([^\s;]+))*(?:;\s*)*)+$/;
+const fmtpPattern = /a=fmtp:(\d+)\s+(?:([^\s=;]+)(?:=([^\s;]+))*(?:;\s*){0,1})+$/;
 const fmtpParams = /([^\s=;]+(?:=[^\s;]+)?)(?:;{0,1})/g;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
