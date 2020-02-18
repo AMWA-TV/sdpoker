@@ -28,8 +28,10 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
-const fmtpPattern = /a=fmtp:(\d+)\s+(?:([^\s=;]+)(?:=([^\s;]+))*(?:;\s*){0,1})+$/;
-const fmtpParams = /([^\s=;]+(?:=[^\s;]+)?)(?:;{0,1})/g;
+const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
+const fmtpSeparator = '(?:;\\s*)';
+const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s+' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?$');
+const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
@@ -505,7 +507,7 @@ const extractMTParams = (sdp, params = {}) => {
         }
       }
       let paramsObject = splitParams.reduce((x, y) => {
-        x[y[0]] = y[1];
+        x[y[0]] = y[1].trim();
         return x;
       }, {});
       paramsObject._payloadType = payloadType;
