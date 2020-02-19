@@ -21,7 +21,6 @@ const { accessSync, R_OK } = require('fs');
 const args = yargs
   .help('help')
   .default('checkEndings', false)
-  .default('whitespace', false)
   .default('should', false)
   .default('noCopy', true)
   .default('noMedia', true)
@@ -34,13 +33,12 @@ const args = yargs
   .default('multicast', false)
   .default('unicast', false)
   .default('shaping', false)
-  .boolean([ 'checkEndings', 'whitespace', 'should', 'noCopy', 'noMedia',
+  .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
     'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping' ])
   .usage('Check an SDP file for conformance with RFC4566 and SMPTE ST 2110.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
   .describe('checkEndings', 'Check line endings are CRLF, no other CR/LF.')
-  .describe('whitespace', 'Strict check of adherence to whitespace rules.')
   .describe('should', 'As well as shall, also check all should clauses.')
   .describe('noCopy', 'Fail obvious copies of the ST 2110-10 SDP example')
   .describe('noMedia', 'Fail SDP files which do not include any media descriptions')

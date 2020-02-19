@@ -141,8 +141,6 @@ let params = {
 };
 ```
 
-Currently, the `whitespace` flag forces a check as to whether the format parameter field (`a=fmtp`) has a whitespace character after the final semicolon on the line. Strict reading of the standard suggests that it should, although the this could also be viewed as ambiguous as the term _carriage return_ can also be interpreted as whitespace.
-
 # Tests
 
 For now, please see the comments in files `checkRFC4566.js`, `checkRFC4570.js` and `checkST2110.js` for a description of the tests. A more formal and separate list may be provided in the future.
