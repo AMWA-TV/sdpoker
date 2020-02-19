@@ -492,8 +492,13 @@ const extractMTParams = (sdp, params = {}) => {
       if (!fmtpPattern.test(lines[x])) {
         continue;
       }
-      let paramsMatch = lines[x].split(/a=fmtp:\d+\s+/)[1].match(fmtpParams);
-      let splitParams = paramsMatch.map(p => p.split(/[=;]/));
+      let params = lines[x].split(/a=fmtp:\d+\s+/)[1];
+      // let paramsMatch = params.matchAll(fmtpParams);
+      let paramsMatch = [];
+      let paramMatch;
+      while ((paramMatch = fmtpParams.exec(params)) !== null)
+          paramsMatch.push(paramMatch);
+      let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
       if (params.checkDups) {
         let keys = splitParams.map(p => p[0]);
         let reported = [];
@@ -507,7 +512,7 @@ const extractMTParams = (sdp, params = {}) => {
         }
       }
       let paramsObject = splitParams.reduce((x, y) => {
-        x[y[0]] = y[1].trim();
+        x[y[0]] = y[1];
         return x;
       }, {});
       paramsObject._payloadType = payloadType;
