@@ -181,7 +181,7 @@ const test_10_82_3 = sdp => {
         if (domainNmbr < 0 || domainNmbr > 127) {
           errors.push(new Error(`Line ${x + 1}: PTP domain number must be a value between 0 and 127 inclusive, as per RFC 7273 Section 4.8.`));
         }
-      } else {
+      } else if (ptpMatch[2]) {
         // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not
         errors.push(new Error(`Line ${x + 1}: PTP domain number must be specified, as per SMPTE ST 2110-10 Section 8.2.`));
       }
