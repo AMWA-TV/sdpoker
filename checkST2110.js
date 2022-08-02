@@ -294,12 +294,23 @@ const test_10_83_3 = sdp => {
     }
   }
   let doneOne = false;
+  let firstMid = false;
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('m=')) {
       if (!doneOne) {
         errors.push(new Error(`Got to line ${x + 1}, the end of session-level description, without finding the destination group, with reference to RFC 7104.`));
       }
-      break;
+
+      if (firstMid == true && !lines[x-1].startsWith('a=mid'))  {
+        errors.push(new Error(`Line ${x+1} "m=" should be preceded by "a=mid" on the previous line" `));
+      }
+
+      firstMid = true;
+    }
+    if (x == lines.length-1) {
+      if (!lines[x].startsWith('a=mid:'))  {
+        errors.push(new Error(`Line ${x+1} - final line should contain a=mid" `));
+      }
     }
     if (!lines[x].startsWith('a=group')) {
       continue;
