@@ -492,11 +492,11 @@ const extractMTParams = (sdp, params = {}) => {
       if (!fmtpPattern.test(lines[x])) {
         continue;
       }
-      let params = lines[x].split(/a=fmtp:\d+\s+/)[1];
-      // let paramsMatch = params.matchAll(fmtpParams);
+      let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
+      // let paramsMatch = fmtParams.matchAll(fmtpParams);
       let paramsMatch = [];
       let paramMatch;
-      while ((paramMatch = fmtpParams.exec(params)) !== null)
+      while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
           paramsMatch.push(paramMatch);
       let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
       if (params.checkDups) {
