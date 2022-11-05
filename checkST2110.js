@@ -44,7 +44,7 @@ const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
-const skipVideoTypes = ['smpte291', 'vc2', 'jxsv', 'SMPTE2022-6'];
+const skipVideoTypes = ['smpte291', 'vc2', 'SMPTE2022-6'];
 
 const specExample = `v=0
 o=- 123456 11 IN IP4 192.168.100.2

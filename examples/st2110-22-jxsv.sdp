@@ -1,0 +1,11 @@
+v=0
+o=- 1543226715 1543226715 IN IP4 172.29.80.59
+s=JPEG-XS Demo Video Stream
+t=0 0
+m=video 30000 RTP/AVP 112
+c=IN IP4 232.80.59.59/227
+a=source-filter: incl IN IP4 232.80.59.59 172.29.80.59
+a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0
+a=rtpmap:112 jxsv/90000
+a=fmtp:112 packetmode=0;sampling=YCbCr-4:2:2;width=1920;height=1080;depth=10;colorimetry=BT709;TCS=SDR;RANGE=FULL;TP=2110TPNL
+a=mediaclk:direct=0 rate=90000
