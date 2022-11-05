@@ -16,6 +16,7 @@
 const concat = arrays => Array.prototype.concat.apply([], arrays);
 
 const badEndings = /[^\r]\n|\r[^\n]/;
+const hasNoNewlineAtEnd = /[^\r\n]$/;
 const linePattern = /^([a-z]=\S.*|s= )$/;
 const letterCheck = /^[vosiuepcbzkatrm].*$/;
 // const spaceCheck = /\s\s/;
@@ -77,6 +78,16 @@ const test50_1 = sdp => {
   }
   return errors;
 };
+
+// Section 5 Test 1.1 - check the end of the SDP contains a newline
+const test50_1_1 = sdp => {
+  let errors = [];
+  if (hasNoNewlineAtEnd.test(sdp)) {
+    errors.push(new Error('SDP file does not contain a newline at the end'));
+  }
+  return errors;
+};
+
 
 const splitLines = sdp => sdp.match(/[^\r\n]+/g);
 
@@ -307,9 +318,10 @@ const test_57_3 = (sdp, params) => {
 const section_50 = (sdp, params) => {
   let endTest = params.checkEndings ? test50_1(sdp, params.checkEndings) : [];
   // TODO decide whether to continue if line error endings are bad?
+  let endSDPTest = test50_1_1(sdp, params);
   let lines = splitLines(sdp);
   let mainTests = [ test_50_2, test_50_3, test_50_4, test_50_5, test_50_6 ];
-  return concat(mainTests.map(t => t(lines, params))).concat(endTest);
+  return concat(mainTests.map(t => t(lines, params))).concat(endTest).concat(endSDPTest);
 };
 
 const section_51 = (sdp, params) => {
