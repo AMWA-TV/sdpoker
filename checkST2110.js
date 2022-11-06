@@ -1240,12 +1240,12 @@ const no_copy = (sdp, specSDP) => {
 
 // Test ST2110-10 Appendix B Test 1 - Check that the SDP file given is not a straight copy
 const no_copy_20 = sdp => { 
-  no_copy(sdp, specExample20)
+  return no_copy(sdp, specExample20)
 }
 
 // Test TR-08 Appendix 1 Test 1 - Check that the SDP file given is not a straight copy
 const no_copy_22 = sdp => { 
-  no_copy(sdp, specExample22)
+  return no_copy(sdp, specExample22)
 }
 
 
