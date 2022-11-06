@@ -33,10 +33,10 @@ const args = yargs
   .default('multicast', false)
   .default('unicast', false)
   .default('shaping', false)
-  .default('jxsv', false)
+  .default('smpte2110_22', false)
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
-    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'jxsv' ])
+    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'smpte2110_22' ])
   .usage('Check an SDP file for conformance with RFC4566, SMPTE ST 2110 and SMPTE ST 2110-22.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
   .describe('checkEndings', 'Check line endings are CRLF, no other CR/LF.')
@@ -52,7 +52,7 @@ const args = yargs
   .describe('multicast', 'Connection addresses must be multicast.')
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
-  .describe('jxsv', 'SMPTE 2110-22 JPEG-XS video stream.')
+  .describe('smpte2110_22', 'SMPTE 2110-22 video stream.')
   .check(argv => {
     if (argv._.length < 1) {
       throw new Error('File name or URL for SDP file must be provided.');
