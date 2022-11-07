@@ -1115,6 +1115,7 @@ const test_21_82_2 = (sdp, params) => {
 // Test ST 2110-22 Section 5.3 -Traffic Shaping and Delivery Timing - Must include 2110TPNL or TP=2110TPW
 const test_22_53_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 5.3 Traffic Shaping test")
+  return [];
 }
 
 const mustHavesSubTypes22 = [ 'jxsv'];
@@ -1122,12 +1123,14 @@ const mustHavesSubTypes22 = [ 'jxsv'];
 // Test ST 2110-22 Section 6.2 -  Must have subtype from registered types (e.g. jxsv) 
 const test_22_62_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 6.2 Test 2 - accepted subtype ")
+  return [];
 }
 
 
 // Test ST 2110-22 Section 6.3 -  Must indicate clock of 90000
 const test_22_63_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 6.3 Clock 90000")
+  return [];
 }
 
 
@@ -1156,11 +1159,15 @@ const test_22_72_1 = sdp => {
 // Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute
 const test_22_73_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 7.3 mandatory bitrate")
+  return [];
+
 }
 
 // Test ST 2110-22 Section 74 Test 1-  Check that framerate is specified by one of accepted methods
 const test_22_74_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 7.4 framerate set")
+  return [];
+
 }
 
 const section_10_74 = (sdp, params) => {
