@@ -152,7 +152,7 @@ const test_50_6 = lines => {
   let errors = [];
   // Test 6 - check no values contain the Nul character
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines.slice(2).indexOf('\u0000') >= 0) {
+    if (lines[x].slice(2).indexOf('\u0000') >= 0) {
       errors.push(new Error(`Line ${x + 1}: Value contains illegal Nul (0x00) character not permitted by RFC 4566 Section 5.`));
     }
   }
