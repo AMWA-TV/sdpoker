@@ -558,10 +558,6 @@ const extractMTParams = (sdp, params = {}) => {
 const mustHaves20 = [ 'sampling', 'depth', 'width', 'height', 'exactframerate',
   'colorimetry', 'PM', 'SSN' ];
 
-const mustHaves22 = [ 'sampling', 'depth', 'width', 'height','colorimetry', 
-  'PM', 'SSN', 'TP'];
-
-
 // Test ST 2110-20 Section 7.2 Test 1 - Test all required parameters are present
 const test_20_72_1 = sdp => {
   let [ mtParams, errors ] = extractMTParams(sdp, { checkDups: true });
@@ -576,19 +572,6 @@ const test_20_72_1 = sdp => {
   return errors;
 };
 
-// Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
-const test_22_72_1 = sdp => {
-  let [ mtParams, errors ] = extractMTParams(sdp, { checkDups: true });
-  for ( let stream of mtParams ) {
-    let keys = Object.keys(stream);
-    for ( let param of mustHaves22 ) {
-      if (keys.indexOf(param) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per SMPTE ST 2110-20 Section 7.2.`));
-      }
-    }
-  }
-  return errors;
-};
 
 
 // Test ST 2110-20 Section 7.2 Test 2 - Check width and height are within bounds
@@ -678,8 +661,6 @@ const test_20_72_5 = (sdp, params) => {
   }
   return errors;
 };
-
-
 
 // Test ST 2110-20 Section 7.3 Test 1 - Interlace is name only
 const test_20_73_1 = (sdp, params) => {
@@ -1038,7 +1019,7 @@ const test_30_62_4 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 Test 1 - If required, check all streams are video
+// Test ST 2110-20 Section 7.1 Test 1 - If required, check all streams are audio
 const test_30_62_5 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
   let errors = [];
@@ -1129,6 +1110,59 @@ const test_21_82_2 = (sdp, params) => {
   }
   return errors;
 };
+
+
+// Test ST 2110-22 Section 5.3 -Traffic Shaping and Delivery Timing - Must include 2110TPNL or TP=2110TPW
+const test_22_53_1 = (sdp, params) => {
+  console.log("TODO: Implement SMPTE-22 Section 5.3 Traffic Shaping test")
+}
+
+const mustHavesSubTypes22 = [ 'jxsv'];
+
+// Test ST 2110-22 Section 6.2 -  Must have subtype from registered types (e.g. jxsv) 
+const test_22_62_1 = (sdp, params) => {
+  console.log("TODO: Implement SMPTE-22 Section 6.2 Test 2 - accepted subtype ")
+}
+
+
+// Test ST 2110-22 Section 6.3 -  Must indicate clock of 90000
+const test_22_63_1 = (sdp, params) => {
+  console.log("TODO: Implement SMPTE-22 Section 6.3 Clock 90000")
+}
+
+
+// Test ST 2110-22 Section 6.2 -  Must indicate media type video
+const test_22_71_1 = (sdp, params) => {
+  return test_20_71_1(sdp,params);  // SMPTE-2110-20 has the same requirement, Reuse the test
+}
+
+const mustHaves22 = [ 'sampling', 'depth', 'width', 'height','colorimetry', 
+  'PM', 'SSN', 'TP'];
+
+// Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
+const test_22_72_1 = sdp => {
+  let [ mtParams, errors ] = extractMTParams(sdp, { checkDups: true });
+  for ( let stream of mtParams ) {
+    let keys = Object.keys(stream);
+    for ( let param of mustHaves22 ) {
+      if (keys.indexOf(param) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per SMPTE ST 2110-20 Section 7.2.`));
+      }
+    }
+  }
+  return errors;
+};
+
+// Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute
+const test_22_73_1 = (sdp, params) => {
+  console.log("TODO: Implement SMPTE-22 Section 7.3 mandatory bitrate")
+}
+
+// Test ST 2110-22 Section 74 Test 1-  Check that framerate is specified by one of accepted methods
+const test_22_74_1 = (sdp, params) => {
+  console.log("TODO: Implement SMPTE-22 Section 7.4 framerate set")
+}
+
 const section_10_74 = (sdp, params) => {
   let tests = [ test_10_74_1 ];
   return concat(tests.map(t => t(sdp, params)));
@@ -1181,30 +1215,6 @@ const section_20_76 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_22_71 = (sdp, params) => {
-  let tests = [ test_20_71_1, test_20_71_2, test_20_71_3, test_20_71_4 ];
-  return concat(tests.map(t => t(sdp, params)));
-};
-
-const section_22_72 = (sdp, params) => {
-let tests = [ test_20_72_1, test_20_72_2, test_20_72_3, test_20_72_4,
-  test_20_72_5 ];
-return concat(tests.map(t => t(sdp, params)));
-};
-
-const section_22_73 = (sdp, params) => {
-let tests = [ test_20_73_1, test_20_73_2, test_20_73_3, test_20_73_4,
-  test_20_73_5 ];
-return concat(tests.map(t => t(sdp, params)));
-};
-
-const section_22_74 = (sdp, params) => {
-let tests = [ test_20_74_1, test_20_74_2 ];
-return concat(tests.map(t => t(sdp, params)));
-};
-
-
-
 const section_30_62 = (sdp, params) => {
   let tests = [ test_30_62_1, test_30_62_2, test_30_62_3, test_30_62_4, test_30_62_5 ];
   return concat(tests.map(t => t(sdp, params)));
@@ -1219,6 +1229,42 @@ const section_21_82 = (sdp, params) => {
   let tests = [ test_21_82_1, test_21_82_2 ];
   return concat(tests.map(t => t(sdp, params)));
 };
+
+const section_22_53 = (sdp, params) => {
+  let tests = [ test_22_53_1 ];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_62 = (sdp, params) => {
+  let tests = [test_22_62_1];  
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_63 = (sdp, params) => {
+  let tests = [test_22_63_1];  
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_71 = (sdp, params) => {
+  let tests = [test_22_71_1]; 
+    return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_72 = (sdp, params) => {
+  let tests = [test_22_72_1]; 
+    return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_73 = (sdp, params) => {
+  let tests = [test_22_73_1];   
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_74 = (sdp, params) => {
+  let tests = [test_22_74_1]; 
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 
 // Test ST2110-10 Appendix B Test 1 - Check that the SDP file given is not a straight copy
 const no_copy = (sdp, specSDP) => {
@@ -1257,8 +1303,8 @@ const allSections = (sdp, params) => {
   if(params.smpte2110_22) {
     sections = [
         section_10_74, section_10_81, section_10_82, section_10_83,
-        section_22_71, section_22_72, section_22_73, section_22_74,
-        section_30_62, section_21_81, section_21_82  ];
+        section_22_53, section_22_62, section_22_63, section_22_71,
+        section_22_72, section_22_73, section_22_74];
     if (params.noCopy) {
      sections.push(no_copy_22);
     }
@@ -1276,8 +1322,8 @@ const allSections = (sdp, params) => {
   
 
     }
-    console.log(sections);
-  return concat(sections.map(s => s(sdp, params)));
+
+    return concat(sections.map(s => s(sdp, params)));
 };
 
 module.exports = {
@@ -1292,6 +1338,9 @@ module.exports = {
   section_20_74,
   section_20_75,
   section_20_76,
+  section_22_53,
+  section_22_62,
+  section_22_63,
   section_22_71,
   section_22_72,
   section_22_73,
