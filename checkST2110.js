@@ -455,7 +455,7 @@ const test_20_71_2 = (sdp, params) => {
 };
 
 // Test ST 2110-20 Section 7.1 - All video streams have rtpmap entry raw/90000
-const test_20_71_3 = sdp => {
+const test_20_71_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let rtpmapInStream = true;
@@ -499,6 +499,10 @@ const test_20_71_3 = sdp => {
   if (!rtpmapInStream && payloadType >= 0) {
     errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
   }
+
+  if(params.verbose && errors.length == 0) 
+  console.log("Test Passed: Test ST2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000"); 
+
   return errors;
 };
 
@@ -551,6 +555,10 @@ const test_20_71_4 = (sdp, params) => {
   if (!fmtpInStream && payloadType >= 0 && !isSkippedType) {
     errors.push(new Error (`Line ${lines.length}: Stream ${streamCount} does not have an 'fmtp' attribute.`));
   }
+
+  if(params.verbose && errors.length == 0) 
+  console.log("Test Passed: Test ST2110-20 Section 7.1 Test 4 - All video streams have format parameters"); 
+
   return errors;
 };
 
