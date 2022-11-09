@@ -34,10 +34,10 @@ const args = yargs
   .default('unicast', false)
   .default('shaping', false)
   .default('smpte2110_22', false)
-  .default('strict', false)
+  .default('verbose', false)
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
-    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'smpte2110_22' ])
+    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'smpte2110_22', 'verbose' ])
   .usage('Check an SDP file for conformance with RFC4566, SMPTE ST 2110 and SMPTE ST 2110-22.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
   .describe('checkEndings', 'Check line endings are CRLF, no other CR/LF.')
@@ -54,7 +54,6 @@ const args = yargs
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
   .describe('smpte2110_22', 'SMPTE 2110-22 video stream.')
-  .describe('strict', 'Fail on SHOULD requirements.')
   .describe('verbose', "Print passed tests as well as failed.")
 
   .check(argv => {

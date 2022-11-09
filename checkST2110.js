@@ -101,7 +101,7 @@ a=mid:SECONDARY`;
 
 
 // Test ST2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
-const test_10_74_1 = sdp => {
+const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for ( let s in streams ) {
@@ -116,6 +116,9 @@ const test_10_74_1 = sdp => {
       }
     }
   }
+  if(params.verbose && errors.length == 0)
+  console.log("TEST Passed: Test ST2110-10 Section 7.4: Where mediaclk:direct is used with PTP, offset value is zero");
+
   return errors;
 };
 
@@ -1167,7 +1170,6 @@ const test_22_73_1 = (sdp, params) => {
 const test_22_74_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 7.4 framerate set")
   return [];
-
 }
 
 const section_10_74 = (sdp, params) => {
