@@ -140,13 +140,16 @@ const test_10_81_1 = (sdp, params) => {
 
 // Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 const test_10_81_2 = (sdp, params) => {
-  if (!params.should) {
+  if (!params.should && params.verbose) {
     console.log("TEST Skipped: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
     return [];
   }
   let directCheck = sdp.match(mediaclkTypePattern);
   if (Array.isArray(directCheck) && directCheck.length > 0) {
     directCheck = directCheck.filter(x => !x.slice(1).startsWith('a=mediaclk:direct'));
+    // Log the Passed test if verbose outputs
+    if(params.verbose && directCheck.length == 0)
+      console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
     return concat(directCheck.map(nd =>
       new Error(`The 'direct' reference for the mediaclk parameter should be used, as per SMPTE ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
   } else {
@@ -155,10 +158,11 @@ const test_10_81_2 = (sdp, params) => {
   
     return [];
   }
+
 };
 
 // Test ST2110-10 Section 8.1 Test 1 - Shall have a media-level ts-refclk
-const test_10_82_1 = sdp => {
+const test_10_82_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for ( let x = 0 ; x < streams.length ; x++ ) {
@@ -166,11 +170,14 @@ const test_10_82_1 = sdp => {
       errors.push(new Error(`Stream ${x + 1}: Stream descriptions shall have a media-level 'ts-refclk' attribute, as per SMPTE ST 2110-10 Section 8.2.`));
     }
   }
+  if (params.verbose && errors.length == 0) {
+    console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 1 - Shall have a media-level ts-refclk");
+  }
   return errors;
 };
 
 // Test ST2110-10 Section 8.2 Test 2 - Shall be ptp reference or shall be localmac
-const test_10_82_2 = sdp => {
+const test_10_82_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let mediaLevel = false;
@@ -189,11 +196,15 @@ const test_10_82_2 = sdp => {
       }
     }
   }
+
+  if (params.verbose && errors.length == 0) {
+    console.log("TEST Passed: Test ST2110-10 Section 8.2 Test 2 - Reference clocks shall be ptp reference or shall be localmac");
+  }
   return errors;
 };
 
 // Test ST2110-10 Section 8.2 Test 3 - If a PTP reference clock, check parameters
-const test_10_82_3 = sdp => {
+const test_10_82_3 = (sdp,params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let mediaLevel = false;
@@ -230,11 +241,14 @@ const test_10_82_3 = sdp => {
       }
     }
   }
+  if (params.verbose && errors.length == 0) {
+    console.log("TEST Passed: Test ST2110-10 Section 8.2 Test 3 - PTP ts-refclk parameters all good.");
+  }
   return errors;
 };
 
 // Test ST2110-10 Section 8.2 - If local mac clock, check MAC address
-const test_10_82_4 = sdp => {
+const test_10_82_4 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let mediaLevel = false;
@@ -252,20 +266,31 @@ const test_10_82_4 = sdp => {
       }
     }
   }
+  if (params.verbose && errors.length == 0) {
+    console.log("TEST Passed: Test ST2110-10 Section 8.2 Test 4 - If local mac clock, check MAC address.");
+  }
+
   return errors;
 };
 
 // Test ST 2110-10 Section 8.3 Test 1 - Duplication expected, is it present?
 const test_10_83_1 = (sdp, params) => {
   if (!params.duplicate) {
+    if(params.verbose)
+     console.log("TEST Skipped: Test ST2110-10 Section 8.3 Test 1 - Use --duplicate to check ");
     return [];
   }
-  return dupPattern.test(sdp) ? [] :
-    [ new Error('Duplicate RTP streams are expected, but neither media-level \'ssrc-group:DUP\' or session-level \'group:DUP\' were found, to satisfy SMPTE ST 2110-10 Section 8.3.') ];
+  if (dupPattern.test(sdp)) {
+    if(params.verbose)
+      console.log("TEST Passed: Test ST2110-10 Section 8.3 Test 1 - Duplicate streams verified");
+    return [];
+  } else {
+    return  [ new Error('Duplicate RTP streams are expected, but neither media-level \'ssrc-group:DUP\' or session-level \'group:DUP\' were found, to satisfy SMPTE ST 2110-10 Section 8.3.') ];
+  }
 };
 
 // Test ST 2110-10 Section 8.3 Test 2 - Separate source addresses - RFC 7104 section 4.1
-const test_10_83_2 = sdp => {
+const test_10_83_2 = (sdp, params) => {
   if (!sdp.match(/a=ssrc-group/)) { // Detect whether this test applies
     return [];
   }
@@ -302,17 +327,23 @@ const test_10_83_2 = sdp => {
     }
     for ( let groupID of groupMatch.slice(1, 3)) {
       if (ssrcs[streamCounter].indexOf(+groupID) < 0) {
-        errors.push(new Error(`Line ${x + 1}: Reference to non existant source-level attribute ${groupID} within stream ${streamCounter}.`));
+        errors.push(new Error(`Line ${x + 1}: Reference to non existent source-level attribute ${groupID} within stream ${streamCounter}.`));
       }
     }
   }
   // TODO check the source-filter lines have one Mcast address and 2 IP addresses
+ 
+  if(params.verbose && errors.length == 0)
+    console.log("TEST Passed: Test ST 2110-10 Section 8.3 Test 2 - Separate source addresses - RFC 7104 section 4.1");
+  
   return errors;
 };
 
 // Test ST 2110-10 Section 8.3 Test 3 - Separate destination addresses - RFC 7104 Section 4.2
-const test_10_83_3 = sdp => {
+const test_10_83_3 = (sdp, params) => {
   if (!sdp.match(/a=group/)) {
+    if(params.verbose)
+      console.log("Test Skipped: Test ST2110-10 Section 8.3 Test 3 - Separate destination addresses. No a=group present.");
     return [];
   }
   let lines = splitLines(sdp);
@@ -359,6 +390,10 @@ const test_10_83_3 = sdp => {
       }
     }
   }
+
+  if(params.verbose && errors.length == 0)
+    console.log("Test Passed: ST 2110-10 Section 8.3 Test 3 - Separate destination addresses - RFC 7104 Section 4.2");
+  
   // TODO check the source-filter lines have one Mcast address and 2 IP addresses
   return errors;
 };
@@ -374,6 +409,9 @@ const test_20_71_1 = (sdp, params) => {
       }
     }
   }
+  if(params.verbose && errors.length == 0)
+    console.log("Test Passed: Test ST 2110-20 Section 7.1 Test 1 - All streams are video");
+  
   return errors;
 };
 
