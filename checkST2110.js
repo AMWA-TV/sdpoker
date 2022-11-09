@@ -117,7 +117,7 @@ const test_10_74_1 = (sdp, params) => {
     }
   }
   if(params.verbose && errors.length == 0)
-  console.log("TEST Passed: Test ST2110-10 Section 7.4 Test 1: Where mediaclk:direct is used with PTP, offset value is zero");
+  console.log("TEST Passed: Test ST2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero");
   
   return errors;
 };
@@ -133,7 +133,7 @@ const test_10_81_1 = (sdp, params) => {
   }
 
   if(params.verbose && errors.length == 0)
-  console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 1: Shall have media-level mediaclk per stream");
+  console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 1 - Shall have media-level mediaclk per stream");
   
   return errors;
 };
@@ -141,7 +141,7 @@ const test_10_81_1 = (sdp, params) => {
 // Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 const test_10_81_2 = (sdp, params) => {
   if (!params.should && params.verbose) {
-    console.log("TEST Skipped: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
+    console.log("TEST Skipped: Test ST2110-10 Section 8.1 Test 2 -  Should have mediaclk using direct reference");
     return [];
   }
   let directCheck = sdp.match(mediaclkTypePattern);
@@ -149,12 +149,12 @@ const test_10_81_2 = (sdp, params) => {
     directCheck = directCheck.filter(x => !x.slice(1).startsWith('a=mediaclk:direct'));
     // Log the Passed test if verbose outputs
     if(params.verbose && directCheck.length == 0)
-      console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
+      console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference");
     return concat(directCheck.map(nd =>
       new Error(`The 'direct' reference for the mediaclk parameter should be used, as per SMPTE ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
   } else {
     if(params.verbose)
-    console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
+    console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference");
   
     return [];
   }
@@ -1317,7 +1317,7 @@ const mustHaves22 = [ 'sampling', 'depth', 'width', 'height','colorimetry',
   'PM', 'SSN', 'TP'];
 
 // Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
-const test_22_72_1 = sdp => {
+const test_22_72_1 = (sdp, params) => {
   let [ mtParams, errors ] = extractMTParams(sdp, { checkDups: true });
   for ( let stream of mtParams ) {
     let keys = Object.keys(stream);
