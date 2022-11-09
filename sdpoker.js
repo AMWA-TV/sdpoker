@@ -34,7 +34,7 @@ const args = yargs
   .default('unicast', false)
   .default('shaping', false)
   .default('smpte2110_22', false)
-  .default('strict', false);
+  .default('strict', false)
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
     'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'smpte2110_22' ])
