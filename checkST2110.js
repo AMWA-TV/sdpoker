@@ -117,13 +117,13 @@ const test_10_74_1 = (sdp, params) => {
     }
   }
   if(params.verbose && errors.length == 0)
-  console.log("TEST Passed: Test ST2110-10 Section 7.4: Where mediaclk:direct is used with PTP, offset value is zero");
-
+  console.log("TEST Passed: Test ST2110-10 Section 7.4 Test 1: Where mediaclk:direct is used with PTP, offset value is zero");
+  
   return errors;
 };
 
 // Test ST2110-10 Section 8.1 Test 1 - Shell have media-level mediaclk per stream
-const test_10_81_1 = sdp => {
+const test_10_81_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for ( let x = 0 ; x < streams.length ; x++ ) {
@@ -131,18 +131,28 @@ const test_10_81_1 = sdp => {
       errors.push(new Error(`Stream ${x + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per SMPTE ST 2110-10 Section 8.1.`));
     }
   }
+
+  if(params.verbose && errors.length == 0)
+  console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 1: Shall have media-level mediaclk per stream");
+  
   return errors;
 };
 
 // Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 const test_10_81_2 = (sdp, params) => {
-  if (!params.should) return [];
+  if (!params.should) {
+    console.log("TEST Skipped: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
+    return [];
+  }
   let directCheck = sdp.match(mediaclkTypePattern);
   if (Array.isArray(directCheck) && directCheck.length > 0) {
     directCheck = directCheck.filter(x => !x.slice(1).startsWith('a=mediaclk:direct'));
     return concat(directCheck.map(nd =>
-      new Error(`The 'direct' reference for the mediaclk paramter should be used, as per SMPTE ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
+      new Error(`The 'direct' reference for the mediaclk parameter should be used, as per SMPTE ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
   } else {
+    if(params.verbose)
+    console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2: Should have mediaclk using direct reference");
+  
     return [];
   }
 };
