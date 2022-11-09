@@ -34,6 +34,7 @@ const args = yargs
   .default('unicast', false)
   .default('shaping', false)
   .default('smpte2110_22', false)
+  .default('strict', false);
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
     'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'smpte2110_22' ])
@@ -53,6 +54,9 @@ const args = yargs
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
   .describe('smpte2110_22', 'SMPTE 2110-22 video stream.')
+  .describe('strict', 'Fail on SHOULD requirements.')
+  .describe('verbose', "Print passed tests as well as failed.")
+
   .check(argv => {
     if (argv._.length < 1) {
       throw new Error('File name or URL for SDP file must be provided.');
