@@ -408,16 +408,19 @@ const test_20_71_1 = (sdp, params) => {
         errors.push(new Error(`Stream ${s}: Media type is not 'video' and video only files are in test, as per SMPTE 2110-20 Section 7.1.`));
       }
     }
+  } else {
+    console.log("Test Skipped: Test ST 2110-20 Section 7.1 Test 1 - Use --videoOnly to check for all video."); 
   }
-  if(params.verbose && errors.length == 0)
-    console.log("Test Passed: Test ST 2110-20 Section 7.1 Test 1 - All streams are video");
-  
+
+  if(params.videoOnly && params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST 2110-20 Section 7.1 Test 1 - All streams are video"); 
+
   return errors;
 };
 
 
 // Test ST 2110-20 Section 7.1 Test 2 - For all video streams, check video params
-const test_20_71_2 = sdp => {
+const test_20_71_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -444,6 +447,10 @@ const test_20_71_2 = sdp => {
       errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for SMPTE 2110-defined video.`));
     }
   }
+
+  if(params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST 2110-20 Section 7.1 Test 2 - Video parameters all good."); 
+
   return errors;
 };
 
