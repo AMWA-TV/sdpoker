@@ -1285,11 +1285,28 @@ const test_21_82_2 = (sdp, params) => {
   return errors;
 };
 
+const typesPermitted22 = [ '2110TPNL', '2110TPW'];
+
 
 // Test ST 2110-22 Section 5.3 -Traffic Shaping and Delivery Timing - Must include 2110TPNL or TP=2110TPW
 const test_22_53_1 = (sdp, params) => {
-  console.log("TODO: Implement SMPTE-22 Section 5.3 Traffic Shaping test")
+  if (params.shaping === false || params.audioOnly === true) {
+    if(params.verbose)   
+      console.log("Test Skipped: Test ST 2110-22 Section 5.3 Test 1- TP parameter is acceptable value. Use --shaping to test."); 
   return [];
+  }
+  let [ mtParams, errors ] = extractMTParams(sdp, params);
+  for ( let stream of mtParams ) {
+    if ( typeof stream.TP !== 'undefined' ) {
+      if (typesPermitted.indexOf(stream.TP) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPW', '2110TPNL', as per SMPTE ST 2110-22 Section 5.3`));
+      }
+    }
+  }
+  if(params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST2110-21 Section 8.1 Test 2 - TP parameter is an acceptable value."); 
+
+  return errors;
 }
 
 const mustHavesSubTypes22 = [ 'jxsv'];
@@ -1313,8 +1330,7 @@ const test_22_71_1 = (sdp, params) => {
   return test_20_71_1(sdp,params);  // SMPTE-2110-20 has the same requirement, Reuse the test
 }
 
-const mustHaves22 = [ 'sampling', 'depth', 'width', 'height','colorimetry', 
-  'PM', 'SSN', 'TP'];
+const mustHaves22 = [ 'width', 'height', 'TP']; // Defined as mandatory in SMPTE-2110-22 
 
 // Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
 const test_22_72_1 = (sdp, params) => {

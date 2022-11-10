@@ -7,6 +7,6 @@ c=IN IP4 232.80.177.113/32
 b=AS:216000
 a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65
 a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0
-a=rtpmap:97 vc2/90000
+a=rtpmap:97 jxsv/90000
 a=fmtp:97 profile=HQ; width=1920; height=1080; TP=2110TPW; exactframerate=25;
 a=mediaclk:direct=0 rate=90000
