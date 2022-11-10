@@ -1,6 +1,6 @@
 v=0
 o=- 1543226715 1543226715 IN IP4 172.29.80.65
-s=Demo Video Stream
+s=Demo SMPTE 2110-22 JPEG-XS Video Stream
 t=0 0
 m=video 27346 RTP/AVP 97
 c=IN IP4 232.80.177.113/32

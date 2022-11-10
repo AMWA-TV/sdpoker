@@ -28,6 +28,7 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
+const bandwidthPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s+' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?$');
@@ -578,6 +579,13 @@ const extractMTParams = (sdp, params = {}) => {
       isSkippedType = false;
       continue;
     }
+    if (lines[x].startsWith('b=') && payloadType >= 0) {
+      let bandwidthMatch = lines[x].match(bandwidthPattern);
+      bandwidthType = bandwidthMatch ? +bandwidthMatch[0] : -1;
+      bandwidth = bandwidthMatch ? +bandwidthMatch[1] : -1;
+      b = [bandwidthType, bandwidth];
+      
+    }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
       if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
@@ -615,6 +623,8 @@ const extractMTParams = (sdp, params = {}) => {
       paramsObject._payloadType = payloadType;
       paramsObject._line = x + 1;
       paramsObject._streamNumber = streamCount;
+      paramsObject._b = b;
+      
       mtParams.push(paramsObject);
     }
   }
@@ -1352,10 +1362,28 @@ const test_22_72_1 = (sdp, params) => {
 
 // Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute
 const test_22_73_1 = (sdp, params) => {
-  console.log("TODO: Implement SMPTE-22 Section 7.3 mandatory bitrate")
-  return [];
+  let [ mtParams, errors ] = extractMTParams(sdp, { checkDups: true });
 
-}
+  for ( let stream of mtParams ) {
+    let keys = Object.keys(stream);
+      if (keys.indexOf('_b') < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required attribute 'b=<bwtype>:<bandwidth>' is missing, as per SMPTE ST2110-22 Section 7.3.`));
+      }
+      if(stream._b[0] != 'AS') {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per SMPTE ST2110-22 Section 7.3.`));
+      }
+      if(Number.isInteger(stream._b[1]) != true || stream._b[1] == -1) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per SMPTE ST2110-22 Section 7.3.`));
+      }
+
+  }
+
+  if(params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute"); 
+
+  return errors;
+
+};
 
 // Test ST 2110-22 Section 74 Test 1-  Check that framerate is specified by one of accepted methods
 const test_22_74_1 = (sdp, params) => {
