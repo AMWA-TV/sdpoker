@@ -28,7 +28,7 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
-const bandwidthPattern = /b=(\w+):(\w+)/;
+const bandwidthPattern = /b=([a-zA-Z]+):(\d*\s*$)/;
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s+' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?$');
@@ -1417,12 +1417,17 @@ const test_22_73_1 = (sdp, params) => {
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('b=')) {
       let bandwidthMatch = lines[x].match(bandwidthPattern);
+      if(bandwidthMatch == null) {
+        errors.push(new Error(`Line ${x+1}: In 'Bandwidth must be of the form b=<bwtype>:<bandwidth> as per SMPTE ST2110-22 Section 7.3.`)); 
+        continue;
+      }
+
       if(bandwidthMatch[1] != 'AS') 
         errors.push(new Error(`Line ${x+1}: In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per SMPTE ST2110-22 Section 7.3.`)); 
-      if(Number.isInteger(bandwidthMatch[2])) 
-        errors.push(new Error(`Line ${x+1}}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per SMPTE ST2110-22 Section 7.3.`));
-    }
+      if(Number.isInteger(+bandwidthMatch[2]) == false)
+        errors.push(new Error(`Line ${x+1}}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per SMPTE ST2110-22 Section 7.3.`));  
       bandwidthPresent = true;
+    }
   }
 
   if(!bandwidthPresent)
