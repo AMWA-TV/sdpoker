@@ -28,7 +28,7 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
-const bandwidthPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
+const bandwidthPattern = /b=(\w+):(\w+)/;
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s+' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?$');
@@ -142,7 +142,7 @@ const test_10_81_1 = (sdp, params) => {
 // Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 const test_10_81_2 = (sdp, params) => {
   if (!params.should && params.verbose) {
-    console.log("TEST Skipped: Test ST2110-10 Section 8.1 Test 2 -  Should have mediaclk using direct reference");
+    console.log("TEST Skipped: Test ST2110-10 Section 8.1 Test 2 -  Use --should to check that mediaclk uses direct reference");
     return [];
   }
   let directCheck = sdp.match(mediaclkTypePattern);
@@ -155,8 +155,7 @@ const test_10_81_2 = (sdp, params) => {
       new Error(`The 'direct' reference for the mediaclk parameter should be used, as per SMPTE ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
   } else {
     if(params.verbose)
-    console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference");
-  
+     console.log("TEST Passed: Test ST2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference");
     return [];
   }
 
@@ -270,7 +269,6 @@ const test_10_82_4 = (sdp, params) => {
   if (params.verbose && errors.length == 0) {
     console.log("TEST Passed: Test ST2110-10 Section 8.2 Test 4 - If local mac clock, check MAC address.");
   }
-
   return errors;
 };
 
@@ -420,7 +418,49 @@ const test_20_71_1 = (sdp, params) => {
 };
 
 
+const test_10_62 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  videoPresent = false;
+
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (!lines[x].startsWith('m=video')) {
+      continue;
+    }
+    videoPresent = true;
+    let videoMatch = lines[x].match(videoPattern);
+    if (!videoMatch) {
+      errors.push(new Error(`Line ${x + 1}: Found a media description for video with a pattern that is not acceptable.`));
+      continue;
+    }
+    // Check port number - SMPTE 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
+    let port = +videoMatch[1];
+    if (isNaN(port) || port < 0 || port > 65535) {
+      errors.push(new Error(`Line ${x + 1}: RTP video stream description with invalid port '${port}', with reference to ST 2110-10 Section 6.2 'shall use UDP'.`));
+    }
+    // Check RTP type - SMPTE 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
+    if (videoMatch[3] === 'RTP/SAVP') {
+      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by SMPTE ST 2110-10 Section 6.2.`));
+    }
+    // Check dynamic range - assume 2110-20 is always dynamic
+    let payloadType = +videoMatch[4];
+    if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
+      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for SMPTE 2110-defined video.`));
+    }
+  }
+
+  if(videoPresent == false)
+    errors.push(new Error(`m=video expected for SMPTE 2110-defined video.`));
+
+  if(params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST 2110-10 Section 62 Test 1 - Video parameters present and all good."); 
+
+  return errors;
+
+}
+
 // Test ST 2110-20 Section 7.1 Test 2 - For all video streams, check video params
+// TODO: Make this a common test_10_ test for both 2110-20 and 2110-22 
 const test_20_71_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -455,8 +495,10 @@ const test_20_71_2 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 - All video streams have rtpmap entry raw/90000
-const test_20_71_3 = (sdp, params) => {
+// Function to check that rtpmap is present and has passed in type and clockRate.  
+// An optional specification string can be used to be included in errors 
+// produced as a reference back to a spec
+const checkStreamsRtpMap = (sdp, params, type, clockRate, specification)  => {
   let errors = [];
   let lines = splitLines(sdp);
   let rtpmapInStream = true;
@@ -489,20 +531,30 @@ const test_20_71_3 = (sdp, params) => {
       }
       if (skipVideoTypes.includes(rtpmapMatch[2])) {
         continue;
-      } else if (rtpmapMatch[2] !== 'raw') {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, encoding name must be media sub-type 'raw', as per SMPTE ST 2110-20 Section 7.1.`));
+      } else if (rtpmapMatch[2] !== type) {
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, encoding name must be media sub-type '${type}', as per ${specification}`));
       }
-      if (rtpmapMatch[3] !== '90000') {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate must be 90000Hz, as per SMPTE ST 2110-20 Section 7.1.`));
+      if (rtpmapMatch[3] !== clockRate) {
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate must be ${clockRate}Hz, as per ${specification}`));
       }
     }
-  }
-  if (!rtpmapInStream && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
-  }
 
+  }
+    if (!rtpmapInStream && payloadType >= 0) {
+      errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
+    }
+
+    return errors;
+  
+};
+
+// Test ST 2110-20 Section 7.1 - All video streams have rtpmap entry raw/90000
+const test_20_71_3 = (sdp, params) => {
+ 
+  errors = checkStreamsRtpMap(sdp, params, 'raw', '90000', "ST2110-20 Section 7.1");
+  
   if(params.verbose && errors.length == 0) 
-  console.log("Test Passed: Test ST2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000"); 
+    console.log("Test Passed: Test ST2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000"); 
 
   return errors;
 };
@@ -579,13 +631,6 @@ const extractMTParams = (sdp, params = {}) => {
       isSkippedType = false;
       continue;
     }
-    if (lines[x].startsWith('b=') && payloadType >= 0) {
-      let bandwidthMatch = lines[x].match(bandwidthPattern);
-      bandwidthType = bandwidthMatch ? +bandwidthMatch[0] : -1;
-      bandwidth = bandwidthMatch ? +bandwidthMatch[1] : -1;
-      b = [bandwidthType, bandwidth];
-      
-    }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
       if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
@@ -623,8 +668,6 @@ const extractMTParams = (sdp, params = {}) => {
       paramsObject._payloadType = payloadType;
       paramsObject._line = x + 1;
       paramsObject._streamNumber = streamCount;
-      paramsObject._b = b;
-      
       mtParams.push(paramsObject);
     }
   }
@@ -1321,23 +1364,35 @@ const test_22_53_1 = (sdp, params) => {
 
 const mustHavesSubTypes22 = [ 'jxsv'];
 
-// Test ST 2110-22 Section 6.2 -  Must have subtype from registered types (e.g. jxsv) 
-const test_22_62_1 = (sdp, params) => {
-  console.log("TODO: Implement SMPTE-22 Section 6.2 Test 2 - accepted subtype ")
-  return [];
-}
+// Test ST 2110-22 Section 6  -  Must have subtype  jxsv and clockrate 90000
+const test_22_6 = (sdp, params) => {
 
+  errors = checkStreamsRtpMap(sdp, params, 'jxsv', '90000', "ST2110-22 Section 6");
+  
+  if(params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST2110-22 Section 6. Test 1 - All video streams have rtpmap entry jxsv/90000"); 
 
-// Test ST 2110-22 Section 6.3 -  Must indicate clock of 90000
-const test_22_63_1 = (sdp, params) => {
-  console.log("TODO: Implement SMPTE-22 Section 6.3 Clock 90000")
-  return [];
+  return errors;
 }
 
 
 // Test ST 2110-22 Section 6.2 -  Must indicate media type video
 const test_22_71_1 = (sdp, params) => {
-  return test_20_71_1(sdp,params);  // SMPTE-2110-20 has the same requirement, Reuse the test
+  let errors = [];
+ /*  let lines = splitLines(sdp);
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('m=')) {
+      let videoMatch = lines[x].match(videoPattern);
+
+    }
+    if (lines[x].startsWith('b=') && payloadType >= 0) {
+      let bandwidthMatch = lines[x].match(bandwidthPattern);
+      bandwidthType = bandwidthMatch ? bandwidthMatch[1] : -1;
+      bandwidth = bandwidthMatch ? +bandwidthMatch[2] : -1;
+      b = [bandwidthType, bandwidth, x + 1 ]; // Save the bandwidth type, the bandwidth and line number of the SDP
+      
+    } */
+    return errors;
 }
 
 const mustHaves22 = [ 'width', 'height', 'TP']; // Defined as mandatory in SMPTE-2110-22 
@@ -1362,21 +1417,32 @@ const test_22_72_1 = (sdp, params) => {
 
 // Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute
 const test_22_73_1 = (sdp, params) => {
-  let [ mtParams, errors ] = extractMTParams(sdp, { checkDups: true });
+  let errors = [];
 
-  for ( let stream of mtParams ) {
-    let keys = Object.keys(stream);
-      if (keys.indexOf('_b') < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required attribute 'b=<bwtype>:<bandwidth>' is missing, as per SMPTE ST2110-22 Section 7.3.`));
-      }
-      if(stream._b[0] != 'AS') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per SMPTE ST2110-22 Section 7.3.`));
-      }
-      if(Number.isInteger(stream._b[1]) != true || stream._b[1] == -1) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per SMPTE ST2110-22 Section 7.3.`));
-      }
+   /*  let lines = splitLines(sdp);
+  let bandwidthPresent = false;
 
-  }
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('b=')) {
+
+      let bandwidthMatch = lines[x].match(bandwidthPattern);
+
+      if(bandwidthMatch[1] != 'AS') 
+        errors.push(new Error(`Line ${x+1}: In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per SMPTE ST2110-22 Section 7.3.`)); 
+    
+      if(Number.isInteger(bandwidthMatch[2])) 
+        errors.push(new Error(`Line ${x+1}}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per SMPTE ST2110-22 Section 7.3.`));
+       
+      }
+      bandwidthPresent = true;
+    }
+    if(!bandwidthPresent)
+      errors.push(new Error(`Required attribute 'b=<bwtype>:<bandwidth>' is missing, as per SMPTE ST2110-22 Section 7.3.`));
+  return errors;
+
+      }
+    }
+ */
 
   if(params.verbose && errors.length == 0) 
     console.log("Test Passed: Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute"); 
@@ -1463,8 +1529,8 @@ const section_22_53 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_22_62 = (sdp, params) => {
-  let tests = [test_22_62_1];  
+const section_22_6 = (sdp, params) => {
+  let tests = [test_22_6];  
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1531,8 +1597,8 @@ const allSections = (sdp, params) => {
   if(params.smpte2110_22) {
     sections = [
         section_10_74, section_10_81, section_10_82, section_10_83,
-        section_22_53, section_22_62, section_22_63, section_22_71,
-        section_22_72, section_22_73, section_22_74];
+        section_22_53, section_22_6, section_22_71, section_22_72, 
+        section_22_73, section_22_74];
     if (params.noCopy) {
      sections.push(no_copy_22);
     }
@@ -1567,8 +1633,7 @@ module.exports = {
   section_20_75,
   section_20_76,
   section_22_53,
-  section_22_62,
-  section_22_63,
+  section_22_6,
   section_22_71,
   section_22_72,
   section_22_73,
