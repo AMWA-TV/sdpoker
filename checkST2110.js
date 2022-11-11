@@ -417,8 +417,8 @@ const test_20_71_1 = (sdp, params) => {
   return errors;
 };
 
-
-const test_10_62 = (sdp, params) => {
+// Test ST 2110-10 Section 6,2 Test 1 - For all video streams, check video params
+const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   videoPresent = false;
@@ -1457,6 +1457,12 @@ const test_22_74_1 = (sdp, params) => {
   return [];
 }
 
+const section_10_62 = (sdp, params) => {
+  let tests = [ test_10_62_1 ];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+
 const section_10_74 = (sdp, params) => {
   let tests = [ test_10_74_1 ];
   return concat(tests.map(t => t(sdp, params)));
@@ -1596,7 +1602,7 @@ const allSections = (sdp, params) => {
   // Check if we are checking a SMPTE-2110-22 SDP and fill in tests accordingly
   if(params.smpte2110_22) {
     sections = [
-        section_10_74, section_10_81, section_10_82, section_10_83,
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
         section_22_53, section_22_6, section_22_71, section_22_72, 
         section_22_73, section_22_74];
     if (params.noCopy) {
@@ -1605,7 +1611,7 @@ const allSections = (sdp, params) => {
   
   } else { // If not SMPTE 2110-22 use the 2110-20 tests
     sections =  [
-      section_10_74, section_10_81, section_10_82, section_10_83,
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
       section_20_71, section_20_72, section_20_73, section_20_74,
       section_20_75, section_20_76, section_30_62,
       section_21_81, section_21_82 ]; 
@@ -1622,6 +1628,7 @@ const allSections = (sdp, params) => {
 
 module.exports = {
   allSections,
+  section_10_62,
   section_10_74,
   section_10_81,
   section_10_82,
