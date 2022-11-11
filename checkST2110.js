@@ -1415,47 +1415,38 @@ const test_22_72_1 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute
+// Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute in correct format
 const test_22_73_1 = (sdp, params) => {
   let errors = [];
-
-   /*  let lines = splitLines(sdp);
+  let lines = splitLines(sdp);
   let bandwidthPresent = false;
 
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('b=')) {
-
       let bandwidthMatch = lines[x].match(bandwidthPattern);
-
       if(bandwidthMatch[1] != 'AS') 
         errors.push(new Error(`Line ${x+1}: In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per SMPTE ST2110-22 Section 7.3.`)); 
-    
       if(Number.isInteger(bandwidthMatch[2])) 
         errors.push(new Error(`Line ${x+1}}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per SMPTE ST2110-22 Section 7.3.`));
-       
-      }
+    }
       bandwidthPresent = true;
-    }
-    if(!bandwidthPresent)
-      errors.push(new Error(`Required attribute 'b=<bwtype>:<bandwidth>' is missing, as per SMPTE ST2110-22 Section 7.3.`));
-  return errors;
+  }
 
-      }
-    }
- */
+  if(!bandwidthPresent)
+    errors.push(new Error(`Required attribute 'b=<bwtype>:<bandwidth>' is missing, as per SMPTE ST2110-22 Section 7.3.`));
 
   if(params.verbose && errors.length == 0) 
     console.log("Test Passed: Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute"); 
 
   return errors;
-
 };
+
 
 // Test ST 2110-22 Section 74 Test 1-  Check that framerate is specified by one of accepted methods
 const test_22_74_1 = (sdp, params) => {
   console.log("TODO: Implement SMPTE-22 Section 7.4 framerate set")
   return [];
-}
+};
 
 const section_10_62 = (sdp, params) => {
   let tests = [ test_10_62_1 ];
