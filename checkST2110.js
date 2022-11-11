@@ -493,7 +493,6 @@ const extractMTParams = (sdp, params = {}) => {
         continue;
       }
       let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
-      // let paramsMatch = fmtParams.matchAll(fmtpParams);
       let paramsMatch = [];
       let paramMatch;
       while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
