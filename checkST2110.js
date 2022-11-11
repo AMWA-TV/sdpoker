@@ -1376,24 +1376,17 @@ const test_22_6 = (sdp, params) => {
 }
 
 
-// Test ST 2110-22 Section 6.2 -  Must indicate media type video
+// Test ST 2110-22 Section 7.1-  Must indicate media type video
 const test_22_71_1 = (sdp, params) => {
-  let errors = [];
- /*  let lines = splitLines(sdp);
-  for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines[x].startsWith('m=')) {
-      let videoMatch = lines[x].match(videoPattern);
 
-    }
-    if (lines[x].startsWith('b=') && payloadType >= 0) {
-      let bandwidthMatch = lines[x].match(bandwidthPattern);
-      bandwidthType = bandwidthMatch ? bandwidthMatch[1] : -1;
-      bandwidth = bandwidthMatch ? +bandwidthMatch[2] : -1;
-      b = [bandwidthType, bandwidth, x + 1 ]; // Save the bandwidth type, the bandwidth and line number of the SDP
-      
-    } */
-    return errors;
-}
+  //   SMPTE-2110-22 Section 7.1 requires the SDP to follow SMPTE-2110-10 for m=video media. Use the corresponding test
+  let errors = test_10_62_1(sdp,params);
+
+  if(params.verbose && errors.length == 0) 
+    console.log("Test Passed: Test ST2110-22 Section 7.1 Test 1 - Conforms to SMPTE-2110-10 for video media specification"); 
+
+  return errors;
+};
 
 const mustHaves22 = [ 'width', 'height', 'TP']; // Defined as mandatory in SMPTE-2110-22 
 
@@ -1444,8 +1437,18 @@ const test_22_73_1 = (sdp, params) => {
 
 // Test ST 2110-22 Section 74 Test 1-  Check that framerate is specified by one of accepted methods
 const test_22_74_1 = (sdp, params) => {
+  let errors = [];
+
+// First check if exactframerate is one of the fmpt parameters
+
+
+// Now check if it's present as an attribute
+
+//  If both specified check if they are consistent
+
+
   console.log("TODO: Implement SMPTE-22 Section 7.4 framerate set")
-  return [];
+  return errors;
 };
 
 const section_10_62 = (sdp, params) => {
@@ -1593,7 +1596,7 @@ const allSections = (sdp, params) => {
   // Check if we are checking a SMPTE-2110-22 SDP and fill in tests accordingly
   if(params.smpte2110_22) {
     sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
+        section_10_74, section_10_81, section_10_82, section_10_83,
         section_22_53, section_22_6, section_22_71, section_22_72, 
         section_22_73, section_22_74];
     if (params.noCopy) {
