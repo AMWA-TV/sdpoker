@@ -31,7 +31,7 @@ const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d*\s*$)/;
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
-const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s+' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?$');
+const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
 const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
@@ -644,12 +644,11 @@ const extractMTParams = (sdp, params = {}) => {
         errors.push(new Error(`Line ${x + 1}: fmpt ${lines[x]}has error`));
         continue;
       }
-      let params = lines[x].split(/a=fmtp:\d+\s+/)[1];
-      // let paramsMatch = params.matchAll(fmtpParams);
+      let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
       let paramsMatch = [];
       let paramMatch;
-      while ((paramMatch = fmtpParams.exec(params)) !== null)
-        paramsMatch.push(paramMatch);
+      while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
+          paramsMatch.push(paramMatch);
       let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
       if (params.checkDups) {
         let keys = splitParams.map(p => p[0]);

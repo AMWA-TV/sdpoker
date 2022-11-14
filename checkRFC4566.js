@@ -16,6 +16,8 @@
 const concat = arrays => Array.prototype.concat.apply([], arrays);
 
 const badEndings = /[^\r]\n|\r[^\n]/;
+const hasNoNewlineAtEnd = /[^\r\n]$/;
+const blankLines = /\r\n?\r|\n\r?\n/;
 const linePattern = /^([a-z]=\S.*|s= )$/;
 const letterCheck = /^[vosiuepcbzkatrm].*$/;
 // const spaceCheck = /\s\s/;
@@ -70,17 +72,29 @@ const ip6Pattern = /^[0-9a-f]*:[0-9a-f]*(:[0-9a-f]+)*:[0-9a-f]+$/;
 const multiPattern = /^((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]::[^\s]+)$/;
 
 // Section 5 Test 1 - check if line endings are all CRLF
-const test50_1 = sdp => {
+const test50_1 = (sdp, params) => {
   let errors = [];
-  if (badEndings.test(sdp)) {
-    errors.push(new Error('SDP file contains record ending characters 0x0a and 0x0d separately from the expected CRLF pattern, as per RFC 4566 Section 5.'));
+  if (params.checkEndings && badEndings.test(sdp)) {
+    errors.push(new Error('SDP file contains record ending characters CR (0x0d) and/or LF (0x0a) separately from the expected CRLF pattern, as per RFC 4566 Section 5.'));
+  }
+  return errors;
+};
+
+// Section 5 Test 1.1 - check last record is terminated with a newline and there are no blank lines
+const test50_1_1 = sdp => {
+  let errors = [];
+  if (hasNoNewlineAtEnd.test(sdp)) {
+    errors.push(new Error('SDP file does not contain a newline character at the end of the last record, as per RFC 4566 Section 5.'));
+  }
+  if (blankLines.test(sdp)) {
+    errors.push(new Error('Blank lines are not permitted, as per RFC 4566 Section 5.'));
   }
   return errors;
 };
 
 const splitLines = sdp => sdp.match(/[^\r\n]+/g);
 
-// Section 5 Test 2 - check each line is an acceptable format - no blank lines
+// Section 5 Test 2 - check each line is an acceptable format
 const test_50_2 = lines => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -138,7 +152,7 @@ const test_50_6 = lines => {
   let errors = [];
   // Test 6 - check no values contain the Nul character
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines.slice(2).indexOf('\u0000') >= 0) {
+    if (lines[x].slice(2).indexOf('\u0000') >= 0) {
       errors.push(new Error(`Line ${x + 1}: Value contains illegal Nul (0x00) character not permitted by RFC 4566 Section 5.`));
     }
   }
@@ -305,11 +319,10 @@ const test_57_3 = (sdp, params) => {
 // TODO Future work - test ability to join multicast group or DNS lookup address
 
 const section_50 = (sdp, params) => {
-  let endTest = params.checkEndings ? test50_1(sdp, params.checkEndings) : [];
-  // TODO decide whether to continue if line error endings are bad?
+  let endingTests = [ test50_1, test50_1_1 ];
   let lines = splitLines(sdp);
   let mainTests = [ test_50_2, test_50_3, test_50_4, test_50_5, test_50_6 ];
-  return concat(mainTests.map(t => t(lines, params))).concat(endTest);
+  return [...endingTests.flatMap(t => t(sdp, params)), ...mainTests.flatMap(t => t(lines, params))];
 };
 
 const section_51 = (sdp, params) => {
@@ -319,12 +332,12 @@ const section_51 = (sdp, params) => {
 
 const section_52 = (sdp, params) => {
   let tests = [ test_52_1, test_52_2 ];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_57 = (sdp, params) => {
   let tests = [ test_57_1, test_57_2, test_57_3 ];
-  return concat(tests.map(s => s(sdp, params)));
+  return tests.flatMap(s => s(sdp, params));
 };
 
 // Test if SDP file is missing media descriptions
@@ -345,7 +358,7 @@ const allSections = (sdp, params) => {
   if (params.noMedia) {
     sections.push(no_media);
   }
-  return concat(sections.map(s => s(sdp, params)));
+  return sections.flatMap(s => s(sdp, params));
 };
 
 module.exports = {

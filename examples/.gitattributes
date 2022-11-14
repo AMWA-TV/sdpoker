@@ -1,0 +1,3 @@
+# by default SDP files should always be checked out with CRLF
+# this could be overridden for specific files by a later line
+*.sdp	text eol=crlf
