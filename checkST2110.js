@@ -1482,8 +1482,6 @@ const test_22_74_1 = (sdp, params) => {
     errors.push(new Error(`framerate must be specified using one method only (attribute or a parmameter of video fmtp) as per SMPTE ST2110-22 Section 7.4.`));
   }
 
-  console.log("TODO: Implement SMPTE-22 Section 7.4 framerate set");
-
   if (params.verbose && errors.length == 0)
     console.log("Test Passed: Test ST 2110-22 Section 74 -  Check for framerate specified");
 

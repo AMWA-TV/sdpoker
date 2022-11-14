@@ -5,7 +5,6 @@ t=0 0
 m=video 27346 RTP/AVP 97
 c=IN IP4 232.80.177.113/32
 b=AS:216000
-a=framerate:60.00
 a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65
 a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0
 a=rtpmap:97 jxsv/90000
