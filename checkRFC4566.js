@@ -19,7 +19,7 @@ const badEndings = /[^\r]\n|\r[^\n]/;
 const linePattern = /^([a-z]=\S.*|s= )$/;
 const letterCheck = /^[vosiuepcbzkatrm].*$/;
 // const spaceCheck = /\s\s/;
-const mustHaves = [ 'v', 'o', 's', 't' ];
+const mustHaves = [ 'v', 'o', 's', 't', 'm' ];
 const followedBy = {
   session : {
     'v': { 'o': 'session' },
