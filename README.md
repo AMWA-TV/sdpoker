@@ -96,7 +96,7 @@ The return value of the method is an array of [Javascript Errors](https://develo
 
 ### Check ST2110
 
-The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the SMPTE 2110-10/20/30 documents, and referenced standards such as AES-67 and SMPTE ST 2022-7, applying appropriate tests.
+The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the SMPTE 2110-10/20/22/30 documents, and referenced standards such as AES-67 and SMPTE ST 2022-7, applying appropriate tests.
 
 For example:
 
@@ -131,6 +131,8 @@ The parameters of the library are binary flags that match the command line optio
 * `useIP6`: All addresses expressed in IP v6 notation.
 * `multicast`: Connection addresses must be multicast.
 * `unicast`: Connection addresses must be unicast.
+* `smpte2110_22`: SDP specifies a SMPTE-2110-22 stream.
+* `verbose`: Print out tests that pass to the console as well as failures.
 
 By default, all flags are `false`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
 
