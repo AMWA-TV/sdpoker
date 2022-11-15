@@ -1651,8 +1651,9 @@ const allSections = (sdp, params) => {
       sections.push(no_copy_20);
     }
 
-    // Make traffic shaping tests required for SMPTE 2110
+    // Make traffic shaping and media tests required for SMPTE 2110      
     params.shaping = true;
+    params.noMedia = true;
 
   }
 
