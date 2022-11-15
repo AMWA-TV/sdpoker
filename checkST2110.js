@@ -28,7 +28,7 @@ const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
-const bandwidthPattern = /b=([a-zA-Z]+):(\d*\s*$)/;
+const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
@@ -1419,7 +1419,7 @@ const test_22_73_1 = (sdp, params) => {
     if (lines[x].startsWith('b=')) {
       let bandwidthMatch = lines[x].match(bandwidthPattern);
       if (bandwidthMatch == null) {
-        errors.push(new Error(`Line ${x + 1}: In 'Bandwidth must be of the form b=<bwtype>:<bandwidth> as per SMPTE ST2110-22 Section 7.3.`));
+        errors.push(new Error(`Line ${x + 1}: In 'Bandwidth must be of the form 'b=<bwtype>:<bandwidth>' as per SMPTE ST2110-22 Section 7.3.`));
         continue;
       }
 
