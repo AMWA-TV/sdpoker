@@ -1462,7 +1462,7 @@ const test_22_74_1 = (sdp, params) => {
     if (lines[x].startsWith('a=framerate')) {
       let framerateMatch = lines[x].match(frameRateAttributePattern);
       if (framerateMatch == null) {
-        errors.push(new Error(`Line ${x + 1}: In 'framerate must be of the form a=framerate:<frame rate> as per SMPTE ST2110-22 Section 7.3.`));
+        errors.push(new Error(`Line ${x + 1}: In 'framerate must be of the form a=framerate:<frame rate> (no trailing '.' or '0's ) as per SMPTE ST2110-22 Section 7.3.`));
         continue;
       }
       framerateAttributePresent = true;
