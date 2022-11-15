@@ -35,7 +35,7 @@ const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmt
 const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
-const frameRateAttributePattern = /a=framerate:\d*.\d*$/;
+const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
 // TODO: Move AM824 into a separate set of tests specific to ST.2110-31
 const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24|AM824)\/([1-9]\d*)\/([1-9]\d*)/;
