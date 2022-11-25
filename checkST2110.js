@@ -72,8 +72,6 @@ a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
 a=mediaclk:direct=0
 a=mid:secondary`;
 
-
-
 const specExample22 = `v=0 
 o=- 101202 53 IN IP4 10.0.81.54 
 s=237.0.0.50:22000 
