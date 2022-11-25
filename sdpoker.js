@@ -54,7 +54,7 @@ const args = yargs
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
   .describe('smpte2110_22', 'SMPTE 2110-22 video stream.')
-  .describe('verbose', "Print passed tests as well as failed.")
+  .describe('verbose', 'Print passed tests as well as failed.')
 
   .check(argv => {
     if (argv._.length < 1) {
