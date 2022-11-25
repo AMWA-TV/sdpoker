@@ -155,7 +155,6 @@ const test_10_81_2 = (sdp, params) => {
     }
     return [];
   }
-
 };
 
 // Test ST2110-10 Section 8.1 Test 1 - Shall have a media-level ts-refclk
@@ -415,7 +414,6 @@ const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let videoPresent = false;
-
   for (let x = 0; x < lines.length; x++) {
     if (!lines[x].startsWith('m=video')) {
       continue;
@@ -537,7 +535,6 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
 
 // Test ST 2110-20 Section 7.1 - All video streams have rtpmap entry raw/90000
 const test_20_71_3 = (sdp, params) => {
-
   let errors = checkStreamsRtpMap(sdp, params, 'raw', '90000', 'ST2110-20 Section 7.1');
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: Test ST2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000');
@@ -678,8 +675,6 @@ const test_20_72_1 = (sdp, params) => {
   }
   return errors;
 };
-
-
 
 // Test ST 2110-20 Section 7.2 Test 2 - Check width and height are within bounds
 const test_20_72_2 = (sdp, params) => {
@@ -1336,7 +1331,6 @@ const test_22_6 = (sdp, params) => {
 
 // Test ST 2110-22 Section 7.1-  Must indicate media type video
 const test_22_71_1 = (sdp, params) => {
-
   //   SMPTE-2110-22 Section 7.1 requires the SDP to follow SMPTE-2110-10 for m=video media. Use the corresponding test
   let errors = test_10_62_1(sdp, params);
   if (params.verbose && errors.length == 0) {
@@ -1550,7 +1544,6 @@ const no_copy = (sdp, specSDP) => {
     [];
 };
 
-
 // Test ST2110-10 Appendix B Test 1 - Check that the SDP file given is not a straight copy
 const no_copy_20 = sdp => {
   return no_copy(sdp, specExample20);
@@ -1564,7 +1557,6 @@ const no_copy_22 = sdp => {
 const allSections = (sdp, params) => {
   // Declare the array holding test functions
   let sections = [];
-
   // Check if we are checking a SMPTE-2110-22 SDP and fill in tests accordingly
   if (params.smpte2110_22) {
     sections = [
