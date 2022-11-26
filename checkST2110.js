@@ -409,7 +409,7 @@ const test_20_71_1 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-10 Section 6,2 Test 1 - For all video streams, check video params
+// Test ST 2110-10 Section 6.2 Test 1 - For all video streams, check video params
 const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
