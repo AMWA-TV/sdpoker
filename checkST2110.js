@@ -1339,7 +1339,8 @@ const test_22_71_1 = (sdp, params) => {
   return errors;
 };
 
-const mustHaves22 = ['width', 'height', 'TP']; // Defined as mandatory in SMPTE-2110-22 
+const mustHaves22 = ['width', 'height', 'TP',]; // Defined as mandatory in SMPTE-2110-22 
+const mustHaves9134 = ['packetmode']; // Defined as mandatory in RFC-9134
 
 // Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
 const test_22_72_1 = (sdp, params) => {
@@ -1348,12 +1349,17 @@ const test_22_72_1 = (sdp, params) => {
     let keys = Object.keys(stream);
     for (let param of mustHaves22) {
       if (keys.indexOf(param) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per SMPTE ST2110-22 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per SMPTE ST2110-22 Section 7.2`));
+      }
+    }
+    for (let param of mustHaves9134) {
+      if (keys.indexOf(param) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per RFC-9134 Section 7.1 of RFC-9134`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST2110-22 Section 7.2 Test 1 - All required parameters are present');
+    console.log('Test Passed: Test ST2110-22 Section 7.2 RFC-9134 Section 7.1 Test 1 - All required parameters are present');
   }
   return errors;
 };
@@ -1566,6 +1572,10 @@ const allSections = (sdp, params) => {
     if (params.noCopy) {
       sections.push(no_copy_22);
     }
+    // Make traffic shaping and media tests required for SMPTE 2110-22      
+    params.shaping = true;
+    params.noMedia = true;
+
   } else { // If not SMPTE 2110-22 use the 2110-20 tests
     sections = [
       section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
@@ -1575,9 +1585,6 @@ const allSections = (sdp, params) => {
     if (params.noCopy) {
       sections.push(no_copy_20);
     }
-    // Make traffic shaping and media tests required for SMPTE 2110      
-    params.shaping = true;
-    params.noMedia = true;
   }
   return concat(sections.map(s => s(sdp, params)));
 };
