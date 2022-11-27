@@ -627,7 +627,7 @@ const extractMTParams = (sdp, params = {}) => {
         continue;
       }
     }
-    if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType || x == lines.length - 1) {
+    if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
       if (!fmtpPattern.test(lines[x])) {
         errors.push(new Error(`Line ${x + 1}: fmpt ${lines[x]}has error`));
         continue;
@@ -660,6 +660,15 @@ const extractMTParams = (sdp, params = {}) => {
       paramsObject.mediaType = mediaType;
       mtParams.push(paramsObject);
     }
+    // If no fmpt parameters still load up the other valid items (audio files for example)
+    if(mtParams.length == 0 && x == lines.length -1 ) {
+      let paramsObject = [];
+      paramsObject._payloadType = payloadType;
+      paramsObject._line = x + 1;
+      paramsObject._streamNumber = streamCount;
+      paramsObject.mediaType = mediaType;
+      mtParams.push(paramsObject);
+    }
   }
   return [mtParams, errors];
 };
@@ -671,10 +680,12 @@ const mustHaves20 = ['sampling', 'depth', 'width', 'height', 'exactframerate',
 const test_20_72_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
-    let keys = Object.keys(stream);
-    for (let param of mustHaves20) {
-      if (keys.indexOf(param) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per SMPTE ST 2110-20 Section 7.2.`));
+    if (stream.mediaType == 'raw') {
+      let keys = Object.keys(stream);
+      for (let param of mustHaves20) {
+        if (keys.indexOf(param) < 0) {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per SMPTE ST 2110-20 Section 7.2.`));
+        }
       }
     }
   }
@@ -1584,7 +1595,7 @@ const allSections = (sdp, params) => {
     if (params.noCopy) {
       sections.push(no_copy_22);
     }
-  } else { // If not SMPTE 2110-22 use the 2110-20 tests
+  } else if (mtParams[0].mediaType == 'raw') {
     sections = [
       section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
       section_20_71, section_20_72, section_20_73, section_20_74,
@@ -1593,6 +1604,11 @@ const allSections = (sdp, params) => {
     if (params.noCopy) {
       sections.push(no_copy_20);
     }
+  }
+  else { // Audio or other 
+    sections = [
+      section_10_74, section_10_81, section_10_82, section_10_83,
+      section_30_62];
   }
   return concat(sections.map(s => s(sdp, params)));
 };
