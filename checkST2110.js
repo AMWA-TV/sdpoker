@@ -661,7 +661,7 @@ const extractMTParams = (sdp, params = {}) => {
       mtParams.push(paramsObject);
     }
   }
-  // If no fmpt parameters still load up the other valid items (audio files for example)
+  // If no fmtp parameters still load up the other valid items (audio files for example)
   if (mtParams.length == 0) {
     let paramsObject = [];
     paramsObject._payloadType = payloadType;
