@@ -610,9 +610,9 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('m=')) {
       let videoMatch = lines[x].match(videoPattern);
       let audioMatch = lines[x].match(audioPattern);
-      if(videoMatch)
+      if (videoMatch)
         payloadType = +videoMatch[4];
-      if(audioMatch)
+      if (audioMatch)
         payloadType = +audioMatch[4];
       streamCount++;
       isSkippedType = false;
@@ -620,7 +620,7 @@ const extractMTParams = (sdp, params = {}) => {
     }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if(rtpmapMatch)
+      if (rtpmapMatch)
         mediaType = rtpmapMatch[2];
       if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
         isSkippedType = true;
@@ -660,15 +660,15 @@ const extractMTParams = (sdp, params = {}) => {
       paramsObject.mediaType = mediaType;
       mtParams.push(paramsObject);
     }
-    // If no fmpt parameters still load up the other valid items (audio files for example)
-    if(mtParams.length == 0 && x == lines.length -1 ) {
-      let paramsObject = [];
-      paramsObject._payloadType = payloadType;
-      paramsObject._line = x + 1;
-      paramsObject._streamNumber = streamCount;
-      paramsObject.mediaType = mediaType;
-      mtParams.push(paramsObject);
-    }
+  }
+  // If no fmpt parameters still load up the other valid items (audio files for example)
+  if (mtParams.length == 0) {
+    let paramsObject = [];
+    paramsObject._payloadType = payloadType;
+    paramsObject._line = lines.length;
+    paramsObject._streamNumber = streamCount;
+    paramsObject.mediaType = mediaType;
+    mtParams.push(paramsObject);
   }
   return [mtParams, errors];
 };
