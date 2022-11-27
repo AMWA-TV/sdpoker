@@ -443,7 +443,7 @@ const test_10_62_1 = (sdp, params) => {
     errors.push(new Error('m=video expected for SMPTE 2110-defined video.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-10 Section 62 Test 1 - Video parameters present and all good.');
+    console.log('Test Passed: Test ST 2110-10 Section 6.2 Test 1 - Video parameters present and all good.');
   }
   return errors;
 };
@@ -1297,7 +1297,7 @@ const test_21_82_2 = (sdp, params) => {
   return errors;
 };
 
-const typesPermitted22 = ['2110TPNL', '2110TPW'];
+const typesPermitted22 = ['2110TPN', '2110TPNL', '2110TPW'];
 
 // Test ST 2110-22 Section 5.3 -Traffic Shaping and Delivery Timing - Must include 2110TPNL or TP=2110TPW
 const test_22_53_1 = (sdp, params) => {
@@ -1310,12 +1310,12 @@ const test_22_53_1 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.TP !== 'undefined') {
       if (typesPermitted22.indexOf(stream.TP) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPW', '2110TPNL', as per SMPTE ST 2110-22 Section 5.3`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPN',  '2110TPW', '2110TPNL', as per SMPTE ST 2110-22 Section 5.3`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST2110-21 Section 8.1 Test 2 - TP parameter is an acceptable value.');
+    console.log('Test Passed: Test ST2110-22 Section 5.3 - TP parameter is an acceptable value.');
   }
   return errors;
 };
@@ -1387,7 +1387,7 @@ const test_22_73_1 = (sdp, params) => {
     errors.push(new Error('Required attribute \'b=<bwtype>:<bandwidth>\' is missing, as per SMPTE ST2110-22 Section 7.3.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute');
+    console.log('Test Passed: Test ST 2110-22 Section 7.3 -  Check for mandatory bitrate attribute');
   }
   return errors;
 };
@@ -1426,7 +1426,7 @@ const test_22_74_1 = (sdp, params) => {
     errors.push(new Error('framerate must be specified using one method only (attribute or a parmameter of video fmtp) as per SMPTE ST2110-22 Section 7.4.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 74 -  Check for framerate specified');
+    console.log('Test Passed: Test ST 2110-22 Section 7.4 -  Check for framerate specified');
   }
   return errors;
 };
