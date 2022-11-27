@@ -605,22 +605,29 @@ const extractMTParams = (sdp, params = {}) => {
   let isSkippedType = false;
   let streamCount = 0;
   let payloadType = -1;
+  let mediaType = -1;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       let videoMatch = lines[x].match(videoPattern);
-      payloadType = videoMatch ? +videoMatch[4] : -1;
+      let audioMatch = lines[x].match(audioPattern);
+      if(videoMatch)
+        payloadType = +videoMatch[4];
+      if(audioMatch)
+        payloadType = +audioMatch[4];
       streamCount++;
       isSkippedType = false;
       continue;
     }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if(rtpmapMatch)
+        mediaType = rtpmapMatch[2];
       if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
         isSkippedType = true;
         continue;
       }
     }
-    if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
+    if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType || x == lines.length - 1) {
       if (!fmtpPattern.test(lines[x])) {
         errors.push(new Error(`Line ${x + 1}: fmpt ${lines[x]}has error`));
         continue;
@@ -650,6 +657,7 @@ const extractMTParams = (sdp, params = {}) => {
       paramsObject._payloadType = payloadType;
       paramsObject._line = x + 1;
       paramsObject._streamNumber = streamCount;
+      paramsObject.mediaType = mediaType;
       mtParams.push(paramsObject);
     }
   }
@@ -1563,8 +1571,12 @@ const no_copy_22 = sdp => {
 const allSections = (sdp, params) => {
   // Declare the array holding test functions
   let sections = [];
+  // Pull out the media type
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  if (errors.length != 0)
+    return errors;
   // Check if we are checking a SMPTE-2110-22 SDP and fill in tests accordingly
-  if (params.smpte2110_22) {
+  if (mtParams[0].mediaType == 'jxsv') {
     sections = [
       section_10_74, section_10_81, section_10_82, section_10_83,
       section_22_53, section_22_6, section_22_71, section_22_72,
@@ -1572,10 +1584,6 @@ const allSections = (sdp, params) => {
     if (params.noCopy) {
       sections.push(no_copy_22);
     }
-    // Make traffic shaping and media tests required for SMPTE 2110-22      
-    params.shaping = true;
-    params.noMedia = true;
-
   } else { // If not SMPTE 2110-22 use the 2110-20 tests
     sections = [
       section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
