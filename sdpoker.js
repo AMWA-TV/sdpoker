@@ -33,7 +33,6 @@ const args = yargs
   .default('multicast', false)
   .default('unicast', false)
   .default('shaping', false)
-  .default('smpte2110_22', false)
   .default('verbose', false)
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
@@ -53,7 +52,6 @@ const args = yargs
   .describe('multicast', 'Connection addresses must be multicast.')
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
-  .describe('smpte2110_22', 'SMPTE 2110-22 video stream.')
   .describe('verbose', 'Print passed tests as well as failed.')
 
   .check(argv => {
