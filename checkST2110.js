@@ -1418,12 +1418,13 @@ const test_22_74_1 = (sdp, params) => {
   let framerateParameterPresent = false;
   // First check if exactframerate is specified as a parameter of fmtp
   let [mtParams, errors] = extractMTParams(sdp, params);
-  if(mtParams.length == 1) {
+  if(mtParams.length != 0) {
     if(mtParams[0].exactframerate != null) {
       framerateParameterPresent = true;
     }
   }else {
-    errors.push(new Error('SMPTE-2110-22 SDP File should specify a single video stream or a duplicate for SMPTE2110-7'));
+    errors.push(new Error('Test ST 2110-22 Section 74 Test 1-  Error in extracting fmpt parameters'));
+    return errors;
   }
   // Now check if it's present as an attribute
   for (let x = 0; x < lines.length; x++) {
