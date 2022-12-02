@@ -1358,7 +1358,7 @@ const test_22_71_1 = (sdp, params) => {
   return errors;
 };
 
-const mustHaves22 = ['width', 'height', 'TP',]; // Defined as mandatory in SMPTE-2110-22 
+const mustHaves22 = ['width', 'height', 'TP']; // Defined as mandatory in ST 2110-22
 const mustHaves9134 = ['packetmode']; // Defined as mandatory in RFC-9134
 
 // Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
