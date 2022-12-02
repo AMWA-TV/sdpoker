@@ -53,7 +53,6 @@ const args = yargs
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
   .describe('verbose', 'Print passed tests as well as failed.')
-
   .check(argv => {
     if (argv._.length < 1) {
       throw new Error('File name or URL for SDP file must be provided.');
