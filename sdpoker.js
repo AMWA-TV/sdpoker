@@ -36,7 +36,7 @@ const args = yargs
   .default('verbose', false)
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
-    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'smpte2110_22', 'verbose' ])
+    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'verbose' ])
   .usage('Check an SDP file for conformance with RFC4566, SMPTE ST 2110 and SMPTE ST 2110-22.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
   .describe('checkEndings', 'Check line endings are CRLF, no other CR/LF.')
