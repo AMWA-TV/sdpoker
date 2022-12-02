@@ -131,7 +131,6 @@ The parameters of the library are binary flags that match the command line optio
 * `useIP6`: All addresses expressed in IP v6 notation.
 * `multicast`: Connection addresses must be multicast.
 * `unicast`: Connection addresses must be unicast.
-* `smpte2110_22`: SDP specifies a SMPTE-2110-22 stream.
 * `verbose`: Print out tests that pass to the console as well as failures.
 
 By default, all flags are `false`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
