@@ -1445,7 +1445,7 @@ const test_22_74_1 = (sdp, params) => {
   }
   //  If both specified then error.  SMPTE-2110-22 section 7.4 indicates one method of specifying
   if (framerateAttributePresent && framerateParameterPresent) {
-    errors.push(new Error('framerate must be specified using one method only (attribute or a parmameter of video fmtp) as per SMPTE ST2110-22 Section 7.4.'));
+    errors.push(new Error('framerate must be specified using one method only (attribute or a parameter of video fmtp) as per SMPTE ST2110-22 Section 7.4.'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: Test ST 2110-22 Section 7.4 -  Check for framerate specified');
