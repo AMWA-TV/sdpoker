@@ -1441,7 +1441,7 @@ const test_22_74_1 = (sdp, params) => {
   }
   // If neither exactframerate or framerate attribute present - load up error 
   if (!framerateAttributePresent && !framerateParameterPresent) {
-    errors.push(new Error('framerate must specified as either an attribute or a parmameter of video fmtp as per SMPTE ST2110-22 Section 7.4.'));
+    errors.push(new Error('framerate must specified as either an attribute or a parameter of video fmtp as per SMPTE ST2110-22 Section 7.4.'));
   }
   //  If both specified then error.  SMPTE-2110-22 section 7.4 indicates one method of specifying
   if (framerateAttributePresent && framerateParameterPresent) {
