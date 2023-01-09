@@ -1375,7 +1375,7 @@ const test_22_72_1 = (sdp, params) => {
     }
     for (let param of mustHaves9134) {
       if (keys.indexOf(param) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per RFC-9134 Section 7.1 of RFC-9134`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per RFC 9134 Section 7.1`));
       }
     }
   }
