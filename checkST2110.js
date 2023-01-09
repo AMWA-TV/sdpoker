@@ -786,8 +786,8 @@ const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
-      if (stream.SSN !== 'ST 2110-20:2017') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST 2110-20:2017', as per ST 2110-20 Section 7.2.`));
+      if (stream.SSN !== 'ST2110-20:2017') {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2017', as per ST 2110-20 Section 7.2.`));
       }
     }
   }
