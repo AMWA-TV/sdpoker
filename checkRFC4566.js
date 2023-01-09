@@ -253,7 +253,7 @@ const test_57_2 = (sdp, params) => {
     if (lines[x].startsWith('c=')) {
       let cMatch = lines[x].match(cPattern);
       if (!cMatch) {
-        errors.push(new Error(`Line ${x + 1}: Connection data field does not match an acceptable pattern, as per RFC 4566 Section 5.7 and SMPTE 2110-10 Section 6.1.`));
+        errors.push(new Error(`Line ${x + 1}: Connection data field does not match an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
         continue;
       }
       if (params.useIP4 === true && cMatch[1] !== 'IP4') {

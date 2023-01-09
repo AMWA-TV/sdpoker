@@ -1352,10 +1352,10 @@ const test_22_6 = (sdp, params) => {
 
 // Test ST 2110-22 Section 7.1-  Must indicate media type video
 const test_22_71_1 = (sdp, params) => {
-  //   SMPTE-2110-22 Section 7.1 requires the SDP to follow SMPTE-2110-10 for m=video media. Use the corresponding test
+  //   ST 2110-22 Section 7.1 requires the SDP to follow ST 2110-10 for m=video media. Use the corresponding test
   let errors = test_10_62_1(sdp, params);
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST2110-22 Section 7.1 Test 1 - Conforms to SMPTE-2110-10 for video media specification');
+    console.log('Test Passed: Test ST2110-22 Section 7.1 Test 1 - Conforms to ST 2110-10 for video media specification');
   }
   return errors;
 };
@@ -1443,7 +1443,7 @@ const test_22_74_1 = (sdp, params) => {
   if (!framerateAttributePresent && !framerateParameterPresent) {
     errors.push(new Error('framerate must specified as either an attribute or a parameter of video fmtp as per SMPTE ST2110-22 Section 7.4.'));
   }
-  //  If both specified then error.  SMPTE-2110-22 section 7.4 indicates one method of specifying
+  //  If both specified then error.  ST 2110-22 section 7.4 indicates one method of specifying
   if (framerateAttributePresent && framerateParameterPresent) {
     errors.push(new Error('framerate must be specified using one method only (attribute or a parameter of video fmtp) as per SMPTE ST2110-22 Section 7.4.'));
   }
@@ -1589,7 +1589,7 @@ const allSections = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   if (errors.length != 0)
     return errors;
-  // Check if we are checking a SMPTE-2110-22 SDP and fill in tests accordingly
+  // Check if we are checking a ST 2110-22 SDP and fill in tests accordingly
   if (mtParams[0].mediaType == 'jxsv') {
     sections = [
       section_10_74, section_10_81, section_10_82, section_10_83,
