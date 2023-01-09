@@ -1385,7 +1385,7 @@ const test_22_72_1 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-22 Section 73 -  Check for mandatory bitrate attribute in correct format
+// Test ST 2110-22 Section 73 -  Check for mandatory bandwidth-field in correct format
 const test_22_73_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -1408,7 +1408,7 @@ const test_22_73_1 = (sdp, params) => {
     errors.push(new Error('Required bandwidth-field \'b=<bwtype>:<bandwidth>\' is missing, as per ST 2110-22 Section 7.3.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 7.3 -  Check for mandatory bitrate attribute');
+    console.log('Test Passed: Test ST 2110-22 Section 7.3 -  Check for mandatory bitrate-field');
   }
   return errors;
 };
