@@ -781,7 +781,7 @@ const test_20_72_4 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-20 Section 7.2 or ST  Test 5 - Check SSN is the required fixed value
+// Test ST 2110-20 Section 7.2 Test 5 - Check SSN is the required fixed value
 const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
