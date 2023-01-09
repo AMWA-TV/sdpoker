@@ -1405,7 +1405,7 @@ const test_22_73_1 = (sdp, params) => {
     }
   }
   if (!bandwidthPresent) {
-    errors.push(new Error('Required attribute \'b=<bwtype>:<bandwidth>\' is missing, as per SMPTE ST2110-22 Section 7.3.'));
+    errors.push(new Error('Required bandwidth-field \'b=<bwtype>:<bandwidth>\' is missing, as per SMPTE ST2110-22 Section 7.3.'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: Test ST 2110-22 Section 7.3 -  Check for mandatory bitrate attribute');
