@@ -630,8 +630,8 @@ const extractMTParams = (sdp, params = {}) => {
       }
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
-      if (!fmtpPattern.test(lines[x])) {
-        errors.push(new Error(`Line ${x + 1}: fmpt ${lines[x]}has error`));
+     if (!fmtpPattern.test(lines[x])) {
+        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be the form "a=fmtp:<format> parameter1=value1; parameter2=value2; ..."`));
         continue;
       }
       let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
