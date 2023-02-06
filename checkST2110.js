@@ -100,7 +100,7 @@ a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0 
 a=mid:SECONDARY`;
 
-// Test ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
+// ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
@@ -111,70 +111,71 @@ const test_10_74_1 = (sdp, params) => {
       zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
       for (let x in zeroCheck) {
         if (zeroCheck[x] !== 0) {
-          errors.push(new Error(`For stream ${s}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per  ST 2110-10 Section 7.4.`));
+          errors.push(new Error(`For stream ${s}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4.`));
         }
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero');
+    console.log('Test Passed: ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.1 Test 1 - Shell have media-level mediaclk per stream
+// ST 2110-10 Section 8.1 Test 1 - Shell have media-level mediaclk per stream
 const test_10_81_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for (let x = 0; x < streams.length; x++) {
     if (!mediaclkPattern.test(streams[x])) {
-      errors.push(new Error(`Stream ${x + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per  ST 2110-10 Section 8.1.`));
+      errors.push(new Error(`Stream ${x + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 8.1 Test 1 - Shall have media-level mediaclk per stream');
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 1 - Shall have media-level mediaclk per stream');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
+// ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 const test_10_81_2 = (sdp, params) => {
   if (!params.should && params.verbose) {
-    console.log('TEST Skipped: Test ST 2110-10 Section 8.1 Test 2 -  Use --should to check that mediaclk uses direct reference');
+    console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Use --should to check that mediaclk uses direct reference');
     return [];
   }
   let directCheck = sdp.match(mediaclkTypePattern);
   if (Array.isArray(directCheck) && directCheck.length > 0) {
     directCheck = directCheck.filter(x => !x.slice(1).startsWith('a=mediaclk:direct'));
     // Log the Passed test if verbose outputs
-    if (params.verbose && directCheck.length == 0)
-      console.log('TEST Passed: Test ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference');
+    if (params.verbose && directCheck.length == 0) {
+      console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference');
+    }
     return concat(directCheck.map(nd =>
-      new Error(`The 'direct' reference for the mediaclk parameter should be used, as per  ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
+      new Error(`The 'direct' reference for the mediaclk parameter should be used, as per ST 2110-10 Section 8.1. Found '${nd.slice(1)}'.`)));
   } else {
     if (params.verbose) {
-      console.log('TEST Passed: Test ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference');
+      console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference');
     }
     return [];
   }
 };
 
-// Test ST 2110-10 Section 8.1 Test 1 - Shall have a media-level ts-refclk
+// ST 2110-10 Section 8.2 Test 1 - Shall have a media-level ts-refclk
 const test_10_82_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for (let x = 0; x < streams.length; x++) {
     if (!tsrefclkPattern.test(sdp)) {
-      errors.push(new Error(`Stream ${x + 1}: Stream descriptions shall have a media-level 'ts-refclk' attribute, as per  ST 2110-10 Section 8.2.`));
+      errors.push(new Error(`Stream ${x + 1}: Stream descriptions shall have a media-level 'ts-refclk' attribute, as per ST 2110-10 Section 8.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 8.1 Test 1 - Shall have a media-level ts-refclk');
+    console.log('Test Passed: ST 2110-10 Section 8.2 Test 1 - Shall have a media-level ts-refclk');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.2 Test 2 - Shall be ptp reference or shall be localmac
+// ST 2110-10 Section 8.2 Test 2 - Shall be ptp reference or shall be localmac
 const test_10_82_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -190,17 +191,17 @@ const test_10_82_2 = (sdp, params) => {
       if (!lines[x].startsWith('a=ts-refclk:ptp=') &&
         !lines[x].startsWith('a=ts-refclk:localmac')) {
         errors.push(
-          new Error(`Line ${x + 1}: Reference clocks shall use the PTP form or shall use the localmac form, as per  ST 2110-10 Section 8.2.`));
+          new Error(`Line ${x + 1}: Reference clocks shall use the PTP form or shall use the localmac form, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 8.2 Test 2 - Reference clocks shall be ptp reference or shall be localmac');
+    console.log('Test Passed: ST 2110-10 Section 8.2 Test 2 - Reference clocks shall be ptp reference or shall be localmac');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.2 Test 3 - If a PTP reference clock, check parameters
+// ST 2110-10 Section 8.2 Test 3 - If a PTP reference clock, check parameters
 const test_10_82_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -219,7 +220,7 @@ const test_10_82_3 = (sdp, params) => {
         continue; // no longer acceptable form
       }
       if (!ptpDetails.startsWith('IEEE1588-2008:')) {
-        errors.push(new Error(`Line ${x + 1}: The only supported PTP version is 'IEEE1588-2008', as per  ST 2110-10 Section 8.2.`));
+        errors.push(new Error(`Line ${x + 1}: The only supported PTP version is 'IEEE1588-2008', as per ST 2110-10 Section 8.2.`));
         continue;
       }
       if (!ptpPattern.test(ptpDetails.slice(14))) {
@@ -234,17 +235,17 @@ const test_10_82_3 = (sdp, params) => {
         }
       } else if (ptpMatch[2]) {
         // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not
-        errors.push(new Error(`Line ${x + 1}: PTP domain number must be specified, as per  ST 2110-10 Section 8.2.`));
+        errors.push(new Error(`Line ${x + 1}: PTP domain number must be specified, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 8.2 Test 3 - PTP ts-refclk parameters all good.');
+    console.log('Test Passed: ST 2110-10 Section 8.2 Test 3 - PTP ts-refclk parameters all good.');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.2 - If local mac clock, check MAC address
+// ST 2110-10 Section 8.2 Test 4 - If local mac clock, check MAC address
 const test_10_82_4 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -259,33 +260,35 @@ const test_10_82_4 = (sdp, params) => {
     if (lines[x].startsWith('a=ts-refclk:localmac=')) {
       let mac = lines[x].slice(21);
       if (!macPattern.test(mac)) {
-        errors.push(new Error(`Line ${x + 1}: PTP reference clock of type 'localmac' has an invalid MAC address, as per  ST 2110-10 Section 8.2.`));
+        errors.push(new Error(`Line ${x + 1}: PTP reference clock of type 'localmac' has an invalid MAC address, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 8.2 Test 4 - If local mac clock, check MAC address.');
+    console.log('Test Passed: ST 2110-10 Section 8.2 Test 4 - If local mac clock, check MAC address.');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.3 Test 1 - Duplication expected, is it present?
+// ST 2110-10 Section 8.3 Test 1 - Duplication expected, is it present?
 const test_10_83_1 = (sdp, params) => {
   if (!params.duplicate) {
-    if (params.verbose)
-      console.log('TEST Skipped: Test ST 2110-10 Section 8.3 Test 1 - Use --duplicate to check ');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 1 - Use --duplicate to check');
+    }
     return [];
   }
   if (dupPattern.test(sdp)) {
-    if (params.verbose)
-      console.log('TEST Passed: Test ST 2110-10 Section 8.3 Test 1 - Duplicate streams verified');
+    if (params.verbose) {
+      console.log('Test Passed: ST 2110-10 Section 8.3 Test 1 - Duplicate streams verified');
+    }
     return [];
   } else {
-    return [new Error('Duplicate RTP streams are expected, but neither media-level \'ssrc-group:DUP\' or session-level \'group:DUP\' were found, to satisfy  ST 2110-10 Section 8.3.')];
+    return [new Error('Duplicate RTP streams are expected, but neither media-level \'ssrc-group:DUP\' or session-level \'group:DUP\' were found, to satisfy ST 2110-10 Section 8.3.')];
   }
 };
 
-// Test ST 2110-10 Section 8.3 Test 2 - Separate source addresses - RFC 7104 section 4.1
+// ST 2110-10 Section 8.3 Test 2 - Separate source addresses - RFC 7104 section 4.1
 const test_10_83_2 = (sdp, params) => {
   if (!sdp.match(/a=ssrc-group/)) { // Detect whether this test applies
     return [];
@@ -329,16 +332,17 @@ const test_10_83_2 = (sdp, params) => {
   }
   // TODO check the source-filter lines have one Mcast address and 2 IP addresses
   if (params.verbose && errors.length == 0) {
-    console.log('TEST Passed: Test ST 2110-10 Section 8.3 Test 2 - Separate source addresses - RFC 7104 section 4.1');
+    console.log('Test Passed: ST 2110-10 Section 8.3 Test 2 - Separate source addresses - RFC 7104 section 4.1');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 8.3 Test 3 - Separate destination addresses - RFC 7104 Section 4.2
+// ST 2110-10 Section 8.3 Test 3 - Separate destination addresses - RFC 7104 Section 4.2
 const test_10_83_3 = (sdp, params) => {
   if (!sdp.match(/a=group/)) {
-    if (params.verbose)
-      console.log('Test Skipped: Test ST 2110-10 Section 8.3 Test 3 - Separate destination addresses. No a=group present.');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 3 - Separate destination addresses. No a=group present.');
+    }
     return [];
   }
   let lines = splitLines(sdp);
@@ -392,26 +396,26 @@ const test_10_83_3 = (sdp, params) => {
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 Test 1 - If required, check all streams are video
+// ST 2110-20 Section 7.1 Test 1 - If required, check all streams are video
 const test_20_71_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
   let errors = [];
   if (params.videoOnly) {
     for (let s = 1; s < streams.length; s++) {
       if (!streams[s].startsWith('video')) {
-        errors.push(new Error(`Stream ${s}: Media type is not 'video' and video only files are in test, as per  2110-20 Section 7.1.`));
+        errors.push(new Error(`Stream ${s}: Media type is not 'video' and video only files are in test, as per ST 2110-20 Section 7.1.`));
       }
     }
   } else {
-    console.log('Test Skipped: Test ST 2110-20 Section 7.1 Test 1 - Use --videoOnly to check for all video.');
+    console.log('Test Skipped: ST 2110-20 Section 7.1 Test 1 - Use --videoOnly to check for all video.');
   }
   if (params.videoOnly && params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.1 Test 1 - All streams are video');
+    console.log('Test Passed: ST 2110-20 Section 7.1 Test 1 - All streams are video');
   }
   return errors;
 };
 
-// Test ST 2110-10 Section 6.2 Test 1 - For all video streams, check video params
+// ST 2110-10 Section 6.2 Test 1 - For all video streams, check video params
 const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -433,9 +437,9 @@ const test_10_62_1 = (sdp, params) => {
     }
     // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
     if (videoMatch[3] === 'RTP/SAVP') {
-      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by  ST 2110-10 Section 6.2.`));
+      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by ST 2110-10 Section 6.2.`));
     }
-    // Check dynamic range - assume 2110-20 is always dynamic
+    // Check dynamic range - assume ST 2110-20 is always dynamic
     let payloadType = +videoMatch[4];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
       errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined video.`));
@@ -445,13 +449,13 @@ const test_10_62_1 = (sdp, params) => {
     errors.push(new Error('m=video expected for ST 2110-defined video.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-10 Section 6.2 Test 1 - Video parameters present and all good.');
+    console.log('Test Passed: ST 2110-10 Section 6.2 Test 1 - Video parameters present and all good.');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 Test 2 - For all video streams, check video params
-// TODO: Make this a common test_10_ test for both 2110-20 and 2110-22 
+// ST 2110-20 Section 7.1 Test 2 - For all video streams, check video params
+// TODO: Make this a common test_10_ test for both ST 2110-20 and ST 2110-22 
 const test_20_71_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -471,16 +475,16 @@ const test_20_71_2 = (sdp, params) => {
     }
     // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
     if (videoMatch[3] === 'RTP/SAVP') {
-      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by  ST 2110-10 Section 6.2.`));
+      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by ST 2110-10 Section 6.2.`));
     }
-    // Check dynamic range - assume 2110-20 is always dynamic
+    // Check dynamic range - assume ST 2110-20 is always dynamic
     let payloadType = +videoMatch[4];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
       errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined video.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.1 Test 2 - Video parameters all good.');
+    console.log('Test Passed: ST 2110-20 Section 7.1 Test 2 - Video parameters all good.');
   }
   return errors;
 };
@@ -535,16 +539,16 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 - All video streams have rtpmap entry raw/90000
+// ST 2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000
 const test_20_71_3 = (sdp, params) => {
   let errors = checkStreamsRtpMap(sdp, params, 'raw', '90000', 'ST 2110-20 Section 7.1');
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000');
+    console.log('Test Passed: ST 2110-20 Section 7.1 Test 3 - All video streams have rtpmap entry raw/90000');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters
+// ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters
 const test_20_71_4 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -594,7 +598,7 @@ const test_20_71_4 = (sdp, params) => {
     errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'fmtp' attribute.`));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters');
+    console.log('Test Passed: ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters');
   }
   return errors;
 };
@@ -612,25 +616,28 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('m=')) {
       let videoMatch = lines[x].match(videoPattern);
       let audioMatch = lines[x].match(audioPattern);
-      if (videoMatch)
+      if (videoMatch) {
         payloadType = +videoMatch[4];
-      if (audioMatch)
+      }
+      if (audioMatch) {
         payloadType = +audioMatch[4];
+      }
       streamCount++;
       isSkippedType = false;
       continue;
     }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch)
+      if (rtpmapMatch) {
         mediaType = rtpmapMatch[2];
+      }
       if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
         isSkippedType = true;
         continue;
       }
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
-     if (!fmtpPattern.test(lines[x])) {
+      if (!fmtpPattern.test(lines[x])) {
         errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be the form "a=fmtp:<format> parameter1=value1; parameter2=value2; ..."`));
         continue;
       }
@@ -678,7 +685,7 @@ const extractMTParams = (sdp, params = {}) => {
 const mustHaves20 = ['sampling', 'depth', 'width', 'height', 'exactframerate',
   'colorimetry', 'PM', 'SSN'];
 
-// Test ST 2110-20 Section 7.2 Test 1 - Test all required parameters are present
+// ST 2110-20 Section 7.2 Test 1 - Test all required parameters are present
 const test_20_72_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
@@ -686,64 +693,64 @@ const test_20_72_1 = (sdp, params) => {
       let keys = Object.keys(stream);
       for (let param of mustHaves20) {
         if (keys.indexOf(param) < 0) {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per  ST 2110-20 Section 7.2.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, required parameter '${param}' is missing, as per ST 2110-20 Section 7.2.`));
         }
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.2 Test 1 - All required parameters are present');
+    console.log('Test Passed: ST 2110-20 Section 7.2 Test 1 - All required parameters are present');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.2 Test 2 - Check width and height are within bounds
+// ST 2110-20 Section 7.2 Test 2 - Check width and height are within bounds
 const test_20_72_2 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.width !== 'undefined' && typeof stream.height !== 'undefined') { // Test 1 confirms
       let width = +stream.width;
       if (isNaN(width) || integerPattern.test(stream.width) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' is not an integer value, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' is not an integer value, as per ST 2110-20 Section 7.2.`));
       } else if (width < 1 || width > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For strean ${stream._streamNumber}, parameter 'width' with value '${width}' is outside acceptable range of 1 to 32767 inclusive, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For strean ${stream._streamNumber}, parameter 'width' with value '${width}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-20 Section 7.2.`));
       }
       let height = +stream.height;
       if (isNaN(height) || integerPattern.test(stream.height) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' is not an integer value, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' is not an integer value, as per ST 2110-20 Section 7.2.`));
       } else if (height < 1 || height > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' with value '${height}' is outside acceptable range of 1 to 32767 inclusive, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' with value '${height}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-20 Section 7.2.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.2 Test 2 - Check width and height are within bounds');
+    console.log('Test Passed: ST 2110-20 Section 7.2 Test 2 - Check width and height are within bounds');
   }
   return errors;
 };
 
 const greatestCommonDivisor = (a, b) => !b ? a : greatestCommonDivisor(b, a % b);
 
-// Test ST 2110-20 Section 7.2 Test 3 - Exactframerate is as specified
+// ST 2110-20 Section 7.2 Test 3 - Exactframerate is as specified
 const test_20_72_3 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.exactframerate !== 'undefined') {
       let frMatch = stream.exactframerate.match(frameRatePattern);
       if (!frMatch) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per ST 2110-20 Section 7.2.`));
         continue;
       }
       let numerator = +frMatch[1];
       if (isNaN(numerator)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a numerator that is not an integer, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a numerator that is not an integer, as per ST 2110-20 Section 7.2.`));
       }
       if (!frMatch[2]) { // Non-integer value tests
         continue;
       }
       let denominator = +frMatch[2];
       if (isNaN(denominator)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a denominator that is not an integer, as per  ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a denominator that is not an integer, as per ST 2110-20 Section 7.2.`));
         continue;
       }
       if (Number.isInteger(numerator / denominator)) {
@@ -758,14 +765,14 @@ const test_20_72_3 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.2 Test 3 - Exactframerate is as specified');
+    console.log('Test Passed: ST 2110-20 Section 7.2 Test 3 - Exactframerate is as specified');
   }
   return errors;
 };
 
 const packingModes = ['2110GPM', '2110BPM'];
 
-// Test ST 2110-20 Section 7.2 Test 4 - Check packing mode as per spec.
+// ST 2110-20 Section 7.2 Test 4 - Check packing mode as per spec.
 const test_20_72_4 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -776,12 +783,12 @@ const test_20_72_4 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.2 Test 4 - Packing mode is as per spec.');
+    console.log('Test Passed: ST 2110-20 Section 7.2 Test 4 - Packing mode is as per spec.');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.2 Test 5 - Check SSN is the required fixed value
+// ST 2110-20 Section 7.2 Test 5 - Check SSN is the required fixed value
 const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -792,12 +799,12 @@ const test_20_72_5 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
+    console.log('Test Passed: ST 2110-20 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.3 Test 1 - Interlace is name only
+// ST 2110-20 Section 7.3 Test 1 - Interlace is name only
 const test_20_73_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -808,12 +815,12 @@ const test_20_73_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.3 Test 1 - Interlace is name only');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 1 - Interlace is name only');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.3 Test 2- Segmented is name only and interlace is also signalled
+// ST 2110-20 Section 7.3 Test 2 - Segmented is name only and interlace is also signalled
 const test_20_73_2 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -827,14 +834,14 @@ const test_20_73_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.3 Test 2- Segmented is name only and interlace is also signalled');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 2 - Segmented is name only and interlace is also signalled');
   }
   return errors;
 };
 
 const rangePermitted = ['NARROW', 'FULLPROTECT', 'FULL'];
 
-// Test ST 2110-20 Section 7.3 Test 3 - RANGE has acceptable values in colorimetry context
+// ST 2110-20 Section 7.3 Test 3 - RANGE has acceptable values in colorimetry context
 const test_20_73_3 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -851,14 +858,14 @@ const test_20_73_3 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.3 Test 3 - RANGE has acceptable values in colorimetry context');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 3 - RANGE has acceptable values in colorimetry context');
   }
   return errors;
 };
 
 const maxudpPermitted = ['1460', '8960'];
 
-// Test ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values wrt ST 2110-10
+// ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values wrt ST 2110-10
 const test_20_73_4 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -869,12 +876,12 @@ const test_20_73_4 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values wrt ST 2110-10');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values wrt ST 2110-10');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value
+// ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value
 const test_20_73_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -891,7 +898,7 @@ const test_20_73_5 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value');
   }
   return errors;
 };
@@ -903,7 +910,7 @@ const samplingPermitted = [
   'RGB', 'XYZ', 'KEY'
 ];
 
-// Test ST 2110-20 Section 7.4 Test 1 - Sampling is a defined value
+// ST 2110-20 Section 7.4 Test 1 - Sampling is a defined value
 const test_20_74_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -916,14 +923,14 @@ const test_20_74_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.4 Test 1 - Sampling is a defined value');
+    console.log('Test Passed: ST 2110-20 Section 7.4 Test 1 - Sampling is a defined value');
   }
   return errors;
 };
 
 const depthPermitted = ['8', '10', '12', '16', '16f'];
 
-// Test ST 2110-20 Section 7.4 Test 2 - Bit depth is a permitted value
+// ST 2110-20 Section 7.4 Test 2 - Bit depth is a permitted value
 const test_20_74_2 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -934,7 +941,7 @@ const test_20_74_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.4 Test 2 - Bit depth is a permitted value');
+    console.log('Test Passed: ST 2110-20 Section 7.4 Test 2 - Bit depth is a permitted value');
   }
   return errors;
 };
@@ -943,23 +950,23 @@ const colorPermitted = [
   'BT601', 'BT709', 'BT2020', 'BT2100', 'ST2065-1',
   'ST2065-3', 'UNSPECIFIED', 'XYZ'];
 
-// Test ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
+// ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
 const test_20_75_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.colorimetry !== 'undefined') {
       if (colorPermitted.indexOf(stream.colorimetry) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per 2110-20 Section 7.5.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.');
+    console.log('Test Passed: ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.5 Test 2 - Signals using BT.2100 should specify RANGE
+// ST 2110-20 Section 7.5 Test 2 - Signals using BT.2100 should specify RANGE
 const test_20_75_2 = (sdp, params) => {
   if (params.should === false) {
     return [];
@@ -973,7 +980,7 @@ const test_20_75_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.5 Test 2 - Signals using BT.2100 should specify RANGE');
+    console.log('Test Passed: ST 2110-20 Section 7.5 Test 2 - Signals using BT.2100 should specify RANGE');
   }
   return errors;
 };
@@ -983,7 +990,7 @@ const tcsPermitted = [
   'ST428-1', 'DENSITY', 'UNSPECIFIED'
 ];
 
-// Test ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
+// ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
 const test_20_76_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -994,7 +1001,7 @@ const test_20_76_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value');
+    console.log('Test Passed: ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value');
   }
   return errors;
 };
@@ -1003,7 +1010,7 @@ const sampleRatePermitted = ['44100', '48000', '96000'];
 
 // Note: Sample rate provisions of 6.1 are repeated by 6.2.1 reference to AES-67 7.1
 
-// Test ST 2110-30 Section 6.2.1 Test 1 - Compliance with AES-67 Section 7.1
+// ST 2110-30 Section 6.2.1 Test 1 - Compliance with AES-67 Section 7.1
 const test_30_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -1059,12 +1066,12 @@ const test_30_62_1 = (sdp, params) => {
     errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, required attribute 'rtpmap' is missing for audio stream.`));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-30 Section 6.2.1 Test 1 - Compliant with AES-67 Section 7.1');
+    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 1 - Compliant with AES-67 Section 7.1');
   }
   return errors;
 };
 
-// Test ST 2110-30 Section 6.2.1 Test 2 - Valid audio SDP
+// ST 2110-30 Section 6.2.1 Test 2 - Valid audio SDP
 const test_30_62_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -1086,19 +1093,19 @@ const test_30_62_2 = (sdp, params) => {
     if (audioMatch[3] === 'RTP/SAVP') {
       errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by ST 2110-10 Section 6.2.`));
     }
-    // Check dynamic range - assume 2110-30 is always dynamic
+    // Check dynamic range - assume ST 2110-30 is always dynamic
     let payloadType = +audioMatch[4];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for 2110-defined audio.`));
+      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined audio.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-30 Section 6.2.1 Test 2 - Valid audio SDP');
+    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 2 - Valid audio SDP');
   }
   return errors;
 };
 
-// Test ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling
+// ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling
 const test_30_62_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -1139,12 +1146,12 @@ const test_30_62_3 = (sdp, params) => {
     errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, required attribute 'ptime' is missing, as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1.`));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling');
+    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling');
   }
   return errors;
 };
 
-// Test ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present
+// ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present
 const test_30_62_4 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -1191,12 +1198,12 @@ const test_30_62_4 = (sdp, params) => {
     errors.push(new Error(`Line ${lines.lengths}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present');
+    console.log('Test Passed: ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present');
   }
   return errors;
 };
 
-// Test ST 2110-20 Section 7.1 Test 1 - If required, check all streams are audio
+// ST 2110-30 Section 6.2 Test 5 - If required, check all streams are audio
 const test_30_62_5 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
   let errors = [];
@@ -1208,19 +1215,20 @@ const test_30_62_5 = (sdp, params) => {
     }
   }
   if (params.verbose && !params.audioOnly) {
-    console.log('Test Skipped: Test ST 2110-30 Section 6.2.2 Test 4 - Use --audioOnly to check if all streams are audio. -');
+    console.log('Test Skipped: ST 2110-30 Section 6.2.2 Test 5 - Use --audioOnly to check if all streams are audio.');
   }
   if (params.verbose && params.audioOnly && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present');
+    console.log('Test Passed: ST 2110-30 Section 6.2.2 Test 5 - If required, check all streams are audio');
   }
   return errors;
 };
 
-// Test ST 2110-21 Section 8.1 Test 1 - When traffic shaping, TP parameter is specified.
+// ST 2110-21 Section 8.1 Test 1 - When traffic shaping, TP parameter is specified.
 const test_21_81_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
-    if (params.verbose)
-      console.log('Test Skipped: Test ST 2110-21 Section 8.1 - TP parameter is specified. Use --shaping to test.');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-21 Section 8.1 Test 1 - TP parameter is specified. Use --shaping to test.');
+    }
     return [];
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
@@ -1230,18 +1238,19 @@ const test_21_81_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-21 Section 8.1 Test 1 - TP parameter is specified.');
+    console.log('Test Passed: ST 2110-21 Section 8.1 Test 1 - TP parameter is specified.');
   }
   return errors;
 };
 
 const typesPermitted = ['2110TPN', '2110TPNL', '2110TPW'];
 
-// Test ST 2110-21 Section 8.1 Test 2- When traffic shaping, TP parameter is an acceptable value
+// ST 2110-21 Section 8.1 Test 2 - When traffic shaping, TP parameter is an acceptable value
 const test_21_81_2 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
-    if (params.verbose)
-      console.log('Test Skipped: Test ST 2110-21 Section 8.1 Test 2- TP parameter is acceptable value. Use --shaping to test.');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-21 Section 8.1 Test 2 - TP parameter is acceptable value. Use --shaping to test.');
+    }
     return [];
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
@@ -1253,16 +1262,17 @@ const test_21_81_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-21 Section 8.1 Test 2 - TP parameter is an acceptable value.');
+    console.log('Test Passed: ST 2110-21 Section 8.1 Test 2 - TP parameter is an acceptable value.');
   }
   return errors;
 };
 
-// Test ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is an acceptable value
+// ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is an acceptable value
 const test_21_82_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
-    if (params.verbose)
-      console.log('Test Skipped: Test ST 2110-21 Section 8.2 Test 2- TROFF parameter is acceptable value. Use --shaping to test.');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-21 Section 8.2 Test 1 - TROFF parameter is acceptable value. Use --shaping to test.');
+    }
     return [];
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
@@ -1280,16 +1290,17 @@ const test_21_82_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-21 Section 8.2 Test 1 - TROFF parameter is an acceptable value ');
+    console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - TROFF parameter is an acceptable value ');
   }
   return errors;
 };
 
-// Test ST 2110-21 Section 8.2 - When traffic shaping and CMAX parameter specified, it is an acceptable value
+// ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value
 const test_21_82_2 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
-    if (params.verbose)
-      console.log('Test Skipped: Test ST 2110-21 Section 8.2 Test 2- When CMAX parameter specified it is an acceptable value. Use --shaping to test.');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-21 Section 8.2 Test 2 - When CMAX parameter specified it is an acceptable value. Use --shaping to test.');
+    }
     return [];
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
@@ -1308,62 +1319,64 @@ const test_21_82_2 = (sdp, params) => {
       }
     }
     else {
-      if (params.verbose)
-        console.log('Test Skipped: Test ST 2110-21 Section 8.2 Test 2 - CMAX Not Present.');
+      if (params.verbose) {
+        console.log('Test Skipped: ST 2110-21 Section 8.2 Test 2 - CMAX Not Present.');
+      }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-21 Section 8.2 - When traffic shaping and CMAX parameter specified, it is an acceptable value ');
+    console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value ');
   }
   return errors;
 };
 
 const typesPermitted22 = ['2110TPN', '2110TPNL', '2110TPW'];
 
-// Test ST 2110-22 Section 5.3 -Traffic Shaping and Delivery Timing - Must include 2110TPNL or TP=2110TPW
+// ST 2110-22 Section 5.3 Test 1 - Traffic Shaping and Delivery Timing - TP parameter is an acceptable value
 const test_22_53_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
-    if (params.verbose)
-      console.log('Test Skipped: Test ST 2110-22 Section 5.3 Test 1- TP parameter is acceptable value. Use --shaping to test.');
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-22 Section 5.3 Test 1 - TP parameter is an acceptable value. Use --shaping to test.');
+    }
     return [];
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TP !== 'undefined') {
       if (typesPermitted22.indexOf(stream.TP) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPN',  '2110TPW', '2110TPNL', as per ST 2110-22 Section 5.3`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPN', '2110TPW', '2110TPNL', as per ST 2110-22 Section 5.3`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 5.3 - TP parameter is an acceptable value.');
+    console.log('Test Passed: ST 2110-22 Section 5.3 Test 1 - TP parameter is an acceptable value.');
   }
   return errors;
 };
 
-// Test ST 2110-22 Section 6  -  Must have subtype  jxsv and clockrate 90000
-const test_22_6 = (sdp, params) => {
+// ST 2110-22 Section 6 Test 1 - Must have subtype jxsv and clockrate 90000
+const test_22_60_1 = (sdp, params) => {
   let errors = checkStreamsRtpMap(sdp, params, 'jxsv', '90000', 'ST 2110-22 Section 6');
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 6. Test 1 - All video streams have rtpmap entry jxsv/90000');
+    console.log('Test Passed: ST 2110-22 Section 6 Test 1 - All video streams have rtpmap entry jxsv/90000');
   }
   return errors;
 };
 
-// Test ST 2110-22 Section 7.1-  Must indicate media type video
+// ST 2110-22 Section 7.1 Test 1 - Must indicate media type video
 const test_22_71_1 = (sdp, params) => {
-  // ST  2110-22 Section 7.1 requires the SDP to follow ST 2110-10 for m=video media. Use the corresponding test
+  // ST 2110-22 Section 7.1 requires the SDP to follow ST 2110-10 for m=video media. Use the corresponding test
   let errors = test_10_62_1(sdp, params);
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 7.1 Test 1 - Conforms to ST 2110-10 for video media specification');
+    console.log('Test Passed: ST 2110-22 Section 7.1 Test 1 - Conforms to ST 2110-10 for video media specification');
   }
   return errors;
 };
 
 const mustHaves22 = ['width', 'height', 'TP']; // Defined as mandatory in ST 2110-22
-const mustHaves9134 = ['packetmode']; // Defined as mandatory in RFC-9134
+const mustHaves9134 = ['packetmode']; // Defined as mandatory in RFC 9134
 
-// Test ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
+// ST 2110-22 Section 7.2 Test 1 - Test all required parameters are present
 const test_22_72_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
@@ -1380,12 +1393,12 @@ const test_22_72_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 7.2 RFC-9134 Section 7.1 Test 1 - All required parameters are present');
+    console.log('Test Passed: ST 2110-22 Section 7.2 Test 1 - All RFC 9134 Section 7.1 required parameters are present');
   }
   return errors;
 };
 
-// Test ST 2110-22 Section 73 -  Check for mandatory bandwidth-field in correct format
+// ST 2110-22 Section 7.3 Test 1 - Check for mandatory bandwidth-field in correct format
 const test_22_73_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -1394,13 +1407,15 @@ const test_22_73_1 = (sdp, params) => {
     if (lines[x].startsWith('b=')) {
       let bandwidthMatch = lines[x].match(bandwidthPattern);
       if (bandwidthMatch == null) {
-        errors.push(new Error(`Line ${x + 1}: In 'Bandwidth must be of the form 'b=<bwtype>:<bandwidth>' as per ST 2110-22 Section 7.3.`));
+        errors.push(new Error(`Line ${x + 1}: Bandwidth line must be of the form 'b=<bwtype>:<bandwidth>' as per ST 2110-22 Section 7.3.`));
         continue;
       }
-      if (bandwidthMatch[1] != 'AS')
+      if (bandwidthMatch[1] != 'AS') {
         errors.push(new Error(`Line ${x + 1}: In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per ST 2110-22 Section 7.3.`));
-      if (Number.isInteger(+bandwidthMatch[2]) == false)
-        errors.push(new Error(`Line ${x + 1}}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per ST 2110-22 Section 7.3.`));
+      }
+      if (Number.isInteger(+bandwidthMatch[2]) == false) {
+        errors.push(new Error(`Line ${x + 1}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per ST 2110-22 Section 7.3.`));
+      }
       bandwidthPresent = true;
     }
   }
@@ -1408,12 +1423,12 @@ const test_22_73_1 = (sdp, params) => {
     errors.push(new Error('Required bandwidth-field \'b=<bwtype>:<bandwidth>\' is missing, as per ST 2110-22 Section 7.3.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 7.3 -  Check for mandatory bitrate-field');
+    console.log('Test Passed: ST 2110-22 Section 7.3 Test 1 - Check for mandatory bandwidth-field');
   }
   return errors;
 };
 
-// Test ST 2110-22 Section 74 Test 1-  Check that framerate is specified by one of accepted methods
+// ST 2110-22 Section 7.4 Test 1 - Check that framerate is specified by one of accepted methods
 const test_22_74_1 = (sdp, params) => {
   let lines = splitLines(sdp);
   let framerateAttributePresent = false;
@@ -1425,7 +1440,7 @@ const test_22_74_1 = (sdp, params) => {
       framerateParameterPresent = true;
     }
   }else {
-    errors.push(new Error('Test ST 2110-22 Section 74 Test 1-  Error in extracting fmpt parameters'));
+    errors.push(new Error('ST 2110-22 Section 7.4 Test 1 - Error in extracting fmtp parameters'));
     return errors;
   }
   // Now check if it's present as an attribute
@@ -1433,7 +1448,7 @@ const test_22_74_1 = (sdp, params) => {
     if (lines[x].startsWith('a=framerate')) {
       let framerateMatch = lines[x].match(frameRateAttributePattern);
       if (framerateMatch == null) {
-        errors.push(new Error(`Line ${x + 1}: In 'framerate must be of the form a=framerate:<frame rate> (no trailing '.' or '0's ) as per ST 2110-22 Section 7.3.`));
+        errors.push(new Error(`Line ${x + 1}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's ) as per ST 2110-22 Section 7.3.`));
         continue;
       }
       framerateAttributePresent = true;
@@ -1443,12 +1458,12 @@ const test_22_74_1 = (sdp, params) => {
   if (!framerateAttributePresent && !framerateParameterPresent) {
     errors.push(new Error('framerate must specified as either an attribute or a parameter of video fmtp as per ST 2110-22 Section 7.4.'));
   }
-  //  If both specified then error. ST  2110-22 section 7.4 indicates one method of specifying
+  // If both specified then error. ST 2110-22 section 7.4 indicates one method of specifying
   if (framerateAttributePresent && framerateParameterPresent) {
     errors.push(new Error('framerate must be specified using one method only (attribute or a parameter of video fmtp) as per ST 2110-22 Section 7.4.'));
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: Test ST 2110-22 Section 7.4 -  Check for framerate specified');
+    console.log('Test Passed: ST 2110-22 Section 7.4 Test 1 - Check for framerate specified');
   }
   return errors;
 };
@@ -1530,8 +1545,8 @@ const section_22_53 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_22_6 = (sdp, params) => {
-  let tests = [test_22_6];
+const section_22_60 = (sdp, params) => {
+  let tests = [test_22_60_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1555,7 +1570,6 @@ const section_22_74 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-// Test ST 2110-10 Appendix B Test 1 - Check that the SDP file given is not a straight copy
 const no_copy = (sdp, specSDP) => {
   let lines = splitLines(sdp.trim());
   let exlines = splitLines(specSDP);
@@ -1572,7 +1586,7 @@ const no_copy = (sdp, specSDP) => {
     [];
 };
 
-// Test ST 2110-10 Appendix B Test 1 - Check that the SDP file given is not a straight copy
+// ST 2110-10 Appendix B Test 1 - Check that the SDP file given is not a straight copy
 const no_copy_20 = sdp => {
   return no_copy(sdp, specExample20);
 };
@@ -1587,13 +1601,14 @@ const allSections = (sdp, params) => {
   let sections = [];
   // Pull out the media type
   let [mtParams, errors] = extractMTParams(sdp, params);
-  if (errors.length != 0)
+  if (errors.length != 0) {
     return errors;
+  }
   // Check if we are checking a ST 2110-22 SDP and fill in tests accordingly
   if (mtParams[0].mediaType == 'jxsv') {
     sections = [
       section_10_74, section_10_81, section_10_82, section_10_83,
-      section_22_53, section_22_6, section_22_71, section_22_72,
+      section_22_53, section_22_60, section_22_71, section_22_72,
       section_22_73, section_22_74];
     if (params.noCopy) {
       sections.push(no_copy_22);
@@ -1630,7 +1645,7 @@ module.exports = {
   section_20_75,
   section_20_76,
   section_22_53,
-  section_22_6,
+  section_22_60,
   section_22_71,
   section_22_72,
   section_22_73,
