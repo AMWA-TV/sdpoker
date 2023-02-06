@@ -139,8 +139,10 @@ const test_10_81_1 = (sdp, params) => {
 
 // ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 const test_10_81_2 = (sdp, params) => {
-  if (!params.should && params.verbose) {
-    console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Use --should to check that mediaclk uses direct reference');
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Use --should to check that mediaclk uses direct reference');
+    }
     return [];
   }
   let directCheck = sdp.match(mediaclkTypePattern);
@@ -968,7 +970,10 @@ const test_20_75_1 = (sdp, params) => {
 
 // ST 2110-20 Section 7.5 Test 2 - Signals using BT.2100 should specify RANGE
 const test_20_75_2 = (sdp, params) => {
-  if (params.should === false) {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 7.5 Test 2 - Use --should to check that signals using BT.2100 specify RANGE');
+    }
     return [];
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
@@ -1186,7 +1191,7 @@ const test_30_62_4 = (sdp, params) => {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type of 'fmtp' attribute '${fmtpMatch[1]}' does not match that of the stream '${payloadType}'.`));
       }
       let order = fmtpMatch[2];
-      if (params.should === true && !order.startsWith('SMPTE2110')) {
+      if (params.should && !order.startsWith('SMPTE2110')) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' should be specified by the 'ST 2110' convention, not '${order.split('.')[0]}', as per ST 2110-30 Section 6.2.2.`));
       }
       if (order.startsWith('SMPTE2110') && !smpteChannelPattern.test(order)) {
