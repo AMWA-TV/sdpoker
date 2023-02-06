@@ -640,7 +640,7 @@ const extractMTParams = (sdp, params = {}) => {
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
       if (!fmtpPattern.test(lines[x])) {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be the form "a=fmtp:<format> parameter1=value1; parameter2=value2; ..."`));
+        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
         continue;
       }
       let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
@@ -867,7 +867,7 @@ const test_20_73_3 = (sdp, params) => {
 
 const maxudpPermitted = ['1460', '8960'];
 
-// ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values wrt ST 2110-10
+// ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values per ST 2110-10
 const test_20_73_4 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -878,7 +878,7 @@ const test_20_73_4 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values wrt ST 2110-10');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values per ST 2110-10');
   }
   return errors;
 };
@@ -1208,7 +1208,7 @@ const test_30_62_4 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-30 Section 6.2 Test 5 - If required, check all streams are audio
+// ST 2110-30 Section 6.2.2 Test 5 - If required, check all streams are audio
 const test_30_62_5 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
   let errors = [];
@@ -1330,7 +1330,7 @@ const test_21_82_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value ');
+    console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value.');
   }
   return errors;
 };
@@ -1453,7 +1453,7 @@ const test_22_74_1 = (sdp, params) => {
     if (lines[x].startsWith('a=framerate')) {
       let framerateMatch = lines[x].match(frameRateAttributePattern);
       if (framerateMatch == null) {
-        errors.push(new Error(`Line ${x + 1}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's ) as per ST 2110-22 Section 7.3.`));
+        errors.push(new Error(`Line ${x + 1}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.3.`));
         continue;
       }
       framerateAttributePresent = true;
