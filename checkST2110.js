@@ -408,8 +408,9 @@ const test_20_71_1 = (sdp, params) => {
         errors.push(new Error(`Stream ${s}: Media type is not 'video' and video only files are in test, as per ST 2110-20 Section 7.1.`));
       }
     }
-  } else {
-    console.log('Test Skipped: ST 2110-20 Section 7.1 Test 1 - Use --videoOnly to check for all video.');
+  }
+  if (params.verbose && !params.videoOnly) {
+    console.log('Test Skipped: ST 2110-20 Section 7.1 Test 1 - Use --videoOnly to check if all streams are video.');
   }
   if (params.videoOnly && params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.1 Test 1 - All streams are video');
@@ -1223,7 +1224,7 @@ const test_30_62_5 = (sdp, params) => {
     console.log('Test Skipped: ST 2110-30 Section 6.2.2 Test 5 - Use --audioOnly to check if all streams are audio.');
   }
   if (params.verbose && params.audioOnly && errors.length == 0) {
-    console.log('Test Passed: ST 2110-30 Section 6.2.2 Test 5 - If required, check all streams are audio');
+    console.log('Test Passed: ST 2110-30 Section 6.2.2 Test 5 - Check all streams are audio');
   }
   return errors;
 };
