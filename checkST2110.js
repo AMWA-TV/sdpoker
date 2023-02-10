@@ -457,40 +457,6 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-20 Section 7.1 Test 2 - For all video streams, check video params
-// TODO: Make this a common test_10_ test for both ST 2110-20 and ST 2110-22 
-const test_20_71_2 = (sdp, params) => {
-  let errors = [];
-  let lines = splitLines(sdp);
-  for (let x = 0; x < lines.length; x++) {
-    if (!lines[x].startsWith('m=video')) {
-      continue;
-    }
-    let videoMatch = lines[x].match(videoPattern);
-    if (!videoMatch) {
-      errors.push(new Error(`Line ${x + 1}: Found a media description for video with a pattern that is not acceptable.`));
-      continue;
-    }
-    // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
-    let port = +videoMatch[1];
-    if (isNaN(port) || port < 0 || port > 65535) {
-      errors.push(new Error(`Line ${x + 1}: RTP video stream description with invalid port '${port}', with reference to ST 2110-10 Section 6.2 'shall use UDP'.`));
-    }
-    // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
-    if (videoMatch[3] === 'RTP/SAVP') {
-      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by ST 2110-10 Section 6.2.`));
-    }
-    // Check dynamic range - assume ST 2110-20 is always dynamic
-    let payloadType = +videoMatch[4];
-    if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined video.`));
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.1 Test 2 - Video parameters all good.');
-  }
-  return errors;
-};
 
 // Function to check that rtpmap is present and has passed in type and clockRate.  
 // An optional specification string can be used to be included in errors 
@@ -1375,16 +1341,6 @@ const test_22_60_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-22 Section 7.1 Test 1 - Must indicate media type video
-const test_22_71_1 = (sdp, params) => {
-  // ST 2110-22 Section 7.1 requires the SDP to follow ST 2110-10 for m=video media. Use the corresponding test
-  let errors = test_10_62_1(sdp, params);
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-22 Section 7.1 Test 1 - Conforms to ST 2110-10 for video media specification');
-  }
-  return errors;
-};
-
 const mustHaves22 = ['width', 'height', 'TP']; // Defined as mandatory in ST 2110-22
 const mustHaves9134 = ['packetmode']; // Defined as mandatory in RFC 9134
 
@@ -1523,7 +1479,7 @@ const section_10_83 = (sdp, params) => {
 };
 
 const section_20_71 = (sdp, params) => {
-  let tests = [test_20_71_1, test_20_71_2, test_20_71_3, test_20_71_4];
+  let tests = [test_20_71_1, test_20_71_3, test_20_71_4];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1579,10 +1535,6 @@ const section_22_60 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_22_71 = (sdp, params) => {
-  let tests = [test_22_71_1];
-  return concat(tests.map(t => t(sdp, params)));
-};
 
 const section_22_72 = (sdp, params) => {
   let tests = [test_22_72_1];
@@ -1639,8 +1591,8 @@ const allSections = (sdp, params) => {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
-        section_10_74, section_10_81, section_10_82, section_10_83,
-        section_22_53, section_22_60, section_22_71, section_22_72,
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
+        section_22_53, section_22_60, section_22_72,
         section_22_73, section_22_74];
       if (params.noCopy) {
         sections.push(no_copy_22);
@@ -1682,7 +1634,6 @@ module.exports = {
   section_20_76,
   section_22_53,
   section_22_60,
-  section_22_71,
   section_22_72,
   section_22_73,
   section_22_74,
