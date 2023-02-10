@@ -1619,6 +1619,10 @@ const allSections = (sdp, params) => {
         sections.push(no_copy_20);
       }
     }
+    else {
+      sections = [
+        section_10_74, section_10_81, section_10_82, section_10_83];
+    }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
       section_10_74, section_10_81, section_10_82, section_10_83,
