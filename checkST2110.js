@@ -615,14 +615,18 @@ const extractMTParams = (sdp, params = {}) => {
   let streamCount = 0;
   let payloadType = -1;
   let mediaType = -1;
+  let encodingName = -1;
+
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       let videoMatch = lines[x].match(videoPattern);
       let audioMatch = lines[x].match(audioPattern);
       if (videoMatch) {
+        mediaType = 'video';
         payloadType = +videoMatch[4];
       }
       if (audioMatch) {
+        mediaType = 'audio';
         payloadType = +audioMatch[4];
       }
       streamCount++;
@@ -632,7 +636,7 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
       if (rtpmapMatch) {
-        mediaType = rtpmapMatch[2];
+        encodingName = rtpmapMatch[2];
       }
       if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
         isSkippedType = true;
@@ -669,7 +673,8 @@ const extractMTParams = (sdp, params = {}) => {
       paramsObject._payloadType = payloadType;
       paramsObject._line = x + 1;
       paramsObject._streamNumber = streamCount;
-      paramsObject.mediaType = mediaType;
+      paramsObject._mediaType = mediaType;
+      paramsObject._encodingName = encodingName;
       mtParams.push(paramsObject);
     }
   }
@@ -679,7 +684,8 @@ const extractMTParams = (sdp, params = {}) => {
     paramsObject._payloadType = payloadType;
     paramsObject._line = lines.length;
     paramsObject._streamNumber = streamCount;
-    paramsObject.mediaType = mediaType;
+    paramsObject._mediaType = mediaType;
+    paramsObject._encodingName = encodingName;
     mtParams.push(paramsObject);
   }
   return [mtParams, errors];
@@ -1440,7 +1446,7 @@ const test_22_74_1 = (sdp, params) => {
   let sdpLineNumb = 1;
   let errors = [];
 
-  for (s in  streams) {
+  for (s in streams) {
     let lines = splitLines(streams[s]);
     // Check for session level framerate attribute
     if (s == 0) {
@@ -1628,28 +1634,34 @@ const allSections = (sdp, params) => {
     return errors;
   }
   // Check if we are checking a ST 2110-22 SDP and fill in tests accordingly
-  if (mtParams[0].mediaType == 'jxsv') {
-    sections = [
-      section_10_74, section_10_81, section_10_82, section_10_83,
-      section_22_53, section_22_60, section_22_71, section_22_72,
-      section_22_73, section_22_74];
-    if (params.noCopy) {
-      sections.push(no_copy_22);
+  // Load tests for video or audio mediaTypes
+  if (mtParams[0]._mediaType == 'video') {
+    // Load tests based on encoding name
+    if (mtParams[0]._encodingName == 'jxsv') {
+      sections = [
+        section_10_74, section_10_81, section_10_82, section_10_83,
+        section_22_53, section_22_60, section_22_71, section_22_72,
+        section_22_73, section_22_74];
+      if (params.noCopy) {
+        sections.push(no_copy_22);
+      }
+    } else if (mtParams[0]._encodingName == 'raw') {
+      sections = [
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
+        section_20_71, section_20_72, section_20_73, section_20_74,
+        section_20_75, section_20_76, section_21_81, section_21_82];
+      if (params.noCopy) {
+        sections.push(no_copy_20);
+      }
     }
-  } else if (mtParams[0].mediaType == 'raw') {
-    sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
-      section_20_71, section_20_72, section_20_73, section_20_74,
-      section_20_75, section_20_76, section_30_62,
-      section_21_81, section_21_82];
-    if (params.noCopy) {
-      sections.push(no_copy_20);
-    }
-  }
-  else { // Audio or other 
+  } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
       section_10_74, section_10_81, section_10_82, section_10_83,
       section_30_62];
+  }
+  else {
+    sections = [
+      section_10_74, section_10_81, section_10_82, section_10_83];
   }
 
   return concat(sections.map(s => s(sdp, params)));
