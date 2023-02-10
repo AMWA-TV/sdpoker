@@ -1435,28 +1435,20 @@ const test_22_73_1 = (sdp, params) => {
 };
 
 // ST 2110-22 Section 7.4 Test 1 - Check that framerate is specified by one of accepted methods
-// For 2110-07 the logic checks that
-// - If a framerate attribute is present as a session level attribute then no other framerate indication in the SDP
-// - If no session level attribute is present then each media must use one or the other method to specify framerate 
 const test_22_74_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
-  let sessionFrameRateAttrPresent = false;
+  let sdpLineNumb = 1;
   let errors = [];
 
-  for (s in streams) {
+  for (s in  streams) {
     let lines = splitLines(streams[s]);
-
     // Check for session level framerate attribute
     if (s == 0) {
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
-          let framerateMatch = lines[x].match(frameRateAttributePattern);
-          if (framerateMatch == null) {
-            errors.push(new Error(`Line ${x + 1}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.3.`));
-            continue;
-          }
-          sessionFrameRateAttrPresent = true;
+          errors.push(new Error(`Line ${sdpLineNumb}: Framerate must be a media level attribute as per RFC 4566 Section 6`));
         }
+        sdpLineNumb++;
       }
     }
     // Check each stream for one and only one framerate specification
@@ -1466,38 +1458,30 @@ const test_22_74_1 = (sdp, params) => {
       // First check if exactframerate is specified as a parameter of fmtp
       let [mtParams, paramErrors] = extractMTParams(sdp, params);
       if (paramErrors.length != 0) {
-        return paramErrors;
+        errors.push(paramErrors);
       }
-      if (mtParams.length != 0) {
-        if (mtParams[0].exactframerate != null) {
-          framerateParameterPresent = true;
-        }
-      } else {
-        errors.push(new Error('ST 2110-22 Section 7.4 Test 1 - Error in extracting fmtp parameters'));
-        return errors;
+      else if (mtParams[s - 1].exactframerate != null) {
+        framerateParameterPresent = true;
       }
-      // Now check if it's present as an attribute
+      // Now check if it's present as an media level attribute
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
           if (framerateMatch == null) {
-            errors.push(new Error(`Line ${x + 1}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.3.`));
+            errors.push(new Error(`Line ${sdpLineNumb}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.3.`));
             continue;
           }
           framerateAttributePresent = true;
         }
+        sdpLineNumb++;
       }
       // If neither exactframerate or framerate attribute present and sessionFramerate not specified- load up error 
-      if (!framerateAttributePresent && !framerateParameterPresent && !sessionFrameRateAttrPresent) {
-        errors.push(new Error('framerate must specified as either an attribute or a parameter of video fmtp as per ST 2110-22 Section 7.4.'));
+      if (!framerateAttributePresent && !framerateParameterPresent) {
+        errors.push(new Error(`Media Stream ${s}: Framerate must specified as either an attribute or a parameter of video fmtp as per ST 2110-22 Section 7.4.`));
       }
       // If both specified then error. ST 2110-22 section 7.4 indicates one method of specifying
       if (framerateAttributePresent && framerateParameterPresent) {
-        errors.push(new Error('framerate must be specified using one method only (attribute or a parameter of video fmtp) as per ST 2110-22 Section 7.4.'));
-      }
-      // If session level framerate specified and any other framerate specified - error
-      if (sessionFrameRateAttrPresent && (framerateAttributePresent || framerateParameterPresent)) {
-        errors.push(new Error('Both session level framerate and media level present - framerate must be specified using one method only (attribute or a parameter of video fmtp) as per ST 2110-22 Section 7.4.'));
+        errors.push(new Error(`Media Stream ${s}:: Framerate must be specified using one method only (attribute or a parameter of video fmtp) as per ST 2110-22 Section 7.4.`));
       }
     }
   }
@@ -1667,6 +1651,7 @@ const allSections = (sdp, params) => {
       section_10_74, section_10_81, section_10_82, section_10_83,
       section_30_62];
   }
+
   return concat(sections.map(s => s(sdp, params)));
 };
 
