@@ -1368,28 +1368,42 @@ const test_22_72_1 = (sdp, params) => {
 
 // ST 2110-22 Section 7.3 Test 1 - Check for mandatory bandwidth-field in correct format
 const test_22_73_1 = (sdp, params) => {
+  let streams = sdp.split(/[\r\n]m=/);
+  let sdpLineNumb = 1;
   let errors = [];
-  let lines = splitLines(sdp);
-  let bandwidthPresent = false;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('b=')) {
-      let bandwidthMatch = lines[x].match(bandwidthPattern);
-      if (bandwidthMatch == null) {
-        errors.push(new Error(`Line ${x + 1}: Bandwidth line must be of the form 'b=<bwtype>:<bandwidth>' as per ST 2110-22 Section 7.3.`));
-        continue;
+
+  for (s in streams) {
+    // First element from sdp.split is the session level section. Just move ahead the sdp line count
+    if(s == 0) {
+      let lines = splitLines(streams[s]);
+      sdpLineNumb += lines.length;
+      continue;
+    }
+    let lines = splitLines(streams[s]);
+    let bandwidthPresent = false;
+    for (let x = 0; x < lines.length; x++) {
+      if (lines[x].startsWith('b=')) {
+        let bandwidthMatch = lines[x].match(bandwidthPattern);
+        if (bandwidthMatch == null) {
+          errors.push(new Error(`Line ${sdpLineNumb}: Bandwidth line must be of the form 'b=<bwtype>:<bandwidth>' as per ST 2110-22 Section 7.3.`));
+          sdpLineNumb++;
+          continue;
+        }
+        if (bandwidthMatch[1] != 'AS') {
+          errors.push(new Error(`Line ${sdpLineNumb}: In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per ST 2110-22 Section 7.3.`));
+        }
+        if (Number.isInteger(+bandwidthMatch[2]) == false) {
+          errors.push(new Error(`Line ${sdpLineNumb}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per ST 2110-22 Section 7.3.`));
+        }
+        bandwidthPresent = true;
       }
-      if (bandwidthMatch[1] != 'AS') {
-        errors.push(new Error(`Line ${x + 1}: In 'b=<bwtype>:<bandwidth>' bwtype must be 'AS' as per ST 2110-22 Section 7.3.`));
-      }
-      if (Number.isInteger(+bandwidthMatch[2]) == false) {
-        errors.push(new Error(`Line ${x + 1}: In 'b=<bwtype>:<bandwidth>' bandwidth must be specified as an integer as per ST 2110-22 Section 7.3.`));
-      }
-      bandwidthPresent = true;
+      sdpLineNumb++;
+    }
+    if (!bandwidthPresent) {
+      errors.push(new Error(`Media Stream ${s}: Required bandwidth-field \'b=<bwtype>:<bandwidth>\' is missing, as per ST 2110-22 Section 7.3.`));
     }
   }
-  if (!bandwidthPresent) {
-    errors.push(new Error('Required bandwidth-field \'b=<bwtype>:<bandwidth>\' is missing, as per ST 2110-22 Section 7.3.'));
-  }
+
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-22 Section 7.3 Test 1 - Check for mandatory bandwidth-field');
   }
@@ -1431,7 +1445,6 @@ const test_22_74_1 = (sdp, params) => {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
           if (framerateMatch == null) {
             errors.push(new Error(`Line ${sdpLineNumb}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.3.`));
-            continue;
           }
           framerateAttributePresent = true;
         }
