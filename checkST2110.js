@@ -698,7 +698,7 @@ const mustHaves20 = ['sampling', 'depth', 'width', 'height', 'exactframerate',
 const test_20_72_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
-    if (stream.mediaType == 'raw') {
+    if (stream._encodingName == 'raw') {
       let keys = Object.keys(stream);
       for (let param of mustHaves20) {
         if (keys.indexOf(param) < 0) {
