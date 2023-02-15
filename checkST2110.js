@@ -457,7 +457,6 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
-
 // Function to check that rtpmap is present and has passed in type and clockRate.  
 // An optional specification string can be used to be included in errors 
 // produced as a reference back to a spec
@@ -1439,7 +1438,7 @@ const test_22_74_1 = (sdp, params) => {
       else if (mtParams[s - 1].exactframerate != null) {
         framerateParameterPresent = true;
       }
-      // Now check if it's present as an media level attribute
+      // Now check if it's present as a media level attribute
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
@@ -1548,7 +1547,6 @@ const section_22_60 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-
 const section_22_72 = (sdp, params) => {
   let tests = [test_22_72_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1598,7 +1596,6 @@ const allSections = (sdp, params) => {
   if (errors.length != 0) {
     return errors;
   }
-  // Check if we are checking a ST 2110-22 SDP and fill in tests accordingly
   // Load tests for video or audio mediaTypes
   if (mtParams[0]._mediaType == 'video') {
     // Load tests based on encoding name
