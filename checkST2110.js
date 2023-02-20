@@ -42,6 +42,7 @@ const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24|AM824)\/([1-9]\d*)\/([1-9]\d*)/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
 const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
+const mediaPattern = /(audio|video)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
@@ -418,44 +419,41 @@ const test_20_71_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 6.2 Test 1 - For all video streams, check video params
+// ST 2110-10 Section 6.2 Test 1 - For all streams, check RTP parameters
 const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let videoPresent = false;
   for (let x = 0; x < lines.length; x++) {
-    if (!lines[x].startsWith('m=video')) {
+    if (!lines[x].startsWith('m=')) {
       continue;
     }
-    videoPresent = true;
-    let videoMatch = lines[x].match(videoPattern);
-    if (!videoMatch) {
-      errors.push(new Error(`Line ${x + 1}: Found a media description for video with a pattern that is not acceptable.`));
+
+    let mediaMatch = lines[x].match(mediaPattern);
+    if (!mediaMatch) {
+      errors.push(new Error(`Line ${x + 1}: Found a media description with a pattern that is not acceptable.`));
       continue;
     }
     // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
-    let port = +videoMatch[1];
+    let port = +mediaMatch[2];
     if (isNaN(port) || port < 0 || port > 65535) {
-      errors.push(new Error(`Line ${x + 1}: RTP video stream description with invalid port '${port}', with reference to ST 2110-10 Section 6.2 'shall use UDP'.`));
+      errors.push(new Error(`Line ${x + 1}: RTP stream description with invalid port '${port}', with reference to ST 2110-10 Section 6.2 'shall use UDP'.`));
     }
     // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
-    if (videoMatch[3] === 'RTP/SAVP') {
+    if (mediaMatch[4] === 'RTP/SAVP') {
       errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by ST 2110-10 Section 6.2.`));
     }
     // Check dynamic range - assume ST 2110-20 is always dynamic
-    let payloadType = +videoMatch[4];
+    let payloadType = +mediaMatch[5];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined video.`));
+      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined media.`));
     }
   }
-  if (videoPresent == false) {
-    errors.push(new Error('m=video expected for ST 2110-defined video.'));
-  }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 6.2 Test 1 - Video parameters present and all good.');
+    console.log('Test Passed: ST 2110-10 Section 6.2 Test 1 - Media parameters present and all good.');
   }
   return errors;
 };
+
 
 // Function to check that rtpmap is present and has passed in type and clockRate.  
 // An optional specification string can be used to be included in errors 
@@ -590,9 +588,13 @@ const extractMTParams = (sdp, params = {}) => {
         mediaType = 'video';
         payloadType = +videoMatch[4];
       }
-      if (audioMatch) {
+      else if (audioMatch) {
         mediaType = 'audio';
         payloadType = +audioMatch[4];
+      }
+      else {
+        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
+        continue;
       }
       streamCount++;
       isSkippedType = false;
@@ -1048,39 +1050,6 @@ const test_30_62_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-30 Section 6.2.1 Test 2 - Valid audio SDP
-const test_30_62_2 = (sdp, params) => {
-  let errors = [];
-  let lines = splitLines(sdp);
-  for (let x = 0; x < lines.length; x++) {
-    if (!lines[x].startsWith('m=audio')) {
-      continue;
-    }
-    let audioMatch = lines[x].match(audioPattern);
-    if (!audioMatch) {
-      errors.push(new Error(`Line ${x + 1}: Found a media description for audio with a pattern that is not acceptable.`));
-      continue;
-    }
-    // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
-    let port = +audioMatch[1];
-    if (isNaN(port) || port < 0 || port > 65535) {
-      errors.push(new Error(`Line ${x + 1}: RTP audio stream description with invalid port '${port}', with reference to ST 2110-10 Section 6.2 'shall use UDP'.`));
-    }
-    // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
-    if (audioMatch[3] === 'RTP/SAVP') {
-      errors.push(new Error(`Line ${x + 1}: SRTP protocol is not allowed by ST 2110-10 Section 6.2.`));
-    }
-    // Check dynamic range - assume ST 2110-30 is always dynamic
-    let payloadType = +audioMatch[4];
-    if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new Error(`Line ${x + 1}: Dynamic payload type expected for ST 2110-defined audio.`));
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 2 - Valid audio SDP');
-  }
-  return errors;
-};
 
 // ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling
 const test_30_62_3 = (sdp, params) => {
@@ -1438,7 +1407,7 @@ const test_22_74_1 = (sdp, params) => {
       else if (mtParams[s - 1].exactframerate != null) {
         framerateParameterPresent = true;
       }
-      // Now check if it's present as a media level attribute
+      // Now check if it's present as an media level attribute
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
@@ -1523,7 +1492,7 @@ const section_20_76 = (sdp, params) => {
 };
 
 const section_30_62 = (sdp, params) => {
-  let tests = [test_30_62_1, test_30_62_2, test_30_62_3, test_30_62_4, test_30_62_5];
+  let tests = [test_30_62_1, test_30_62_3, test_30_62_4, test_30_62_5];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1546,6 +1515,7 @@ const section_22_60 = (sdp, params) => {
   let tests = [test_22_60_1];
   return concat(tests.map(t => t(sdp, params)));
 };
+
 
 const section_22_72 = (sdp, params) => {
   let tests = [test_22_72_1];
@@ -1596,6 +1566,7 @@ const allSections = (sdp, params) => {
   if (errors.length != 0) {
     return errors;
   }
+  // Check if we are checking a ST 2110-22 SDP and fill in tests accordingly
   // Load tests for video or audio mediaTypes
   if (mtParams[0]._mediaType == 'video') {
     // Load tests based on encoding name
@@ -1618,16 +1589,16 @@ const allSections = (sdp, params) => {
     }
     else {
       sections = [
-        section_10_74, section_10_81, section_10_82, section_10_83];
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
-      section_10_74, section_10_81, section_10_82, section_10_83,
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
       section_30_62];
   }
   else {
     sections = [
-      section_10_74, section_10_81, section_10_82, section_10_83];
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83];
   }
 
   return concat(sections.map(s => s(sdp, params)));
@@ -1651,7 +1622,6 @@ module.exports = {
   section_22_72,
   section_22_73,
   section_22_74,
-  section_30_62,
   section_21_81,
   section_21_82
 };
