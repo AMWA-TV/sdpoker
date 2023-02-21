@@ -105,14 +105,14 @@ a=mid:SECONDARY`;
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
-  for (let s in streams) {
+  for (let s = 0; s < streams.length; s++) {
     let zeroCheck = streams[s].match(mediaclkDirectPattern);
     if (Array.isArray(zeroCheck) && zeroCheck.length > 0 &&
       streams[s].indexOf('IEEE1588-2008') > 0) { // Zero check only PTP clocks
       zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
-      for (let x in zeroCheck) {
+      for (let x = 0; x < zeroCheck.length; x++) {
         if (zeroCheck[x] !== 0) {
-          errors.push(new Error(`For stream ${s}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4.`));
+          errors.push(new Error(`Stream ${s + 1}: The 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4.`));
         }
       }
     }
@@ -127,9 +127,9 @@ const test_10_74_1 = (sdp, params) => {
 const test_10_81_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
-  for (let x = 0; x < streams.length; x++) {
-    if (!mediaclkPattern.test(streams[x])) {
-      errors.push(new Error(`Stream ${x + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10 Section 8.1.`));
+  for (let s = 0; s < streams.length; s++) {
+    if (!mediaclkPattern.test(streams[s])) {
+      errors.push(new Error(`Stream ${s + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -167,9 +167,9 @@ const test_10_81_2 = (sdp, params) => {
 const test_10_82_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
-  for (let x = 0; x < streams.length; x++) {
+  for (let s = 0; s < streams.length; s++) {
     if (!tsrefclkPattern.test(sdp)) {
-      errors.push(new Error(`Stream ${x + 1}: Stream descriptions shall have a media-level 'ts-refclk' attribute, as per ST 2110-10 Section 8.2.`));
+      errors.push(new Error(`Stream ${s + 1}: Stream descriptions shall have a media-level 'ts-refclk' attribute, as per ST 2110-10 Section 8.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -618,7 +618,7 @@ const extractMTParams = (sdp, params = {}) => {
       if (params.checkDups) {
         let keys = splitParams.map(p => p[0]);
         let reported = [];
-        for (let y in keys) {
+        for (let y = 0; y < keys.length; y++) {
           if (keys.filter(k => keys[y] === k).length >= 2) {
             if (reported.indexOf(keys[y]) < 0) {
               errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, parameter '${keys[y]}' appears more than once.`));
