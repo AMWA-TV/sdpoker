@@ -582,15 +582,10 @@ const extractMTParams = (sdp, params = {}) => {
 
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      let videoMatch = lines[x].match(videoPattern);
-      let audioMatch = lines[x].match(audioPattern);
-      if (videoMatch) {
-        mediaType = 'video';
-        payloadType = +videoMatch[4];
-      }
-      else if (audioMatch) {
-        mediaType = 'audio';
-        payloadType = +audioMatch[4];
+      let mediaMatch = lines[x].match(mediaPattern);
+      if (mediaMatch) {
+        mediaType = mediaMatch[1];
+        payloadType = +mediaMatch[4];
       }
       else {
         errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
