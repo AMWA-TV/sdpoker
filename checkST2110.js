@@ -1279,6 +1279,7 @@ const test_21_82_2 = (sdp, params) => {
 const typesPermitted22 = ['2110TPN', '2110TPNL', '2110TPW'];
 
 // ST 2110-22 Section 5.3 Test 1 - Traffic Shaping and Delivery Timing - TP parameter is an acceptable value
+// Note: this is almost identical to test_21_81_2 used for ST 2110-20
 const test_22_53_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
     if (params.verbose) {
