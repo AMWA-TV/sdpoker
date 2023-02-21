@@ -585,7 +585,7 @@ const extractMTParams = (sdp, params = {}) => {
       let mediaMatch = lines[x].match(mediaPattern);
       if (mediaMatch) {
         mediaType = mediaMatch[1];
-        payloadType = +mediaMatch[4];
+        payloadType = +mediaMatch[5];
       }
       else {
         errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
@@ -1380,6 +1380,11 @@ const test_22_74_1 = (sdp, params) => {
   let sdpLineNumb = 1;
   let errors = [];
 
+  let [mtParams, paramErrors] = extractMTParams(sdp, params);
+  if (paramErrors.length != 0) {
+    errors.push(paramErrors);
+    return;
+  }
   for (s in streams) {
     let lines = splitLines(streams[s]);
     // Check for session level framerate attribute
@@ -1396,11 +1401,7 @@ const test_22_74_1 = (sdp, params) => {
       let framerateAttributePresent = false;
       let framerateParameterPresent = false;
       // First check if exactframerate is specified as a parameter of fmtp
-      let [mtParams, paramErrors] = extractMTParams(sdp, params);
-      if (paramErrors.length != 0) {
-        errors.push(paramErrors);
-      }
-      else if (mtParams[s - 1].exactframerate != null) {
+      if (mtParams[s - 1].exactframerate != null) {
         framerateParameterPresent = true;
       }
       // Now check if it's present as an media level attribute
