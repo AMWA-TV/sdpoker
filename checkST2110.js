@@ -1128,7 +1128,7 @@ const test_30_62_4 = (sdp, params) => {
       }
       let order = fmtpMatch[2];
       if (params.should && !order.startsWith('SMPTE2110')) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' should be specified by the 'ST 2110' convention, not '${order.split('.')[0]}', as per ST 2110-30 Section 6.2.2.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' should be specified by the 'SMPTE2110' convention, not '${order.split('.')[0]}', as per ST 2110-30 Section 6.2.2.`));
       }
       if (order.startsWith('SMPTE2110') && !smpteChannelPattern.test(order)) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' is not acceptable, as per ST 2110-30 Section 6.2.2.`));
