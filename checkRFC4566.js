@@ -13,8 +13,6 @@
   limitations under the License.
 */
 
-const concat = arrays => Array.prototype.concat.apply([], arrays);
-
 const badEndings = /[^\r]\n|\r[^\n]/;
 const hasNoNewlineAtEnd = /[^\r\n]$/;
 const blankLines = /\r\n?\r|\n\r?\n/;
@@ -148,9 +146,9 @@ const test_50_5 = lines => {
   return errors;
 };
 
+// Section 5 Test 6 - check no values contain the Nul character
 const test_50_6 = lines => {
   let errors = [];
-  // Test 6 - check no values contain the Nul character
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].slice(2).indexOf('\u0000') >= 0) {
       errors.push(new Error(`Line ${x + 1}: Value contains illegal Nul (0x00) character not permitted by RFC 4566 Section 5.`));
@@ -253,7 +251,7 @@ const test_57_2 = (sdp, params) => {
     if (lines[x].startsWith('c=')) {
       let cMatch = lines[x].match(cPattern);
       if (!cMatch) {
-        errors.push(new Error(`Line ${x + 1}: Connection data field does not match an acceptable pattern, as per RFC 4566 Section 5.7 and SMPTE 2110-10 Section 6.1.`));
+        errors.push(new Error(`Line ${x + 1}: Connection data field does not match an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
         continue;
       }
       if (params.useIP4 === true && cMatch[1] !== 'IP4') {

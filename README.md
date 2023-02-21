@@ -1,6 +1,6 @@
 # SDPoker
 
-CLI tool and library for testing SMPTE ST2110 Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), SMPTE ST 2110-10/20/30 and AES-67. The tool currently has 112 possible tests.
+CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES-67. The tool currently has 112 possible tests.
 
 Just because an SDP file passes these tests does not mean it is 100% valid. However, if it fails one of the tests, the file is likely to need some work!
 
@@ -62,7 +62,7 @@ The value of a fulfilled promise is the contents of an SDP file as a string. SDP
 
 ### Check RFC4566
 
-The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to SMPTE ST 2110. This is not an exhaustive SDP file tester.
+The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. This is not an exhaustive SDP file tester.
 
 For example:
 
@@ -94,9 +94,9 @@ The `params` parameter is an object that, when present, can be used to configure
 
 The return value of the method is an array of [Javascript Errors](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error). The array is empty if no errors occurred.
 
-### Check ST2110
+### Check ST 2110
 
-The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the SMPTE 2110-10/20/30 documents, and referenced standards such as AES-67 and SMPTE ST 2022-7, applying appropriate tests.
+The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30 documents, and referenced standards such as AES-67 and ST 2022-7, applying appropriate tests.
 
 For example:
 
@@ -131,6 +131,7 @@ The parameters of the library are binary flags that match the command line optio
 * `useIP6`: All addresses expressed in IP v6 notation.
 * `multicast`: Connection addresses must be multicast.
 * `unicast`: Connection addresses must be unicast.
+* `verbose`: Print out tests that pass to the console as well as failures.
 
 By default, all flags are `false`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
 

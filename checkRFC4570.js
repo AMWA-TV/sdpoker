@@ -63,7 +63,7 @@ const test_30_2 = sdp => {
   return errors;
 };
 
-// Section 3.0 Test 3 - Source-filters match addresses used in connection attributes
+// Section 3 Test 3 - Source-filters match addresses used in connection attributes
 const test_30_3 = sdp => {
   let lines = splitLines(sdp);
   let errors = [];
