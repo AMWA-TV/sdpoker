@@ -454,7 +454,6 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
-
 // Function to check that rtpmap is present and has passed in type and clockRate.  
 // An optional specification string can be used to be included in errors 
 // produced as a reference back to a spec
@@ -1045,7 +1044,6 @@ const test_30_62_1 = (sdp, params) => {
   return errors;
 };
 
-
 // ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling
 const test_30_62_3 = (sdp, params) => {
   let errors = [];
@@ -1208,11 +1206,11 @@ const test_21_81_2 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is a positive integer number of microseconds
+// ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is an acceptable value
 const test_21_82_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-21 Section 8.2 Test 1 - TROFF parameter is acceptable value. Use --shaping to test.');
+      console.log('Test Skipped: ST 2110-21 Section 8.2 Test 1 - When TROFF parameter specified, it is an acceptable value. Use --shaping to test.');
     }
     return [];
   }
@@ -1221,21 +1219,19 @@ const test_21_82_1 = (sdp, params) => {
     if (typeof stream.TROFF !== 'undefined') {
       let troff = +stream.TROFF;
       if (isNaN(troff)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TR OFFSET value is not a number, as per ST 2110-21 Section 8.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter is not a number, as per ST 2110-21 Section 8.2.`));
         continue;
       }
+      if (Number.isInteger(troff) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter is not an integer, as per ST 2110-21 Section 8.2.`));
+      }
       if (troff < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TR OFFSET cannot be negative, as per ST 2110-21 Section 8.2.`));
-      }
-      if (params.verbose && errors.length == 0) {
-        console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - TROFF parameter is an acceptable value ');
-      }    
-    }
-    else {
-      if (params.verbose && errors.length == 0) {
-        console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - TROFF parameter not present');
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter cannot be negative, as per ST 2110-21 Section 8.2.`));
       }
     }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - When TROFF parameter specified, it is an acceptable value.');
   }
   return errors;
 };
@@ -1244,7 +1240,7 @@ const test_21_82_1 = (sdp, params) => {
 const test_21_82_2 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-21 Section 8.2 Test 2 - When CMAX parameter specified it is an acceptable value. Use --shaping to test.');
+      console.log('Test Skipped: ST 2110-21 Section 8.2 Test 2 - When CMAX parameter specified, it is an acceptable value. Use --shaping to test.');
     }
     return [];
   }
@@ -1257,45 +1253,15 @@ const test_21_82_2 = (sdp, params) => {
         continue;
       }
       if (Number.isInteger(cmax) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, CMAX parameter in not an integer, as per ST 2110-21 Section 8.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, CMAX parameter is not an integer, as per ST 2110-21 Section 8.2.`));
       }
       if (cmax < 1) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, CMAX parameter makes no sense unless it is a positive value, as per ST 2110-21 Section 8.2.`));
       }
-      if (params.verbose && errors.length == 0) {
-        console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value.');
-      }
-    }
-    else {
-      if (params.verbose) {
-        console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - CMAX Not Present.');
-      }
-    }
-  }
-  return errors;
-};
-
-const typesPermitted22 = ['2110TPN', '2110TPNL', '2110TPW'];
-
-// ST 2110-22 Section 5.3 Test 1 - Traffic Shaping and Delivery Timing - TP parameter is an acceptable value
-// Note: this is almost identical to test_21_81_2 used for ST 2110-20
-const test_22_53_1 = (sdp, params) => {
-  if (params.shaping === false || params.audioOnly === true) {
-    if (params.verbose) {
-      console.log('Test Skipped: ST 2110-22 Section 5.3 Test 1 - TP parameter is an acceptable value. Use --shaping to test.');
-    }
-    return [];
-  }
-  let [mtParams, errors] = extractMTParams(sdp, params);
-  for (let stream of mtParams) {
-    if (typeof stream.TP !== 'undefined') {
-      if (typesPermitted22.indexOf(stream.TP) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPN', '2110TPW', '2110TPNL', as per ST 2110-22 Section 5.3`));
-      }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-22 Section 5.3 Test 1 - TP parameter is an acceptable value.');
+    console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When CMAX parameter specified, it is an acceptable value.');
   }
   return errors;
 };
@@ -1340,7 +1306,7 @@ const test_22_73_1 = (sdp, params) => {
   let sdpLineNumb = 1;
   let errors = [];
 
-  for (s in streams) {
+  for (let s = 0; s < streams.length; s++) {
     // First element from sdp.split is the session level section. Just move ahead the sdp line count
     if(s == 0) {
       let lines = splitLines(streams[s]);
@@ -1368,7 +1334,7 @@ const test_22_73_1 = (sdp, params) => {
       sdpLineNumb++;
     }
     if (!bandwidthPresent) {
-      errors.push(new Error(`Media Stream ${s}: Required bandwidth-field \'b=<bwtype>:<bandwidth>\' is missing, as per ST 2110-22 Section 7.3.`));
+      errors.push(new Error(`Media Stream ${s}: Required bandwidth-field 'b=<bwtype>:<bandwidth>' is missing, as per ST 2110-22 Section 7.3.`));
     }
   }
 
@@ -1389,7 +1355,7 @@ const test_22_74_1 = (sdp, params) => {
     errors.push(paramErrors);
     return;
   }
-  for (s in streams) {
+  for (let s = 0; s < streams.length; s++) {
     let lines = splitLines(streams[s]);
     // Check for session level framerate attribute
     if (s == 0) {
@@ -1507,11 +1473,6 @@ const section_21_82 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_22_53 = (sdp, params) => {
-  let tests = [test_22_53_1];
-  return concat(tests.map(t => t(sdp, params)));
-};
-
 const section_22_60 = (sdp, params) => {
   let tests = [test_22_60_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1572,8 +1533,8 @@ const allSections = (sdp, params) => {
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
         section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
-        section_21_81, section_21_82, section_22_53, section_22_60, section_22_72,
-        section_22_73, section_22_74];
+        section_21_81, section_21_82,
+        section_22_60, section_22_72, section_22_73, section_22_74];
       if (params.noCopy) {
         sections.push(no_copy_22);
       }
@@ -1616,7 +1577,6 @@ module.exports = {
   section_20_74,
   section_20_75,
   section_20_76,
-  section_22_53,
   section_22_60,
   section_22_72,
   section_22_73,
