@@ -1208,7 +1208,7 @@ const test_21_81_2 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is an acceptable value
+// ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is a positive integer number of microseconds
 const test_21_82_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
     if (params.verbose) {
@@ -1225,13 +1225,17 @@ const test_21_82_1 = (sdp, params) => {
         continue;
       }
       if (troff < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TR OFFSET cannot be negatibe, as per ST 2110-21 Section 8.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TR OFFSET cannot be negative, as per ST 2110-21 Section 8.2.`));
       }
-      // TODO not clear if this has to be an integer number of microseconds or can be a decimal value?
+      if (params.verbose && errors.length == 0) {
+        console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - TROFF parameter is an acceptable value ');
+      }    
     }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - TROFF parameter is an acceptable value ');
+    else {
+      if (params.verbose && errors.length == 0) {
+        console.log('Test Passed: ST 2110-21 Section 8.2 Test 1 - TROFF parameter not present');
+      }
+    }
   }
   return errors;
 };
@@ -1258,15 +1262,15 @@ const test_21_82_2 = (sdp, params) => {
       if (cmax < 1) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, CMAX parameter makes no sense unless it is a positive value, as per ST 2110-21 Section 8.2.`));
       }
+      if (params.verbose && errors.length == 0) {
+        console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value.');
+      }
     }
     else {
       if (params.verbose) {
-        console.log('Test Skipped: ST 2110-21 Section 8.2 Test 2 - CMAX Not Present.');
+        console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - CMAX Not Present.');
       }
     }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value.');
   }
   return errors;
 };
@@ -1568,7 +1572,7 @@ const allSections = (sdp, params) => {
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
         section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
-        section_22_53, section_22_60, section_22_72,
+        section_21_81, section_21_82, section_22_53, section_22_60, section_22_72,
         section_22_73, section_22_74];
       if (params.noCopy) {
         sections.push(no_copy_22);
