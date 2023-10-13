@@ -758,18 +758,31 @@ const test_20_72_4 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-20 Section 7.2 Test 5 - Check SSN is the required fixed value
+const ssnPermitted = ['ST2110-20:2017', 'ST2110-20:2022'];
+
+// ST 2110-20:2017 Section 7.2
+// ST 2110-20:2022 Section 7.2 Test 5 - Check SSN is the required fixed value
 const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
-      if (stream.SSN !== 'ST2110-20:2017') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2017', as per ST 2110-20 Section 7.2.`));
+      if (ssnPermitted.indexOf(stream.SSN) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2017' or 'ST2110-20:2022', as per ST 2110-20:2017 and ST 2110-20:2022 Section 7.2.`));
+      } else {
+        let detect2022tcs = typeof stream.TCS !== 'undefined' && stream.TCS === 'ST2115LOGS3';
+        let detect2022colorimetry = typeof stream.colorimetry !== 'undefined' && stream.colorimetry === 'ALPHA';
+
+        if ((detect2022tcs || detect2022colorimetry) && stream.SSN !== 'ST2110-20:2022') {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2022', as per ST 2110-20:2022 Section 7.2.`));
+        }
+        if (!(detect2022tcs || detect2022colorimetry) && stream.SSN === 'ST2110-20:2022') {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2017', as per ST 2110-20:2022 Section 7.2.`));
+        }
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
+    console.log('Test Passed: ST 2110-20:2017 and ST 2110-20:2022 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
   }
   return errors;
 };
@@ -916,17 +929,20 @@ const test_20_74_2 = (sdp, params) => {
   return errors;
 };
 
-const colorPermitted = [
+const colorPermitted2017 = [
   'BT601', 'BT709', 'BT2020', 'BT2100', 'ST2065-1',
   'ST2065-3', 'UNSPECIFIED', 'XYZ'];
 
-// ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
+const colorPermitted2022 = ['ALPHA'];
+
+// ST 2110-20:2017 Section 7.5
+// ST 2110-20:2022 Section 7.4 Test 1 - Colorimetry is a permitted value.
 const test_20_75_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.colorimetry !== 'undefined') {
-      if (colorPermitted.indexOf(stream.colorimetry) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5.`));
+      if (colorPermitted2017.indexOf(stream.colorimetry) < 0 && colorPermitted2022.indexOf(stream.colorimetry) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20:2017 Section 7.5 and ST 2110-20:2022 Section 7.4.`));
       }
     }
   }
@@ -958,23 +974,26 @@ const test_20_75_2 = (sdp, params) => {
   return errors;
 };
 
-const tcsPermitted = [
+const tcsPermitted2017 = [
   'SDR', 'PQ', 'HLG', 'LINEAR', 'BT2100LINPQ', 'BT2100LINHLG', 'ST2065-1',
   'ST428-1', 'DENSITY', 'UNSPECIFIED'
 ];
 
-// ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
+const tcsPermitted2022 = ['ST2115LOGS3'];
+
+// ST 2110-20:2017 Section 7.6 
+// ST 2110-20:2022 Section 7.5 Test 1 - TCS is a permitted value
 const test_20_76_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TCS !== 'undefined') {
-      if (tcsPermitted.indexOf(stream.TCS) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20 Section 7.6.`));
+      if (tcsPermitted2017.indexOf(stream.TCS) < 0 && tcsPermitted2022.indexOf(stream.TCS) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20:2017 Section 7.6 and ST 2110-20:2012 Section 7.5.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value');
+    console.log('Test Passed: ST 2110-20:2017 Section 7.6, ST 2110-20:2022 Section 7.5 Test 1 - TCS is a permitted value');
   }
   return errors;
 };
