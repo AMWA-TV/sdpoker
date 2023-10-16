@@ -101,7 +101,8 @@ a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0 
 a=mid:SECONDARY`;
 
-// ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
+// ST 2110-10:2017 Section 7.4
+// ST 2110-10:2022 Section 8.3 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
@@ -112,33 +113,35 @@ const test_10_74_1 = (sdp, params) => {
       zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
       for (let x = 0; x < zeroCheck.length; x++) {
         if (zeroCheck[x] !== 0) {
-          errors.push(new Error(`Stream ${s + 1}: The 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4.`));
+          errors.push(new Error(`Stream ${s + 1}: The 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10:2017 Section 7.4 and ST 2110-10:2022 Section 8.3.`));
         }
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero');
+    console.log('Test Passed: ST 2110-10 Section 7.4 and ST 2110-10:2022 Section 8.3 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero');
   }
   return errors;
 };
 
-// ST 2110-10 Section 8.1 Test 1 - Shell have media-level mediaclk per stream
+// ST 2110-10:2017 Section 8.1
+// ST 2110-10:2022 Section 8.3 Test 1 - Shell have media - level mediaclk per stream
 const test_10_81_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for (let s = 0; s < streams.length; s++) {
     if (!mediaclkPattern.test(streams[s])) {
-      errors.push(new Error(`Stream ${s + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10 Section 8.1.`));
+      errors.push(new Error(`Stream ${s + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10:2017 Section 8.1 and ST 2110-10:2022 Section 8.3.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 Test 1 - Shall have media-level mediaclk per stream');
+    console.log('Test Passed: ST 2110-10:2017 and ST 2110-10:2022 Section 8.3 Section 8.1 Test 1 - Shall have media-level mediaclk per stream');
   }
   return errors;
 };
 
-// ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
+// ST 2110-10:2017 Section 8.1 Test 2 - Should have mediaclk using direct reference
+// ST 2110-10:2022 Section 8.3 Test 2 - Shall have mediaclk using direct or sender reference
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
@@ -149,6 +152,7 @@ const test_10_81_2 = (sdp, params) => {
   let directCheck = sdp.match(mediaclkTypePattern);
   if (Array.isArray(directCheck) && directCheck.length > 0) {
     directCheck = directCheck.filter(x => !x.slice(1).startsWith('a=mediaclk:direct'));
+    directCheck = directCheck.filter(x => !x.slice(1).startsWith('a=mediaclk:sender'));
     // Log the Passed test if verbose outputs
     if (params.verbose && directCheck.length == 0) {
       console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference');
@@ -450,6 +454,30 @@ const test_10_62_1 = (sdp, params) => {
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10 Section 6.2 Test 1 - Media parameters present and all good.');
+  }
+  return errors;
+};
+
+const tsmodePermitted2022 = ['NEW', 'SAMP', 'PRES'];
+
+// ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay
+const test_10_87_1 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
+  for (let stream of mtParams) {
+    let keys = Object.keys(stream);
+    if (keys.indexOf('TSMODE') >= 0) {
+      if (tsmodePermitted2022.indexOf(stream.TSMODE) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSMODE' is not set to the required value as per ST 2110-10:2022 Section 8.7.`));
+      }
+    }
+    if (keys.indexOf('TSDELAY') >= 0) {
+      if(isNaN(stream.TSDELAY)) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSDELAY' is not set to the required value as per ST 2110-10:2022 Section 8.7.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay');
   }
   return errors;
 };
@@ -1445,6 +1473,11 @@ const section_10_83 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_10_87 = (sdp, params) => {
+  let tests = [test_10_87_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_20_71 = (sdp, params) => {
   let tests = [test_20_71_1, test_20_71_3, test_20_71_4];
   return concat(tests.map(t => t(sdp, params)));
@@ -1551,7 +1584,7 @@ const allSections = (sdp, params) => {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74];
       if (params.noCopy) {
@@ -1559,7 +1592,7 @@ const allSections = (sdp, params) => {
       }
     } else if (mtParams[0]._encodingName == 'raw') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
         section_20_71, section_20_72, section_20_73, section_20_74,
         section_20_75, section_20_76, section_21_81, section_21_82];
       if (params.noCopy) {
@@ -1568,16 +1601,16 @@ const allSections = (sdp, params) => {
     }
     else {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83];
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83,
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
       section_30_62];
   }
   else {
     sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83];
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87];
   }
 
   return concat(sections.map(s => s(sdp, params)));
@@ -1590,6 +1623,7 @@ module.exports = {
   section_10_81,
   section_10_82,
   section_10_83,
+  section_10_87,
   section_20_71,
   section_20_72,
   section_20_73,
