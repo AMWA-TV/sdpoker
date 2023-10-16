@@ -458,9 +458,9 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
-const tsmodePermitted2022 = ['NEW', 'SAMP', 'PRES'];
+const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
-// ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay
+// ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay, TSMODE and TSDELAY parameters are an acceptable value.
 const test_10_87_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
@@ -477,7 +477,7 @@ const test_10_87_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay');
+    console.log('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay, TSMODE and TSDELAY parameters are an acceptable value.');
   }
   return errors;
 };
