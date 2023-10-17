@@ -786,7 +786,7 @@ const test_20_72_4 = (sdp, params) => {
   return errors;
 };
 
-const ssnPermitted = ['ST2110-20:2017', 'ST2110-20:2022'];
+const ssnPermitted20 = ['ST2110-20:2017', 'ST2110-20:2022'];
 
 // ST 2110-20:2017 Section 7.2
 // ST 2110-20:2022 Section 7.2 Test 5 - Check SSN is the required fixed value
@@ -794,17 +794,17 @@ const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
-      if (ssnPermitted.indexOf(stream.SSN) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2017' or 'ST2110-20:2022', as per ST 2110-20:2017 and ST 2110-20:2022 Section 7.2.`));
+      if (ssnPermitted20.indexOf(stream.SSN) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20:2017 and ST 2110-20:2022 Section 7.2.`));
       } else {
         let detect2022tcs = typeof stream.TCS !== 'undefined' && stream.TCS === 'ST2115LOGS3';
         let detect2022colorimetry = typeof stream.colorimetry !== 'undefined' && stream.colorimetry === 'ALPHA';
 
         if ((detect2022tcs || detect2022colorimetry) && stream.SSN !== 'ST2110-20:2022') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2022', as per ST 2110-20:2022 Section 7.2.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20:2022 Section 7.2.`));
         }
         if (!(detect2022tcs || detect2022colorimetry) && stream.SSN === 'ST2110-20:2022') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value 'ST2110-20:2017', as per ST 2110-20:2022 Section 7.2.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20:2022 Section 7.2.`));
         }
       }
     }
@@ -1347,6 +1347,24 @@ const test_22_72_1 = (sdp, params) => {
   return errors;
 };
 
+const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
+
+// ST 2110-22:2022 Section 7.2 Test 2 - If present, check SSN is the required fixed value
+const test_22_72_2 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.SSN !== 'undefined') {
+      if (ssnPermitted22.indexOf(stream.SSN) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-22:2022 Section 7.2.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-22:2022 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
+  }
+  return errors;
+};
+
 // ST 2110-22 Section 7.3 Test 1 - Check for mandatory bandwidth-field in correct format
 const test_22_73_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
@@ -1531,7 +1549,7 @@ const section_22_60 = (sdp, params) => {
 };
 
 const section_22_72 = (sdp, params) => {
-  let tests = [test_22_72_1];
+  let tests = [test_22_72_1, test_22_72_2];
   return concat(tests.map(t => t(sdp, params)));
 };
 
