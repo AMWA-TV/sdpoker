@@ -1350,7 +1350,7 @@ const test_22_72_1 = (sdp, params) => {
 const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
 
 // ST 2110-22:2022 Section 7.2 Test 2 - If present, check SSN is the required fixed value
-const test_22_72_2 = (sdp, params) => {
+const test_22_2022_72_2 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
@@ -1549,7 +1549,7 @@ const section_22_60 = (sdp, params) => {
 };
 
 const section_22_72 = (sdp, params) => {
-  let tests = [test_22_72_1, test_22_72_2];
+  let tests = [test_22_72_1, test_22_2022_72_2];
   return concat(tests.map(t => t(sdp, params)));
 };
 
