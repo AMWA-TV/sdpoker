@@ -1349,8 +1349,8 @@ const test_22_72_1 = (sdp, params) => {
 
 const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
 
-// ST 2110-22:2022 Section 7.2 Test 2 - If present, check SSN is the required fixed value
-const test_22_2022_72_2 = (sdp, params) => {
+// ST 2110-22:2022 Section 7.2 Test 1 - If present, check SSN is the required fixed value
+const test_22_2022_72_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
@@ -1549,7 +1549,7 @@ const section_22_60 = (sdp, params) => {
 };
 
 const section_22_72 = (sdp, params) => {
-  let tests = [test_22_72_1, test_22_2022_72_2];
+  let tests = [test_22_72_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1560,6 +1560,11 @@ const section_22_73 = (sdp, params) => {
 
 const section_22_74 = (sdp, params) => {
   let tests = [test_22_74_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_22_2022_72 = (sdp, params) => {
+  let tests = [test_22_2022_72_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1604,7 +1609,7 @@ const allSections = (sdp, params) => {
       sections = [
         section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
         section_21_81, section_21_82,
-        section_22_60, section_22_72, section_22_73, section_22_74];
+          section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
       if (params.noCopy) {
         sections.push(no_copy_22);
       }
@@ -1652,6 +1657,7 @@ module.exports = {
   section_22_72,
   section_22_73,
   section_22_74,
+  section_22_2022_72,
   section_21_81,
   section_21_82
 };
