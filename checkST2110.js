@@ -101,8 +101,8 @@ a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0 
 a=mid:SECONDARY`;
 
-// ST 2110-10:2017 Section 7.4
-// ST 2110-10:2022 Section 8.3 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
+// ST 2110-10:2017 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
+// [Also ST 2110-10:2022 Section 8.3]
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
@@ -119,13 +119,13 @@ const test_10_74_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 7.4 and ST 2110-10:2022 Section 8.3 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero');
+    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Section 8.3] Test 1 - Where mediaclk:direct is used with PTP, offset value is zero');
   }
   return errors;
 };
 
-// ST 2110-10:2017 Section 8.1
-// ST 2110-10:2022 Section 8.3 Test 1 - Shell have media - level mediaclk per stream
+// ST 2110-10 Section 8.1 Test 1 - Shall have media-level mediaclk per stream
+// [Also ST 2110-10:2022 Section 8.3]
 const test_10_81_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
@@ -135,13 +135,13 @@ const test_10_81_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10:2017 and ST 2110-10:2022 Section 8.3 Section 8.1 Test 1 - Shall have media-level mediaclk per stream');
+    console.log('Test Passed: ST 2110-10:2017 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 1 - Shall have media-level mediaclk per stream');
   }
   return errors;
 };
 
 // ST 2110-10:2017 Section 8.1 Test 2 - Should have mediaclk using direct reference
-// ST 2110-10:2022 Section 8.3 Test 2 - Shall have mediaclk using direct or sender reference
+// [Also ST 2110-10:2022 Section 8.3 - Shall have mediaclk using direct or sender reference]
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
@@ -788,8 +788,8 @@ const test_20_72_4 = (sdp, params) => {
 
 const ssnPermitted20 = ['ST2110-20:2017', 'ST2110-20:2022'];
 
-// ST 2110-20:2017 Section 7.2
-// ST 2110-20:2022 Section 7.2 Test 5 - Check SSN is the required fixed value
+// ST 2110-20:2017 Section 7.2 Test 5 - Check SSN is the required fixed value
+// [also ST 2110-20:2022 Section 7.2]
 const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
@@ -1360,7 +1360,7 @@ const test_22_72_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-22:2022 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
+    console.log('Test Passed: ST 2110-22:2022 Section 7.2 Test 2 - SSN is the required fixed value.');
   }
   return errors;
 };
