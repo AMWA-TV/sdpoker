@@ -101,7 +101,7 @@ a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0 
 a=mid:SECONDARY`;
 
-// ST 2110-10:2017 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
+// ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
 // [Also ST 2110-10:2022 Section 8.3]
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
@@ -113,7 +113,7 @@ const test_10_74_1 = (sdp, params) => {
       zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
       for (let x = 0; x < zeroCheck.length; x++) {
         if (zeroCheck[x] !== 0) {
-          errors.push(new Error(`Stream ${s + 1}: The 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10:2017 Section 7.4 and ST 2110-10:2022 Section 8.3.`));
+          errors.push(new Error(`Stream ${s + 1}: The 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Section 8.3].`));
         }
       }
     }
@@ -131,16 +131,16 @@ const test_10_81_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   for (let s = 0; s < streams.length; s++) {
     if (!mediaclkPattern.test(streams[s])) {
-      errors.push(new Error(`Stream ${s + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10:2017 Section 8.1 and ST 2110-10:2022 Section 8.3.`));
+      errors.push(new Error(`Stream ${s + 1}: Each stream description shall have a media-level 'mediaclk' attribute, as per ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3].`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10:2017 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 1 - Shall have media-level mediaclk per stream');
+    console.log('Test Passed: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 1 - Shall have media-level mediaclk per stream');
   }
   return errors;
 };
 
-// ST 2110-10:2017 Section 8.1 Test 2 - Should have mediaclk using direct reference
+// ST 2110-10 Section 8.1 Test 2 - Should have mediaclk using direct reference
 // [Also ST 2110-10:2022 Section 8.3 - Shall have mediaclk using direct or sender reference]
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
@@ -788,14 +788,14 @@ const test_20_72_4 = (sdp, params) => {
 
 const ssnPermitted20 = ['ST2110-20:2017', 'ST2110-20:2022'];
 
-// ST 2110-20:2017 Section 7.2 Test 5 - Check SSN is the required fixed value
+// ST 2110-20 Section 7.2 Test 5 - Check SSN is the required fixed value
 // [also ST 2110-20:2022 Section 7.2]
 const test_20_72_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
       if (ssnPermitted20.indexOf(stream.SSN) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20:2017 and ST 2110-20:2022 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20 [also ST 2110-20:2022 Section 7.2].`));
       } else {
         let detect2022tcs = typeof stream.TCS !== 'undefined' && stream.TCS === 'ST2115LOGS3';
         let detect2022colorimetry = typeof stream.colorimetry !== 'undefined' && stream.colorimetry === 'ALPHA';
@@ -810,7 +810,7 @@ const test_20_72_5 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20:2017 and ST 2110-20:2022 Section 7.2 Test 5 - SSN is the required fixed value \'ST 2110-20:2017\'');
+    console.log('Test Passed: ST 2110-20 Section 7.2 [also ST 2110-20:2022 Section 7.2] Test 5 - SSN is the required fixed value.');
   }
   return errors;
 };
@@ -963,14 +963,14 @@ const colorPermitted2017 = [
 
 const colorPermitted2022 = ['ALPHA'];
 
-// ST 2110-20:2017 Section 7.5
-// ST 2110-20:2022 Section 7.4 Test 1 - Colorimetry is a permitted value.
+// ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
+// [also ST 2110-20:2022 Section 7.4]
 const test_20_75_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.colorimetry !== 'undefined') {
       if (colorPermitted2017.indexOf(stream.colorimetry) < 0 && colorPermitted2022.indexOf(stream.colorimetry) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20:2017 Section 7.5 and ST 2110-20:2022 Section 7.4.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5 [also ST 2110-20:2022 Section 7.4].`));
       }
     }
   }
@@ -1009,19 +1009,19 @@ const tcsPermitted2017 = [
 
 const tcsPermitted2022 = ['ST2115LOGS3'];
 
-// ST 2110-20:2017 Section 7.6 
-// ST 2110-20:2022 Section 7.5 Test 1 - TCS is a permitted value
+// ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
+// [also ST 2110-20:2022 Section 7.5]
 const test_20_76_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TCS !== 'undefined') {
       if (tcsPermitted2017.indexOf(stream.TCS) < 0 && tcsPermitted2022.indexOf(stream.TCS) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20:2017 Section 7.6 and ST 2110-20:2012 Section 7.5.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20 Section 7.6 [also ST 2110-20:2012 Section 7.5].`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20:2017 Section 7.6, ST 2110-20:2022 Section 7.5 Test 1 - TCS is a permitted value');
+    console.log('Test Passed: ST 2110-20 Section 7.6 [also ST 2110-20:2022 Section 7.5] Test 1 - TCS is a permitted value');
   }
   return errors;
 };
