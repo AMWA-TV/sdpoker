@@ -1217,7 +1217,7 @@ const test_30_62_5 = (sdp, params) => {
 
 // ST 2110-21 Section 8.1 Test 1 - When traffic shaping, TP parameter is specified.
 const test_21_81_1 = (sdp, params) => {
-  if (params.shaping === false || params.audioOnly === true) {
+  if (params.shaping === false) {
     if (params.verbose) {
       console.log('Test Skipped: ST 2110-21 Section 8.1 Test 1 - TP parameter is specified. Use --shaping to test.');
     }
@@ -1239,7 +1239,7 @@ const typesPermitted = ['2110TPN', '2110TPNL', '2110TPW'];
 
 // ST 2110-21 Section 8.1 Test 2 - When traffic shaping, TP parameter is an acceptable value
 const test_21_81_2 = (sdp, params) => {
-  if (params.shaping === false || params.audioOnly === true) {
+  if (params.shaping === false) {
     if (params.verbose) {
       console.log('Test Skipped: ST 2110-21 Section 8.1 Test 2 - TP parameter is acceptable value. Use --shaping to test.');
     }
@@ -1277,7 +1277,7 @@ const checkTroff = (stream = {}) => {
 
 // ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is an acceptable value
 const test_21_82_1 = (sdp, params) => {
-  if (params.shaping === false || params.audioOnly === true) {
+  if (params.shaping === false) {
     if (params.verbose) {
       console.log('Test Skipped: ST 2110-21 Section 8.2 Test 1 - When TROFF parameter specified, it is an acceptable value. Use --shaping to test.');
     }
@@ -1297,7 +1297,7 @@ const test_21_82_1 = (sdp, params) => {
 
 // ST 2110-21 Section 8.2 Test 2 - When traffic shaping and CMAX parameter specified, it is an acceptable value
 const test_21_82_2 = (sdp, params) => {
-  if (params.shaping === false || params.audioOnly === true) {
+  if (params.shaping === false) {
     if (params.verbose) {
       console.log('Test Skipped: ST 2110-21 Section 8.2 Test 2 - When CMAX parameter specified, it is an acceptable value. Use --shaping to test.');
     }
