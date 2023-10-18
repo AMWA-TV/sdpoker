@@ -47,7 +47,7 @@ const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
-const skipVideoTypes = ['smpte291', 'vc2', 'SMPTE2022-6'];
+const skipVideoTypes = ['vc2', 'SMPTE2022-6'];
 
 const specExample20 = `v=0
 o=- 123456 11 IN IP4 192.168.100.2
@@ -729,37 +729,43 @@ const test_20_72_2 = (sdp, params) => {
 
 const greatestCommonDivisor = (a, b) => !b ? a : greatestCommonDivisor(b, a % b);
 
+const checkExactframerate = (stream = {}) => {
+  let errors = [];
+  let frMatch = stream.exactframerate.match(frameRatePattern);
+  if (!frMatch) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per ST 2110-20 Section 7.2.`));
+    return errors;
+  }
+  let numerator = +frMatch[1];
+  if (isNaN(numerator)) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a numerator that is not an integer, as per ST 2110-20 Section 7.2.`));
+  }
+  if (!frMatch[2]) { // Non-integer value tests
+    return errors;
+  }
+  let denominator = +frMatch[2];
+  if (isNaN(denominator)) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a denominator that is not an integer, as per ST 2110-20 Section 7.2.`));
+    return errors;
+  }
+  if (Number.isInteger(numerator / denominator)) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' is an integer rate expressed as a non-integer rational, as per ST 2110-20 Section 7.2.`));
+  }
+  if (denominator > numerator) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate slower than one per second. Unlikely. Parameter order correct?`));
+  }
+  if (greatestCommonDivisor(numerator, denominator) !== 1) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate using integer values that are not the minimum possible, as per ST 2110-20 Section 7.2.`));
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.2 Test 3 - Exactframerate is as specified
 const test_20_72_3 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.exactframerate !== 'undefined') {
-      let frMatch = stream.exactframerate.match(frameRatePattern);
-      if (!frMatch) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per ST 2110-20 Section 7.2.`));
-        continue;
-      }
-      let numerator = +frMatch[1];
-      if (isNaN(numerator)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a numerator that is not an integer, as per ST 2110-20 Section 7.2.`));
-      }
-      if (!frMatch[2]) { // Non-integer value tests
-        continue;
-      }
-      let denominator = +frMatch[2];
-      if (isNaN(denominator)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a denominator that is not an integer, as per ST 2110-20 Section 7.2.`));
-        continue;
-      }
-      if (Number.isInteger(numerator / denominator)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' is an integer rate expressed as a non-integer rational, as per ST 2110-20 Section 7.2.`));
-      }
-      if (denominator > numerator) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate slower than one per second. Unlikely. Parameter order correct?`));
-      }
-      if (greatestCommonDivisor(numerator, denominator) !== 1) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate using integer values that are not the minimum possible, as per ST 2110-20 Section 7.2.`));
-      }
+      errors = errors.concat(checkExactframerate(stream));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -1253,6 +1259,22 @@ const test_21_81_2 = (sdp, params) => {
   return errors;
 };
 
+const checkTroff = (stream = {}) => {
+  let errors = [];
+  let troff = +stream.TROFF;
+  if (isNaN(troff)) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter is not a number, as per ST 2110-21 Section 8.2.`));
+    return errors;
+  }
+  if (Number.isInteger(troff) === false) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter is not an integer, as per ST 2110-21 Section 8.2.`));
+  }
+  if (troff < 0) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter cannot be negative, as per ST 2110-21 Section 8.2.`));
+  }
+  return errors;
+};
+
 // ST 2110-21 Section 8.2 Test 1 - When traffic shaping and TROFF parameter specified, it is an acceptable value
 const test_21_82_1 = (sdp, params) => {
   if (params.shaping === false || params.audioOnly === true) {
@@ -1264,17 +1286,7 @@ const test_21_82_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TROFF !== 'undefined') {
-      let troff = +stream.TROFF;
-      if (isNaN(troff)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter is not a number, as per ST 2110-21 Section 8.2.`));
-        continue;
-      }
-      if (Number.isInteger(troff) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter is not an integer, as per ST 2110-21 Section 8.2.`));
-      }
-      if (troff < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, TROFF parameter cannot be negative, as per ST 2110-21 Section 8.2.`));
-      }
+      errors = errors.concat(checkTroff(stream));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -1466,6 +1478,83 @@ const test_22_74_1 = (sdp, params) => {
   return errors;
 };
 
+const ssnPermitted40 = ['ST2110-40:2018', 'ST2110-40:2021'];
+
+// ST 2110-40:2023 Section 7 Test 1 - Check SSN is the required fixed value
+const test_40_2023_7_1 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.SSN !== 'undefined') {
+      if (ssnPermitted40.indexOf(stream.SSN) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-40:2023 Section 7.`));
+      } else {
+        let detect2023tm = typeof stream.TM !== 'undefined';
+
+        if (detect2023tm && stream.SSN === 'ST2110-40:2018') {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-40:2023 Section 7.`));
+        }
+        if (!detect2023tm && stream.SSN !== 'ST2110-40:2018') {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-40:2023 Section 7.`));
+        }
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-40:2023 Section 7 Test 1 - SSN is the required fixed value.');
+  }
+  return errors;
+};
+
+const tmPermitted40 = ['CTM', 'LLTM'];
+
+// ST 2110-40:2023 Section 7 Test 2 - If present, check TM is the required fixed value
+const test_40_2023_7_2 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.TM !== 'undefined') {
+      if (tmPermitted40.indexOf(stream.TM) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TM' is not set to the required value as per ST 2110-40:2023 Section 7.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-40:2023 Section 7 Test 2 - TM is the required fixed value.');
+  }
+  return errors;
+};
+
+// ST 2110-40:2023 Section 7 Test 3 - Exactframerate is as specified
+const test_40_2023_7_3 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.SSN !== 'undefined' && stream.SSN !== 'ST2110-40:2018') {
+      if(typeof stream.exactframerate === 'undefined') {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' is not set to the required value as per ST 2110-40:2023 Section 7.`));
+      } else {
+        errors = errors.concat(checkExactframerate(stream));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-40:2023 Section 7 Test 3 - Exactframerate is as specified.');
+  }
+  return errors;
+};
+
+// ST 2110-40:2023 Section 7 Test 4 - When TROFF parameter specified it is an acceptable value
+const test_40_2023_7_4 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.TROFF !== 'undefined') {
+      errors = errors.concat(checkTroff(stream));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-40:2023 Section 7 Test 4 - When TROFF parameter specified it is an acceptable value.');
+  }
+  return errors;
+};
+
 const section_10_62 = (sdp, params) => {
   let tests = [test_10_62_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1568,6 +1657,11 @@ const section_22_2022_72 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_40_2023_7 = (sdp, params) => {
+  let tests = [test_40_2023_7_1, test_40_2023_7_2, test_40_2023_7_3, test_40_2023_7_4];
+  return concat(tests.map(t => t(sdp, params)));
+};
+    
 const no_copy = (sdp, specSDP) => {
   let lines = splitLines(sdp.trim());
   let exlines = splitLines(specSDP);
@@ -1609,7 +1703,7 @@ const allSections = (sdp, params) => {
       sections = [
         section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
         section_21_81, section_21_82,
-          section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
+        section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
       if (params.noCopy) {
         sections.push(no_copy_22);
       }
@@ -1621,8 +1715,9 @@ const allSections = (sdp, params) => {
       if (params.noCopy) {
         sections.push(no_copy_20);
       }
-    }
-    else {
+    } else if (mtParams[0]._encodingName == 'smpte291') {
+      sections = [section_40_2023_7];
+    } else {
       sections = [
         section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87];
     }
