@@ -1716,8 +1716,8 @@ const allSections = (sdp, params) => {
         sections.push(no_copy_20);
       }
     } else if (mtParams[0]._encodingName == 'smpte291') {
-      sections = [section_10_62, section_10_74, section_10_81, section_10_82,
-        section_10_83, section_10_2022_87, section_40_2023_7];
+      sections = [section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        section_40_2023_7];
     } else {
       sections = [
         section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
