@@ -461,7 +461,7 @@ const test_10_62_1 = (sdp, params) => {
 const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
 // ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay, TSMODE and TSDELAY parameters are an acceptable value.
-const test_10_87_1 = (sdp, params) => {
+const test_10_2022_87_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
     let keys = Object.keys(stream);
@@ -1580,8 +1580,8 @@ const section_10_83 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_10_87 = (sdp, params) => {
-  let tests = [test_10_87_1];
+const section_10_2022_87 = (sdp, params) => {
+  let tests = [test_10_2022_87_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1701,7 +1701,7 @@ const allSections = (sdp, params) => {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
       if (params.noCopy) {
@@ -1709,7 +1709,7 @@ const allSections = (sdp, params) => {
       }
     } else if (mtParams[0]._encodingName == 'raw') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
         section_20_71, section_20_72, section_20_73, section_20_74,
         section_20_75, section_20_76, section_21_81, section_21_82];
       if (params.noCopy) {
@@ -1719,16 +1719,16 @@ const allSections = (sdp, params) => {
       sections = [section_40_2023_7];
     } else {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87];
+        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87,
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
       section_30_62];
   }
   else {
     sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_87];
+      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
   }
 
   return concat(sections.map(s => s(sdp, params)));
@@ -1741,7 +1741,7 @@ module.exports = {
   section_10_81,
   section_10_82,
   section_10_83,
-  section_10_87,
+  section_10_2022_87,
   section_20_71,
   section_20_72,
   section_20_73,
