@@ -806,10 +806,10 @@ const test_20_72_5 = (sdp, params) => {
         let detect2022tcs = typeof stream.TCS !== 'undefined' && stream.TCS === 'ST2115LOGS3';
         let detect2022colorimetry = typeof stream.colorimetry !== 'undefined' && stream.colorimetry === 'ALPHA';
 
-        if ((detect2022tcs || detect2022colorimetry) && stream.SSN !== 'ST2110-20:2022') {
+        if ((detect2022tcs || detect2022colorimetry) && stream.SSN === 'ST2110-20:2017') {
           errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20:2022 Section 7.2.`));
         }
-        if (!(detect2022tcs || detect2022colorimetry) && stream.SSN === 'ST2110-20:2022') {
+        if (!(detect2022tcs || detect2022colorimetry) && stream.SSN !== 'ST2110-20:2017') {
           errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to the required value as per ST 2110-20:2022 Section 7.2.`));
         }
       }
