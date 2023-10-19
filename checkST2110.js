@@ -1756,5 +1756,6 @@ module.exports = {
   section_22_74,
   section_22_2022_72,
   section_21_81,
-  section_21_82
+  section_21_82,
+  section_40_2023_7
 };
