@@ -963,11 +963,11 @@ const test_20_74_2 = (sdp, params) => {
   return errors;
 };
 
-const colorPermitted2017 = [
+const colorPermitted20_2017 = [
   'BT601', 'BT709', 'BT2020', 'BT2100', 'ST2065-1',
   'ST2065-3', 'UNSPECIFIED', 'XYZ'];
 
-const colorPermitted2022 = ['ALPHA'];
+const colorPermitted20_2022 = ['ALPHA'];
 
 // ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
 // [also ST 2110-20:2022 Section 7.4]
@@ -975,7 +975,7 @@ const test_20_75_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.colorimetry !== 'undefined') {
-      if (colorPermitted2017.indexOf(stream.colorimetry) < 0 && colorPermitted2022.indexOf(stream.colorimetry) < 0) {
+      if (colorPermitted20_2017.indexOf(stream.colorimetry) < 0 && colorPermitted20_2022.indexOf(stream.colorimetry) < 0) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5 [also ST 2110-20:2022 Section 7.4].`));
       }
     }
@@ -1008,12 +1008,12 @@ const test_20_75_2 = (sdp, params) => {
   return errors;
 };
 
-const tcsPermitted2017 = [
+const tcsPermitted20_2017 = [
   'SDR', 'PQ', 'HLG', 'LINEAR', 'BT2100LINPQ', 'BT2100LINHLG', 'ST2065-1',
   'ST428-1', 'DENSITY', 'UNSPECIFIED'
 ];
 
-const tcsPermitted2022 = ['ST2115LOGS3'];
+const tcsPermitted20_2022 = ['ST2115LOGS3'];
 
 // ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
 // [also ST 2110-20:2022 Section 7.5]
@@ -1021,7 +1021,7 @@ const test_20_76_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TCS !== 'undefined') {
-      if (tcsPermitted2017.indexOf(stream.TCS) < 0 && tcsPermitted2022.indexOf(stream.TCS) < 0) {
+      if (tcsPermitted20_2017.indexOf(stream.TCS) < 0 && tcsPermitted20_2022.indexOf(stream.TCS) < 0) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20 Section 7.6 [also ST 2110-20:2012 Section 7.5].`));
       }
     }
