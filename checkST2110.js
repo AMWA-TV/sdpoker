@@ -471,7 +471,7 @@ const test_10_2022_87_1 = (sdp, params) => {
       }
     }
     if (keys.indexOf('TSDELAY') >= 0) {
-      if(isNaN(stream.TSDELAY)) {
+      if (isNaN(stream.TSDELAY)) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSDELAY' is not set to the required value as per ST 2110-10:2022 Section 8.7.`));
       }
     }
@@ -482,8 +482,8 @@ const test_10_2022_87_1 = (sdp, params) => {
   return errors;
 };
 
-// Function to check that rtpmap is present and has passed in type and clockRate.  
-// An optional specification string can be used to be included in errors 
+// Function to check that rtpmap is present and has passed in type and clockRate.
+// An optional specification string can be used to be included in errors
 // produced as a reference back to a spec
 const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
   let errors = [];
@@ -1385,7 +1385,7 @@ const test_22_73_1 = (sdp, params) => {
 
   for (let s = 0; s < streams.length; s++) {
     // First element from sdp.split is the session level section. Just move ahead the sdp line count
-    if(s == 0) {
+    if (s == 0) {
       let lines = splitLines(streams[s]);
       sdpLineNumb += lines.length;
       continue;
@@ -1462,7 +1462,7 @@ const test_22_74_1 = (sdp, params) => {
         }
         sdpLineNumb++;
       }
-      // If neither exactframerate or framerate attribute present and sessionFramerate not specified- load up error 
+      // If neither exactframerate or framerate attribute present and sessionFramerate not specified, load up error
       if (!framerateAttributePresent && !framerateParameterPresent) {
         errors.push(new Error(`Media Stream ${s}: Framerate must specified as either an attribute or a parameter of video fmtp as per ST 2110-22 Section 7.4.`));
       }
@@ -1528,7 +1528,7 @@ const test_40_2023_7_3 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined' && stream.SSN !== 'ST2110-40:2018') {
-      if(typeof stream.exactframerate === 'undefined') {
+      if (typeof stream.exactframerate === 'undefined') {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' is not set to the required value as per ST 2110-40:2023 Section 7.`));
       } else {
         errors = errors.concat(checkExactframerate(stream));
@@ -1661,7 +1661,7 @@ const section_40_2023_7 = (sdp, params) => {
   let tests = [test_40_2023_7_1, test_40_2023_7_2, test_40_2023_7_3, test_40_2023_7_4];
   return concat(tests.map(t => t(sdp, params)));
 };
-    
+
 const no_copy = (sdp, specSDP) => {
   let lines = splitLines(sdp.trim());
   let exlines = splitLines(specSDP);
