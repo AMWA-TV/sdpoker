@@ -75,30 +75,30 @@ a=mid:secondary`;
 
 // Example SDP data from VSF TR-08:2022 Appendix A
 // See https://videoservicesforum.com/download/technical_recommendations/VSF_TR-08_2022-04-20.pdf
-const specExample22 = `v=0 
-o=- 101202 53 IN IP4 10.0.81.54 
-s=237.0.0.50:22000 
-i=Nmos Testing 237.0.0.50:22000 
-t=0 0 
-a=recvonly 
-a=group:DUP PRIMARY SECONDARY 
-m=video 22000 RTP/AVP 98 
-c=IN IP4 237.0.0.50/32 
-a=source-filter: incl IN IP4 237.0.0.50 10.0.81.54 
-a=rtpmap:98 jxsv/90000 
-a=fmtp:98 sampling=YCbCr-4:2:2;width=1280;height=720;packetmode=0;exactframerate=60000/1001;depth=10;TCS=SDR;colorimetry=BT709;SSN=ST2110-22:2019;TP=2110TPN;level=1k-1;sublevel=Sublev3bpp 
-b=AS:116000 
-a=ssrc:0 cname:nmos@nmos.tv 
-a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127 
-a=mediaclk:direct=0 
-a=mid:PRIMARY m=video 22000 RTP/AVP 98 
-c=IN IP4 237.64.0.50/32 
-a=source-filter: incl IN IP4 237.64.0.50 10.0.81.154 
-a=rtpmap:98 jxsv/90000 
-a=fmtp:98 sampling=YCbCr-4:2:2;width=1280;height=720;packetmode=0;exactframerate=60000/1001;depth=10;TCS=SDR;colorimetry=BT709;SSN=ST2110-22:2019;TP=2110TPN;level=1k-1;sublevel=Sublev3bpp 
-b=AS:116000 a=ssrc:0 cname:nmos@nmos.tv 
-a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127 
-a=mediaclk:direct=0 
+const specExample22 = `v=0
+o=- 101202 53 IN IP4 10.0.81.54
+s=237.0.0.50:22000
+i=Nmos Testing 237.0.0.50:22000
+t=0 0
+a=recvonly
+a=group:DUP PRIMARY SECONDARY
+m=video 22000 RTP/AVP 98
+c=IN IP4 237.0.0.50/32
+a=source-filter: incl IN IP4 237.0.0.50 10.0.81.54
+a=rtpmap:98 jxsv/90000
+a=fmtp:98 sampling=YCbCr-4:2:2;width=1280;height=720;packetmode=0;exactframerate=60000/1001;depth=10;TCS=SDR;colorimetry=BT709;SSN=ST2110-22:2019;TP=2110TPN;level=1k-1;sublevel=Sublev3bpp
+b=AS:116000
+a=ssrc:0 cname:nmos@nmos.tv
+a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
+a=mediaclk:direct=0
+a=mid:PRIMARY m=video 22000 RTP/AVP 98
+c=IN IP4 237.64.0.50/32
+a=source-filter: incl IN IP4 237.64.0.50 10.0.81.154
+a=rtpmap:98 jxsv/90000
+a=fmtp:98 sampling=YCbCr-4:2:2;width=1280;height=720;packetmode=0;exactframerate=60000/1001;depth=10;TCS=SDR;colorimetry=BT709;SSN=ST2110-22:2019;TP=2110TPN;level=1k-1;sublevel=Sublev3bpp
+b=AS:116000 a=ssrc:0 cname:nmos@nmos.tv
+a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
+a=mediaclk:direct=0
 a=mid:SECONDARY`;
 
 // ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
