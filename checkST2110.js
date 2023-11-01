@@ -71,10 +71,12 @@ a=rtpmap:112 raw/90000
 a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; exactframerate=60000/1001; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017;
 a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
 a=mediaclk:direct=0
-a=mid:secondary`;
+a=mid:secondary
+`;
 
 // Example SDP data from VSF TR-08:2022 Appendix A
 // See https://videoservicesforum.com/download/technical_recommendations/VSF_TR-08_2022-04-20.pdf
+// NOTE: this example in this revision of TR-08 still has some syntax errors (b= lines are in wrong position, and the sampling and level values do not use the correct '-' character)
 const specExample22 = `v=0
 o=- 101202 53 IN IP4 10.0.81.54
 s=237.0.0.50:22000
@@ -91,15 +93,18 @@ b=AS:116000
 a=ssrc:0 cname:nmos@nmos.tv
 a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0
-a=mid:PRIMARY m=video 22000 RTP/AVP 98
+a=mid:PRIMARY
+m=video 22000 RTP/AVP 98
 c=IN IP4 237.64.0.50/32
 a=source-filter: incl IN IP4 237.64.0.50 10.0.81.154
 a=rtpmap:98 jxsv/90000
 a=fmtp:98 sampling=YCbCr-4:2:2;width=1280;height=720;packetmode=0;exactframerate=60000/1001;depth=10;TCS=SDR;colorimetry=BT709;SSN=ST2110-22:2019;TP=2110TPN;level=1k-1;sublevel=Sublev3bpp
-b=AS:116000 a=ssrc:0 cname:nmos@nmos.tv
+b=AS:116000
+a=ssrc:0 cname:nmos@nmos.tv
 a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0
-a=mid:SECONDARY`;
+a=mid:SECONDARY
+`;
 
 // NOTE: all ST 2110 references are for the originally published specifications unless a later revision is indicated
 
