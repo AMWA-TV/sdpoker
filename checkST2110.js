@@ -101,7 +101,7 @@ a=ts-refclk:ptp=IEEE1588-2008:08-00-11-FF-FE-22-91-3C:127
 a=mediaclk:direct=0
 a=mid:SECONDARY`;
 
-// NOTE: all ST 2110 references are for the originally published specifications unless otherwise indicated
+// NOTE: all ST 2110 references are for the originally published specifications unless a later revision is indicated
 
 // ST 2110-10 Section 7.4 Test 1 - Where mediaclk:direct is used with PTP, offset value is zero
 // [Also ST 2110-10:2022 Section 8.3]
