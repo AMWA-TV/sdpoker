@@ -138,7 +138,7 @@ const test_50_5 = lines => {
     let movingOn = followedBy[state][types[x - 1]];
     nextState = movingOn ? movingOn : nextState;
     if (Object.keys(nextState).indexOf(types[x]) < 0) {
-      errors.push(new Error(`Line ${x + 1}: SDP type '${types[x - 1]}' cannot be followed by type '${types[x]}', as per the fixed order or RFC 4566 Section 5.`));
+      errors.push(new Error(`Line ${x + 1}: SDP type '${types[x - 1]}' cannot be followed by type '${types[x]}', as per the fixed order of RFC 4566 Section 5.`));
     } else {
       state = nextState[types[x]];
     }
