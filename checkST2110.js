@@ -736,6 +736,15 @@ const test_20_72_2 = (sdp, params) => {
 
 const greatestCommonDivisor = (a, b) => !b ? a : greatestCommonDivisor(b, a % b);
 
+
+/* 
+Function to check ST 2110-20 Section 7.2
+Checks for integer numerator/denominator when required
+Checks if frame rate expressed as a ratio of integers is in lowest common denominator form.
+
+**_exactframerate Signals the frame rate in frames per second. Integer frame rates shall be signaled as a single decimal number (e.g. “25”) whilst non-integer frame rates shall be signaled as a ratio of two integer decimal numbers separated by a “forward-slash”_**
+
+*/
 const checkExactframerate = (stream = {}) => {
   let errors = [];
   let frMatch = stream.exactframerate.match(frameRatePattern);
