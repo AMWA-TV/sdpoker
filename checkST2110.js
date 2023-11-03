@@ -1275,6 +1275,8 @@ const test_21_81_2 = (sdp, params) => {
   return errors;
 };
 
+/* When troff (Transmit offset) is present it must be expressed as a positive integer. This function checks for conformance with ST2110-21 Section  8.2.
+*/
 const checkTroff = (stream = {}) => {
   let errors = [];
   let troff = +stream.TROFF;
