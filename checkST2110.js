@@ -752,18 +752,11 @@ const checkExactframerate = (stream = {}) => {
     errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per ST 2110-20 Section 7.2.`));
     return errors;
   }
-  let numerator = +frMatch[1];
-  if (isNaN(numerator)) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a numerator that is not an integer, as per ST 2110-20 Section 7.2.`));
-  }
   if (!frMatch[2]) { // Non-integer value tests
     return errors;
   }
+  let numerator = +frMatch[1];
   let denominator = +frMatch[2];
-  if (isNaN(denominator)) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' has a denominator that is not an integer, as per ST 2110-20 Section 7.2.`));
-    return errors;
-  }
   if (Number.isInteger(numerator / denominator)) {
     errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' is an integer rate expressed as a non-integer rational, as per ST 2110-20 Section 7.2.`));
   }
@@ -1390,7 +1383,7 @@ const test_22_2022_72_1 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-22:2022 Section 7.2 Test 2 - SSN is the required fixed value.');
+    console.log('Test Passed: ST 2110-22:2022 Section 7.2 Test 2 - SSN if present is the required fixed value.');
   }
   return errors;
 };
@@ -1474,7 +1467,7 @@ const test_22_74_1 = (sdp, params) => {
         if (lines[x].startsWith('a=framerate')) {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
           if (framerateMatch == null) {
-            errors.push(new Error(`Line ${sdpLineNumb}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.3.`));
+            errors.push(new Error(`Line ${sdpLineNumb}: In 'a=framerate:<frame rate>' framerate must be a number (no trailing '.' or '0's) as per ST 2110-22 Section 7.4.`));
           }
           framerateAttributePresent = true;
         }
@@ -1505,12 +1498,15 @@ Senders implementing this standard shall signal a Format Specific Parameter SSN 
 const test_40_2023_7_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
+    let detect2023tm = typeof stream.TM !== 'undefined';
+    // SSN required in ST 2110-40:2023 but not required in ST 2110-40:2018
+    if (typeof stream.SSN === 'undefined' && detect2023tm) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to a required value as per ST 2110-40:2023 Section 7.`));
+    }
     if (typeof stream.SSN !== 'undefined') {
       if (ssnPermitted40.indexOf(stream.SSN) < 0) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to a required value as per ST 2110-40:2023 Section 7.`));
       } else {
-        let detect2023tm = typeof stream.TM !== 'undefined';
-
         if (detect2023tm && stream.SSN === 'ST2110-40:2018') {
           errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' should be set to ST2110-40:2021 when TM is present as per ST 2110-40:2023 Section 7.`));
         }
