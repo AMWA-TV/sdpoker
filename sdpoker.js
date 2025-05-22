@@ -83,11 +83,25 @@ const args = yargs
 
 async function test (args) {
   try {
+    if(args.skipRFC4566 && args.skipRFC4570 && args.skipST2110)
+    {
+      console.error(`All checks have been skipped`);
+      process.exit(1);
+    }
+
     let sdp = await getSDP(args._[0]);
-    let rfc4566Errors = checkRFC4566(sdp, args);
-    let rfc4570Errors = checkRFC4570(sdp, args);
-    let st2110Errors = checkST2110(sdp, args);
-    let errors = rfc4566Errors.concat(rfc4570Errors, st2110Errors);
+
+    let errors = [];
+
+    if(!args.skipRFC4566)
+      errors = errors.concat(checkRFC4566(sdp, args));
+    
+    if(!args.skipRFC4570)
+      errors = errors.concat(checkRFC4570(sdp, args));
+
+    if(!args.skipST2110)
+      errors = errors.concat(checkST2110(sdp, args));
+
     if (errors.length !== 0) {
       console.error(`Found ${errors.length} error(s) in SDP file:`);
       for ( let c in errors ) {
