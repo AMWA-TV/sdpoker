@@ -27,6 +27,9 @@ const args = yargs
   .default('duplicate', false)
   .default('videoOnly', false)
   .default('audioOnly', false)
+  .default('skipRFC4566', false)
+  .default('skipRFC4570', false)
+  .default('skipST2110', false)
   .default('channelOrder', false)
   .default('useIP4', false)
   .default('useIP6', false)
@@ -46,6 +49,9 @@ const args = yargs
   .describe('duplicate', 'Expect duplicate streams aka ST 2022-7.')
   .describe('videoOnly', 'Describes only SMPTE ST 2110-20 streams.')
   .describe('audioOnly', 'Describes only SMPTE ST 2110-30 streams.')
+  .describe('skipRFC4566', 'Skips RFC4566 checks.')
+  .describe('skipRFC4570', 'Skips RFC4570 checks.')
+  .describe('skipST2110', 'Skips ST2110 checks.')
   .describe('channelOrder', 'Expect audio with ST2110-30 channel-order.')
   .describe('useIP4', 'All addresses expressed in IP v4 notation.')
   .describe('useIP6', 'All addresses expressed in IP v6 notation.')
@@ -77,11 +83,25 @@ const args = yargs
 
 async function test (args) {
   try {
+    if(args.skipRFC4566 && args.skipRFC4570 && args.skipST2110)
+    {
+      console.error(`All checks have been skipped`);
+      process.exit(1);
+    }
+
     let sdp = await getSDP(args._[0]);
-    let rfc4566Errors = checkRFC4566(sdp, args);
-    let rfc4570Errors = checkRFC4570(sdp, args);
-    let st2110Errors = checkST2110(sdp, args);
-    let errors = rfc4566Errors.concat(rfc4570Errors, st2110Errors);
+
+    let errors = [];
+
+    if(!args.skipRFC4566)
+      errors = errors.concat(checkRFC4566(sdp, args));
+    
+    if(!args.skipRFC4570)
+      errors = errors.concat(checkRFC4570(sdp, args));
+
+    if(!args.skipST2110)
+      errors = errors.concat(checkST2110(sdp, args));
+
     if (errors.length !== 0) {
       console.error(`Found ${errors.length} error(s) in SDP file:`);
       for ( let c in errors ) {
