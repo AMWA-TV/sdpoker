@@ -1370,6 +1370,33 @@ const test_22_72_1 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-22 Section 7.2 Test 2 - Check that width and height are within bounds
+const test_22_72_2 = (sdp, params) => {
+  const [mtParams, errors] = extractMTParams(sdp, params);
+  for (const stream of mtParams) {
+    if (stream.width !== undefined) {
+      const width = +stream.width;
+      if (isNaN(width) || integerPattern.test(stream.width) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' is not an integer value, as per ST 2110-22 Section 7.2.`));
+      } else if (width < 1 || width > 32767) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' with value '${width}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-22 Section 7.2.`));
+      }
+    }
+    if (stream.height !== undefined) {
+      const height = +stream.height;
+      if (isNaN(height) || integerPattern.test(stream.height) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' is not an integer value, as per ST 2110-22 Section 7.2.`));
+      } else if (height < 1 || height > 32767) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' with value '${height}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-22 Section 7.2.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length === 0) {
+    console.log('Test Passed: ST 2110-22 Section 7.2 Test 2 - Check that width and height are within bounds');
+  }
+  return errors;
+};
+
 const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
 
 // ST 2110-22:2022 Section 7.2 Test 1 - If present, check SSN is the required fixed value
@@ -1655,7 +1682,7 @@ const section_22_60 = (sdp, params) => {
 };
 
 const section_22_72 = (sdp, params) => {
-  let tests = [test_22_72_1];
+  let tests = [test_22_72_1, test_22_72_2];
   return concat(tests.map(t => t(sdp, params)));
 };
 
