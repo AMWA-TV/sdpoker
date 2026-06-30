@@ -410,6 +410,25 @@ const test_10_83_3 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-10 Section 8.6 Test 1 - MAXUDP has an acceptable value
+const test_10_86_1 = (sdp, params) => {
+  const [mtParams, errors] = extractMTParams(sdp, params);
+  for (const stream of mtParams) {
+    if ('MAXUDP' in stream) {
+      const MAXUDP = +stream.MAXUDP;
+      if (isNaN(MAXUDP) || integerPattern.test(stream.MAXUDP) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'MAXUDP' must be a decimal value, as per ST 2110-10 Section 8.6.`));
+      } else if (MAXUDP < 20 || MAXUDP > 8960) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'MAXUDP' with value '${MAXUDP}' is outside acceptable range of 20 to 8960 inclusive, representing the minimum RTP packet size and the Extended UDP Size Limit per ST 2110-10 Section 6.4.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length === 0) {
+    console.log('Test Passed: ST 2110-10 Section 8.6 Test 1 - MAXUDP has an acceptable value');
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.1 Test 1 - If required, check all streams are video
 const test_20_71_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
@@ -889,26 +908,8 @@ const test_20_73_3 = (sdp, params) => {
   return errors;
 };
 
-const maxudpPermitted = ['1460', '8960'];
-
-// ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values per ST 2110-10
+// ST 2110-20 Section 7.3 Test 4 - PAR is an acceptable value
 const test_20_73_4 = (sdp, params) => {
-  let [mtParams, errors] = extractMTParams(sdp, params);
-  for (let stream of mtParams) {
-    if (typeof stream.MAXUDP !== 'undefined') {
-      if (maxudpPermitted.indexOf(stream.MAXUDP) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${stream.MAXUDP}' and not one of the acceptable values '1460' or '8960', as per ST 2110-20 Section 7.3.`));
-      }
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values per ST 2110-10');
-  }
-  return errors;
-};
-
-// ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value
-const test_20_73_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.PAR !== 'undefined') {
@@ -924,7 +925,7 @@ const test_20_73_5 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - PAR is an acceptable value');
   }
   return errors;
 };
@@ -1624,6 +1625,11 @@ const section_10_83 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_10_86 = (sdp, params) => {
+  let tests = [test_10_86_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_10_2022_87 = (sdp, params) => {
   let tests = [test_10_2022_87_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1641,8 +1647,7 @@ const section_20_72 = (sdp, params) => {
 };
 
 const section_20_73 = (sdp, params) => {
-  let tests = [test_20_73_1, test_20_73_2, test_20_73_3, test_20_73_4,
-    test_20_73_5];
+  let tests = [test_20_73_1, test_20_73_2, test_20_73_3, test_20_73_4];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1738,6 +1743,7 @@ const st2110_10_sections = [
   section_10_81,
   section_10_82,
   section_10_83,
+  section_10_86,
   section_10_2022_87,
 ];
 
@@ -1789,6 +1795,7 @@ module.exports = {
   section_10_81,
   section_10_82,
   section_10_83,
+  section_10_86,
   section_10_2022_87,
   section_20_71,
   section_20_72,
