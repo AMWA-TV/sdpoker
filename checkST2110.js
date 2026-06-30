@@ -1732,9 +1732,18 @@ const no_copy_22 = sdp => {
   return no_copy(sdp, specExample22);
 };
 
+const st2110_10_sections = [
+  section_10_62,
+  section_10_74,
+  section_10_81,
+  section_10_82,
+  section_10_83,
+  section_10_2022_87,
+];
+
 const allSections = (sdp, params) => {
-  // Declare the array holding test functions
-  let sections;
+  // The array of test functions, defaulting to ST 2110-10 tests. May be overridden below.
+  let sections = st2110_10_sections;
   // Pull out the media type
   let [mtParams, errors] = extractMTParams(sdp, params);
   if (errors.length != 0) {
@@ -1745,7 +1754,7 @@ const allSections = (sdp, params) => {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        ...st2110_10_sections,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
       if (params.noCopy) {
@@ -1753,7 +1762,7 @@ const allSections = (sdp, params) => {
       }
     } else if (mtParams[0]._encodingName == 'raw') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        ...st2110_10_sections,
         section_20_71, section_20_72, section_20_73, section_20_74,
         section_20_75, section_20_76, section_21_81, section_21_82];
       if (params.noCopy) {
@@ -1761,20 +1770,13 @@ const allSections = (sdp, params) => {
       }
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        ...st2110_10_sections,
         section_40_2023_7];
-    } else {
-      sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+      ...st2110_10_sections,
       section_30_62];
-  }
-  else {
-    sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
   }
 
   return concat(sections.map(s => s(sdp, params)));
