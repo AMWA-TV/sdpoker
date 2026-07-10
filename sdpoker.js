@@ -85,7 +85,7 @@ async function test (args) {
   try {
     if(args.skipRFC4566 && args.skipRFC4570 && args.skipST2110)
     {
-      console.error(`All checks have been skipped`);
+      console.error('All checks have been skipped');
       process.exit(1);
     }
 
