@@ -1707,7 +1707,7 @@ const no_copy_22 = sdp => {
 
 const allSections = (sdp, params) => {
   // Declare the array holding test functions
-  let sections = [];
+  let sections;
   // Pull out the media type
   let [mtParams, errors] = extractMTParams(sdp, params);
   if (errors.length != 0) {
