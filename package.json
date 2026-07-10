@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "tape test/*.test.js",
-    "lint": "eslint **/*.js",
-    "lint-html": "eslint **/*.js -f html -o ./reports/lint-results.html",
-    "lint-fix": "eslint --fix **/*.js"
+    "lint": "eslint .",
+    "lint-html": "eslint . -f html -o ./reports/lint-results.html",
+    "lint-fix": "eslint . --fix"
   },
   "repository": {
     "type": "git",
