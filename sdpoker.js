@@ -16,9 +16,10 @@
 
 const { getSDP, checkRFC4566, checkRFC4570, checkST2110 } = require('./index.js');
 const yargs = require('yargs');
+const { hideBin } = require('yargs/helpers');
 const { accessSync, R_OK } = require('fs');
 
-const args = yargs
+const args = yargs(hideBin(process.argv))
   .help('help')
   .default('checkEndings', false)
   .default('should', false)
