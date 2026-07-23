@@ -58,6 +58,10 @@ const invalidCases = [
     messageIncludes: 'form \'<type>=<value>\''
   },
   {
+    file: 'invalid/bad-maxudp.sdp',
+    messageIncludes: 'MAXUDP'
+  },
+  {
     file: 'invalid/missing-media.sdp',
     messageIncludes: 'does not include any "m=" media attributes'
   },
