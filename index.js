@@ -13,7 +13,6 @@
   limitations under the License.
 */
 
-const request = require('request-promise-native');
 const fs = require('fs');
 const util = require('util');
 const readFile = util.promisify(fs.readFile);
@@ -23,17 +22,19 @@ const { allSections : checkST2110 } = require('./checkST2110.js');
 
 const getSDP = (path) => {
   return (path.startsWith('http')) ?
-    request({
-      url: path,
-      resolveWithFullResponse: true
-    }).then(res => {
-      if (!res.headers['content-type'].startsWith('application/sdp')) {
+    fetch(path).then(res => {
+      if (!res.ok) {
         return Promise.reject(new Error(
-          `Media type (MIME type/Content-Type) of SDP file is '${res.headers['content-type']}' and not signalled as 'applicatio/sdp' as required in RFC 4566 Section 5.`));
-      } else {
-        return Promise.resolve(res.body);
+          `SDP file request resulted in non-OK response code of ${res.status}.`));
       }
-    }, e => Promise.reject(e)) :
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('application/sdp')) {
+        return Promise.reject(new Error(
+          `Media type (MIME type/Content-Type) of SDP file is '${contentType}' and not signalled as 'applicatio/sdp' as required in RFC 4566 Section 5.`));
+      } else {
+        return res.text();
+      }
+    }) :
     readFile(path, 'utf8');
 };
 
