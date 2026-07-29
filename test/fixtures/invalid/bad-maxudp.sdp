@@ -1,0 +1,13 @@
+v=0
+o=- 12034561420557872741 1784776550455936408 IN IP4 10.2.9.165
+s=Signal generator 27
+t=0 0
+m=video 5004 RTP/AVP 96
+c=IN IP4 239.100.9.165/64
+b=AS:8335872
+a=rtcp:5005
+a=ts-refclk:ptp=IEEE1588-2008:traceable
+a=mediaclk:direct=0
+a=source-filter: incl IN IP4 239.100.9.165 10.2.9.165
+a=rtpmap:96 raw/90000
+a=fmtp:96 width=3840; height=2160; exactframerate=50; sampling=YCbCr-4:2:2; depth=10; colorimetry=BT2020; TCS=SDR; PM=2110GPM; SSN=ST2110-20:2017; TP=2110TPNL; RANGE=NARROW; MAXUDP=9628; IPMX; vtotal=2160; htotal=3840; measuredpixclk=414720000; TSMODE=SAMP; TSDELAY=0

@@ -410,6 +410,25 @@ const test_10_83_3 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-10 Section 8.6 Test 1 - MAXUDP has an acceptable value
+const test_10_86_1 = (sdp, params) => {
+  const [mtParams, errors] = extractMTParams(sdp, params);
+  for (const stream of mtParams) {
+    if ('MAXUDP' in stream) {
+      const MAXUDP = +stream.MAXUDP;
+      if (isNaN(MAXUDP) || integerPattern.test(stream.MAXUDP) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'MAXUDP' must be a decimal value, as per ST 2110-10 Section 8.6.`));
+      } else if (MAXUDP < 20 || MAXUDP > 8960) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'MAXUDP' with value '${MAXUDP}' is outside acceptable range of 20 to 8960 inclusive, representing the minimum RTP packet size and the Extended UDP Size Limit per ST 2110-10 Section 6.4.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length === 0) {
+    console.log('Test Passed: ST 2110-10 Section 8.6 Test 1 - MAXUDP has an acceptable value');
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.1 Test 1 - If required, check all streams are video
 const test_20_71_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
@@ -718,7 +737,7 @@ const test_20_72_2 = (sdp, params) => {
       if (isNaN(width) || integerPattern.test(stream.width) === false) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' is not an integer value, as per ST 2110-20 Section 7.2.`));
       } else if (width < 1 || width > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For strean ${stream._streamNumber}, parameter 'width' with value '${width}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-20 Section 7.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' with value '${width}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-20 Section 7.2.`));
       }
       let height = +stream.height;
       if (isNaN(height) || integerPattern.test(stream.height) === false) {
@@ -889,26 +908,8 @@ const test_20_73_3 = (sdp, params) => {
   return errors;
 };
 
-const maxudpPermitted = ['1460', '8960'];
-
-// ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values per ST 2110-10
+// ST 2110-20 Section 7.3 Test 4 - PAR is an acceptable value
 const test_20_73_4 = (sdp, params) => {
-  let [mtParams, errors] = extractMTParams(sdp, params);
-  for (let stream of mtParams) {
-    if (typeof stream.MAXUDP !== 'undefined') {
-      if (maxudpPermitted.indexOf(stream.MAXUDP) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${stream.MAXUDP}' and not one of the acceptable values '1460' or '8960', as per ST 2110-20 Section 7.3.`));
-      }
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - MAXUDP has acceptable values per ST 2110-10');
-  }
-  return errors;
-};
-
-// ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value
-const test_20_73_5 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.PAR !== 'undefined') {
@@ -924,7 +925,7 @@ const test_20_73_5 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.3 Test 5 - PAR is an acceptable value');
+    console.log('Test Passed: ST 2110-20 Section 7.3 Test 4 - PAR is an acceptable value');
   }
   return errors;
 };
@@ -1370,6 +1371,33 @@ const test_22_72_1 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-22 Section 7.2 Test 2 - Check that width and height are within bounds
+const test_22_72_2 = (sdp, params) => {
+  const [mtParams, errors] = extractMTParams(sdp, params);
+  for (const stream of mtParams) {
+    if (stream.width !== undefined) {
+      const width = +stream.width;
+      if (isNaN(width) || integerPattern.test(stream.width) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' is not an integer value, as per ST 2110-22 Section 7.2.`));
+      } else if (width < 1 || width > 32767) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'width' with value '${width}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-22 Section 7.2.`));
+      }
+    }
+    if (stream.height !== undefined) {
+      const height = +stream.height;
+      if (isNaN(height) || integerPattern.test(stream.height) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' is not an integer value, as per ST 2110-22 Section 7.2.`));
+      } else if (height < 1 || height > 32767) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'height' with value '${height}' is outside acceptable range of 1 to 32767 inclusive, as per ST 2110-22 Section 7.2.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length === 0) {
+    console.log('Test Passed: ST 2110-22 Section 7.2 Test 2 - Check that width and height are within bounds');
+  }
+  return errors;
+};
+
 const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
 
 // ST 2110-22:2022 Section 7.2 Test 1 - If present, check SSN is the required fixed value
@@ -1597,6 +1625,11 @@ const section_10_83 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_10_86 = (sdp, params) => {
+  let tests = [test_10_86_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_10_2022_87 = (sdp, params) => {
   let tests = [test_10_2022_87_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1614,8 +1647,7 @@ const section_20_72 = (sdp, params) => {
 };
 
 const section_20_73 = (sdp, params) => {
-  let tests = [test_20_73_1, test_20_73_2, test_20_73_3, test_20_73_4,
-    test_20_73_5];
+  let tests = [test_20_73_1, test_20_73_2, test_20_73_3, test_20_73_4];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1655,7 +1687,7 @@ const section_22_60 = (sdp, params) => {
 };
 
 const section_22_72 = (sdp, params) => {
-  let tests = [test_22_72_1];
+  let tests = [test_22_72_1, test_22_72_2];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1705,9 +1737,19 @@ const no_copy_22 = sdp => {
   return no_copy(sdp, specExample22);
 };
 
+const st2110_10_sections = [
+  section_10_62,
+  section_10_74,
+  section_10_81,
+  section_10_82,
+  section_10_83,
+  section_10_86,
+  section_10_2022_87,
+];
+
 const allSections = (sdp, params) => {
-  // Declare the array holding test functions
-  let sections;
+  // The array of test functions, defaulting to ST 2110-10 tests. May be overridden below.
+  let sections = st2110_10_sections;
   // Pull out the media type
   let [mtParams, errors] = extractMTParams(sdp, params);
   if (errors.length != 0) {
@@ -1718,7 +1760,7 @@ const allSections = (sdp, params) => {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        ...st2110_10_sections,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
       if (params.noCopy) {
@@ -1726,7 +1768,7 @@ const allSections = (sdp, params) => {
       }
     } else if (mtParams[0]._encodingName == 'raw') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        ...st2110_10_sections,
         section_20_71, section_20_72, section_20_73, section_20_74,
         section_20_75, section_20_76, section_21_81, section_21_82];
       if (params.noCopy) {
@@ -1734,20 +1776,13 @@ const allSections = (sdp, params) => {
       }
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+        ...st2110_10_sections,
         section_40_2023_7];
-    } else {
-      sections = [
-        section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87,
+      ...st2110_10_sections,
       section_30_62];
-  }
-  else {
-    sections = [
-      section_10_62, section_10_74, section_10_81, section_10_82, section_10_83, section_10_2022_87];
   }
 
   return concat(sections.map(s => s(sdp, params)));
@@ -1760,6 +1795,7 @@ module.exports = {
   section_10_81,
   section_10_82,
   section_10_83,
+  section_10_86,
   section_10_2022_87,
   section_20_71,
   section_20_72,
