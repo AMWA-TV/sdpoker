@@ -30,7 +30,7 @@ const getSDP = (path) => {
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.startsWith('application/sdp')) {
         return Promise.reject(new Error(
-          `Media type (MIME type/Content-Type) of SDP file is '${contentType}' and not signalled as 'applicatio/sdp' as required in RFC 4566 Section 5.`));
+          `Media type (MIME type/Content-Type) of SDP file is '${contentType}' and not signalled as 'application/sdp' as required in RFC 4566 Section 5.`));
       } else {
         return res.text();
       }
