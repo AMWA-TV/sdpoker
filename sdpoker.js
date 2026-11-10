@@ -21,6 +21,7 @@ const { accessSync, R_OK } = require('fs');
 
 const args = yargs(hideBin(process.argv))
   .help('help')
+  .version(require('./package.json').version)
   .default('checkEndings', false)
   .default('should', false)
   .default('noCopy', true)
