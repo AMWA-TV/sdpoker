@@ -25,6 +25,9 @@
     "url": "https://github.com/Streampunk/sdpoker/issues"
   },
   "homepage": "https://github.com/Streampunk/sdpoker#readme",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "express": "^5.2.1",
     "yargs": "^18.0.0"

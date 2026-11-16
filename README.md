@@ -14,11 +14,22 @@ SDPoker is part of the [zenmos](https://github.com/Streampunk/zenmos) project to
 
 This is a fork of the original repository from [Streampunk/sdpoker](https://github.com/Streampunk/sdpoker) including additional features and bug fixes. It is intended to be used alongside the [NMOS Testing Tool](https://github.com/AMWA-TV/nmos-testing).
 
+# Recent Activity
+
+Recent activity on the project (newest first):
+
+- v0.5.0 supports Node.js 22.12 or later
+- Fixed `sdpoker --version` when SDPoker is installed from the repository
+- Added functional and CLI tests, and lint in CI
+- SDP files are fetched over HTTP with Node's native `fetch` instead of the deprecated `request` package
+- Added width and height checks for ST 2110-22, and MAXUDP checks for every ST 2110 SDP file against the range allowed by ST 2110-10
+- Added `--skipRFC4566`, `--skipRFC4570` and `--skipST2110` options to skip each group of checks
+
 # Installation
 
 ## Prerequisite
 
-If not already installed, install [Node.JS LTS](https://nodejs.org/) for your platform.
+SDPoker supports Node.js 22.12 or later. If not already installed, install [Node.JS LTS](https://nodejs.org/) for your platform.
 
 ## Command line
 
