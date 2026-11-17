@@ -19,6 +19,7 @@ const concat = arrays => Array.prototype.concat.apply([], arrays);
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /[\r\n]a=mediaclk[^\s=]+/g;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
+const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
 const ptpPattern = /traceable|((([0-9A-F]{2}-){7}[0-9A-F]{2})(:(\d+))?)$/;
 const macPattern = /(([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2})/;
@@ -172,6 +173,26 @@ const test_10_81_2 = (sdp, params) => {
     }
     return [];
   }
+};
+
+// ST 2110-10 Section 8.1 Test 3 - mediaclk attributes match an acceptable pattern
+const test_10_81_3 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
+      errors.push(new Error(`Line ${x + 1}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 3 - \'mediaclk\' attributes match an acceptable pattern.');
+  }
+  return errors;
 };
 
 // ST 2110-10 Section 8.2 Test 1 - Shall have a media-level ts-refclk
@@ -1680,7 +1701,7 @@ const section_10_74 = (sdp, params) => {
 };
 
 const section_10_81 = (sdp, params) => {
-  let tests = [test_10_81_1, test_10_81_2];
+  let tests = [test_10_81_1, test_10_81_2, test_10_81_3];
   return concat(tests.map(t => t(sdp, params)));
 };
 
