@@ -205,7 +205,7 @@ const test_10_82_2 = (sdp, params) => {
       if (!lines[x].startsWith('a=ts-refclk:ptp=') &&
         !lines[x].startsWith('a=ts-refclk:localmac')) {
         errors.push(
-          new Error(`Line ${x + 1}: Reference clocks shall use the PTP form or shall use the localmac form, as per ST 2110-10 Section 8.2.`));
+          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be the PTP form or the localmac form, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
@@ -699,7 +699,7 @@ const extractMTParams = (sdp, params = {}) => {
         encodingName = encodingNames[section][payloadType] ?? -1;
       }
       else {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
+        errors.push(new Error(`Line ${x + 1}: Media description field ("m=") is not an acceptable pattern, which should be of the form 'm=mediaType udpPort RTP/AVP payloadType', as per RFC 4566 Section 5.14.`));
         payloadTypes = [];
         continue;
       }
@@ -709,7 +709,7 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
       let fmtpMatch = lines[x].match(fmtpPattern);
       if (!fmtpMatch) {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
         continue;
       }
       // A payload type that is not a format of the media description is reported by test_10_62_2

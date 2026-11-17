@@ -63,23 +63,23 @@ const invalidCases = [
   },
   {
     file: 'invalid/connection-pattern.sdp',
-    messageIncludes: 'Connection data field does not match an acceptable pattern'
+    messageIncludes: 'Connection data field ("c=") is not an acceptable pattern'
   },
   {
     file: 'invalid/media-pattern.sdp',
-    messageIncludes: 'should be of the form \'m=mediaType udpPort RTP/AVP payloadType\''
+    messageIncludes: 'Media description field ("m=") is not an acceptable pattern'
   },
   {
     file: 'invalid/ts-refclk-pattern.sdp',
-    messageIncludes: 'Reference clocks shall use the PTP form or shall use the localmac form'
+    messageIncludes: 'Attribute \'ts-refclk\' is not an acceptable pattern'
   },
   {
     file: 'invalid/source-filter-value-pattern.sdp',
-    messageIncludes: 'Source-filters must follow the pattern'
+    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
   },
   {
     file: 'invalid/fmtp-pattern.sdp',
-    messageIncludes: 'should be of the form \'a=fmtp:<format>'
+    messageIncludes: 'attribute \'fmtp\' is not an acceptable pattern'
   },
   {
     file: 'invalid/bad-maxudp.sdp',
