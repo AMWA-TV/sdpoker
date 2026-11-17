@@ -103,6 +103,26 @@ const invalidCases = [
     file: 'invalid/st2110-30-encoding-name.sdp',
     messageIncludes: 'does not match the acceptable audio pattern',
     messageExcludes: 'required attribute \'rtpmap\' is missing'
+  },
+  {
+    file: 'invalid/st2110-43-video.sdp',
+    messageIncludes: 'requires media type \'application\''
+  },
+  {
+    file: 'invalid/st2110-43-missing-fmtp.sdp',
+    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
+  },
+  {
+    file: 'invalid/st2110-43-missing-codecs.sdp',
+    messageIncludes: 'format parameter \'codecs\' is not present'
+  },
+  {
+    file: 'invalid/st2110-43-clock-rate.sdp',
+    messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
+  },
+  {
+    file: 'invalid/st2110-43-upper-case-encoding-name.sdp',
+    messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
   }
 ];
 

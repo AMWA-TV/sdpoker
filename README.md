@@ -109,7 +109,7 @@ The return value of the method is an array of [Javascript Errors](https://develo
 
 ### Check ST 2110
 
-The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30 documents, and referenced standards such as AES-67 and ST 2022-7, applying appropriate tests.
+The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-43 documents, and referenced standards such as AES-67 and ST 2022-7, applying appropriate tests.
 
 For example:
 
