@@ -33,6 +33,7 @@ const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
 const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
+const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])$/;
@@ -42,7 +43,7 @@ const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24|AM824)\/([1-9]\d*)\/([1-9]\d*)/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
 const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
-const mediaPattern = /(audio|video)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
+const mediaPattern = /(audio|video|application)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
@@ -1649,6 +1650,84 @@ const test_40_2023_7_4 = (sdp, params) => {
   return errors;
 };
 
+// Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
+// and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
+const extractTTMLStreams = sdp => {
+  let streams = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  let payloadTypes = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
+      continue;
+    }
+    // Payload types that are not formats of the media description are reported by test_10_62_2
+    if (lines[x].startsWith('a=rtpmap') && streamCount > 0) {
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (rtpmapMatch && payloadTypes.includes(+rtpmapMatch[1]) && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
+        streams.push({
+          streamNumber: streamCount,
+          payloadType: +rtpmapMatch[1],
+          rtpmapLine: x + 1,
+          clockRate: rtpmapMatch[3],
+          fmtpLine: null,
+          codecs: null
+        });
+      }
+    }
+  }
+  streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let fmtpMatch = lines[x].match(/^a=fmtp:(\d+)/);
+    let stream = fmtpMatch && streams.find(s => s.streamNumber === streamCount && s.payloadType === +fmtpMatch[1]);
+    if (stream) {
+      let codecsMatch = lines[x].match(codecsPattern);
+      stream.fmtpLine = x + 1;
+      stream.codecs = codecsMatch ? codecsMatch[1] : null;
+    }
+  }
+  return streams;
+};
+
+// ST 2110-43:2021 Section 4.1 Test 1 - TTML streams have an fmtp attribute with a codecs parameter
+/* RFC 8759 Section 11.2 says:
+The "codecs" parameter MUST be included in the "a=fmtp" line of the SDP file.
+*/
+const test_43_2021_41_1 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    if (stream.fmtpLine === null) {
+      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, an 'fmtp' attribute with format parameter 'codecs' is required, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+    } else if (stream.codecs === null) {
+      errors.push(new Error(`Line ${stream.fmtpLine}: For stream ${stream.streamNumber}, format parameter 'codecs' is not present and is required, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-43:2021 Section 4.1 Test 1 - TTML streams have an fmtp attribute with a codecs parameter.');
+  }
+  return errors;
+};
+
+// ST 2110-43:2021 Section 4.2 Test 1 - TTML streams have a 90 kHz RTP clock
+const test_43_2021_42_1 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    if (stream.clockRate !== '90000') {
+      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, clock rate must be 90000Hz, as per ST 2110-43:2021 Section 4.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-43:2021 Section 4.2 Test 1 - TTML streams have a 90 kHz RTP clock.');
+  }
+  return errors;
+};
+
 const section_10_62 = (sdp, params) => {
   let tests = [test_10_62_1, test_10_62_2];
   return concat(tests.map(t => t(sdp, params)));
@@ -1760,6 +1839,16 @@ const section_40_2023_7 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_43_2021_41 = (sdp, params) => {
+  let tests = [test_43_2021_41_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_43_2021_42 = (sdp, params) => {
+  let tests = [test_43_2021_42_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const no_copy = (sdp, specSDP) => {
   let lines = splitLines(sdp.trim());
   let exlines = splitLines(specSDP);
@@ -1804,7 +1893,7 @@ const allSections = (sdp, params) => {
   if (errors.length != 0) {
     return errors;
   }
-  // Load tests for video or audio mediaTypes
+  // Load tests for video, audio or application mediaTypes
   if (mtParams[0]._mediaType == 'video') {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
@@ -1832,6 +1921,14 @@ const allSections = (sdp, params) => {
     sections = [
       ...st2110_10_sections,
       section_30_62];
+  } else if (mtParams[0]._mediaType == 'application') {
+    // Encoding names are case-insensitive, as per RFC 4855 Section 3
+    let encodingName = mtParams[0]._encodingName;
+    if (typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml') {
+      sections = [
+        ...st2110_10_sections,
+        section_43_2021_41, section_43_2021_42];
+    }
   }
 
   return concat(sections.map(s => s(sdp, params)));
@@ -1859,5 +1956,7 @@ module.exports = {
   section_22_2022_72,
   section_21_81,
   section_21_82,
-  section_40_2023_7
+  section_40_2023_7,
+  section_43_2021_41,
+  section_43_2021_42
 };
