@@ -28,7 +28,7 @@ const test_30_1 = sdp => {
     if (lines[x].startsWith('a=source-filter:')) {
       let sourceFilterMatch = lines[x].match(sourceFilterPattern);
       if (!sourceFilterMatch) {
-        errors.push(new Error(`Line ${x + 1}: Source-filters must follow the pattern 'a=source-filter: <filter-mode> <filter-spec>' as per RFC 4570 Section 3.`));
+        errors.push(new Error(`Line ${x + 1}: Attribute 'source-filter' is not an acceptable pattern, which should be of the form 'a=source-filter: <filter-mode> <filter-spec>', as per RFC 4570 Section 3.`));
         continue;
       }
     }
