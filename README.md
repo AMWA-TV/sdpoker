@@ -140,6 +140,7 @@ The parameters of the library are binary flags that match the command line optio
 * `audioOnly`: Describes only SMPTE ST 2110-30 streams.
 * `channelOrder`: Expect audio with ST2110-30 channel-order.
 * `shaping`: Check adherence to traffic shaping specification.
+* `midLast`: Check each media description ends with a=mid, as expected by SMPTE RP 2110-23.
 * `useIP4`: All addresses expressed in IP v4 notation.
 * `useIP6`: All addresses expressed in IP v6 notation.
 * `multicast`: Connection addresses must be multicast.
