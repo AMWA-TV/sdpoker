@@ -1650,20 +1650,23 @@ const test_40_2023_7_4 = (sdp, params) => {
   return errors;
 };
 
-// Collect the rtpmap of each stream with encoding name 'ttml+xml', and the fmtp with the same payload type,
-// as 'rtpmap' and 'fmtp' may be in either order
+// Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
+// and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
   let streams = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
+  let payloadTypes = [];
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       streamCount++;
+      payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
       continue;
     }
+    // Payload types that are not formats of the media description are reported by test_10_62_2
     if (lines[x].startsWith('a=rtpmap') && streamCount > 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
+      if (rtpmapMatch && payloadTypes.includes(+rtpmapMatch[1]) && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
         streams.push({
           streamNumber: streamCount,
           payloadType: +rtpmapMatch[1],

@@ -117,6 +117,11 @@ const invalidCases = [
     messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
   },
   {
+    file: 'invalid/st2110-43-rtpmap-payload-type.sdp',
+    messageIncludes: 'attribute \'rtpmap\' has payload type \'113\'',
+    messageExcludes: 'clock rate must be 90000Hz'
+  },
+  {
     file: 'invalid/st2110-43-clock-rate.sdp',
     messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
   },
