@@ -42,7 +42,7 @@ const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24|AM824)\/([1-9]\d*)\/([1-9]\d*)/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
 const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
-const mediaPattern = /(audio|video)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
+const mediaPattern = /(audio|video|application)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
