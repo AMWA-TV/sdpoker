@@ -37,6 +37,7 @@ const args = yargs(hideBin(process.argv))
     multicast: { type: 'boolean', default: false, describe: 'Connection addresses must be multicast' },
     unicast: { type: 'boolean', default: false, describe: 'Connection addresses must be unicast' },
     shaping: { type: 'boolean', default: true, describe: 'Check adherence to traffic shaping specification' },
+    midLast: { type: 'boolean', default: false, describe: 'Check each media description ends with a=mid, as expected by SMPTE RP 2110-23' },
     verbose: { type: 'boolean', default: false, describe: 'Print passed tests as well as failed' }
   })
   .usage('Check an SDP file for conformance with RFC 4566 and SMPTE ST 2110.\n' +
