@@ -68,6 +68,41 @@ const invalidCases = [
   {
     file: 'invalid/missing-ts-refclk.sdp',
     messageIncludes: 'ts-refclk'
+  },
+  {
+    file: 'invalid/st2110-20-fmtp-first.sdp',
+    messageIncludes: 'required parameter \'SSN\' is missing'
+  },
+  {
+    file: 'invalid/st2110-40-fmtp-first.sdp',
+    messageIncludes: 'format parameter \'TM\' is not set to a required value'
+  },
+  {
+    file: 'invalid/rtpmap-payload-type.sdp',
+    messageIncludes: 'attribute \'rtpmap\' has payload type \'106\', which is not a format of the media description'
+  },
+  {
+    file: 'invalid/fmtp-payload-type.sdp',
+    messageIncludes: 'attribute \'fmtp\' has payload type \'106\', which is not a format of the media description'
+  },
+  {
+    file: 'invalid/missing-rtpmap.sdp',
+    messageIncludes: 'dynamic payload type \'105\' has no \'rtpmap\' attribute'
+  },
+  {
+    file: 'invalid/st2110-20-missing-rtpmap.sdp',
+    messageIncludes: 'For stream 2, dynamic payload type \'97\' has no \'rtpmap\' attribute',
+    messageExcludes: 'does not have an \'rtpmap\' attribute'
+  },
+  {
+    file: 'invalid/st2110-30-missing-rtpmap.sdp',
+    messageIncludes: 'dynamic payload type \'102\' has no \'rtpmap\' attribute',
+    messageExcludes: 'required attribute \'rtpmap\' is missing'
+  },
+  {
+    file: 'invalid/st2110-30-encoding-name.sdp',
+    messageIncludes: 'does not match the acceptable audio pattern',
+    messageExcludes: 'required attribute \'rtpmap\' is missing'
   }
 ];
 
@@ -87,7 +122,7 @@ test('valid SDP fixtures pass default checks', t => {
 });
 
 test('invalid SDP fixtures are rejected', t => {
-  t.plan(invalidCases.length * 2);
+  t.plan(invalidCases.length * 2 + invalidCases.filter(invalidCase => invalidCase.messageExcludes).length);
 
   for (const invalidCase of invalidCases) {
     const sdp = readFixture(invalidCase.file);
@@ -99,5 +134,11 @@ test('invalid SDP fixtures are rejected', t => {
       messages.includes(invalidCase.messageIncludes),
       `${invalidCase.file} reports an error mentioning "${invalidCase.messageIncludes}"`
     );
+    if (invalidCase.messageExcludes) {
+      t.notOk(
+        messages.includes(invalidCase.messageExcludes),
+        `${invalidCase.file} does not report an error mentioning "${invalidCase.messageExcludes}"`
+      );
+    }
   }
 });

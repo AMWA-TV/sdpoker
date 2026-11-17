@@ -484,6 +484,53 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-10 Section 6.2 Test 2 - Payload types of 'rtpmap' and 'fmtp' attributes are formats of the media description, and each dynamic payload type has an 'rtpmap'
+/* ST 2110-10 Section 6.2 says:
+All RTP streams shall use dynamic payload types chosen in the range of 96 through 127, signaled as specified in section 6 of IETF RFC 4566 ...
+RFC 4566 Section 6 says of 'rtpmap':
+Up to one rtpmap attribute can be defined for each media format specified.
+and of 'fmtp':
+The format must be one of the formats specified for the media.
+*/
+const test_10_62_2 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streams = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      let mediaMatch = lines[x].match(mediaPattern);
+      streams.push({
+        line: x + 1,
+        payloadTypes: mediaMatch ? lines[x].trim().split(/\s+/).slice(3).map(Number) : [],
+        rtpmaps: []
+      });
+      continue;
+    }
+    let attributeMatch = lines[x].match(/^a=(rtpmap|fmtp):(\d+)/);
+    if (!attributeMatch || streams.length == 0) {
+      continue;
+    }
+    let stream = streams[streams.length - 1];
+    let payloadType = +attributeMatch[2];
+    if (!stream.payloadTypes.includes(payloadType)) {
+      errors.push(new Error(`Line ${x + 1}: For stream ${streams.length}, attribute '${attributeMatch[1]}' has payload type '${payloadType}', which is not a format of the media description, as per RFC 4566 Section 6.`));
+    } else if (attributeMatch[1] === 'rtpmap') {
+      stream.rtpmaps.push(payloadType);
+    }
+  }
+  streams.forEach((stream, s) => {
+    for (let payloadType of stream.payloadTypes) {
+      if (payloadType >= 96 && payloadType <= 127 && !stream.rtpmaps.includes(payloadType)) {
+        errors.push(new Error(`Line ${stream.line}: For stream ${s + 1}, dynamic payload type '${payloadType}' has no 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
+      }
+    }
+  });
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10 Section 6.2 Test 2 - Payload types of \'rtpmap\' and \'fmtp\' attributes are formats of the media description, and each dynamic payload type has an \'rtpmap\'.');
+  }
+  return errors;
+};
+
 const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
 // ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay, TSMODE and TSDELAY parameters are an acceptable value.
@@ -508,7 +555,7 @@ const test_10_2022_87_1 = (sdp, params) => {
   return errors;
 };
 
-// Function to check that rtpmap is present and has passed in type and clockRate.
+// Function to check that rtpmap has passed in type and clockRate.
 // An optional specification string can be used to be included in errors
 // produced as a reference back to a spec
 const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
@@ -519,9 +566,6 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
   let streamCount = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      if (!rtpmapInStream && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
-      }
       let videoMatch = lines[x].match(videoPattern);
       payloadType = videoMatch ? +videoMatch[4] : -1;
       rtpmapInStream = false;
@@ -551,9 +595,6 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate must be ${clockRate}Hz, as per ${specification}`));
       }
     }
-  }
-  if (!rtpmapInStream && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
   }
   return errors;
 };
@@ -627,40 +668,54 @@ const extractMTParams = (sdp, params = {}) => {
   let mtParams = [];
   let errors = [];
   let lines = splitLines(sdp);
-  let isSkippedType = false;
   let streamCount = 0;
   let payloadType = -1;
+  let payloadTypes = [];
   let mediaType = -1;
   let encodingName = -1;
 
+  // Encoding names by payload type for each media description, as 'rtpmap' and 'fmtp' may be in either order
+  let encodingNames = [];
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
+      encodingNames.push({});
+    } else if (lines[x].startsWith('a=rtpmap') && encodingNames.length > 0) {
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (rtpmapMatch) {
+        encodingNames[encodingNames.length - 1][+rtpmapMatch[1]] = rtpmapMatch[2];
+      }
+    }
+  }
+
+  let section = -1;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      section++;
       let mediaMatch = lines[x].match(mediaPattern);
       if (mediaMatch) {
         mediaType = mediaMatch[1];
         payloadType = +mediaMatch[5];
+        payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
+        encodingName = encodingNames[section][payloadType] ?? -1;
       }
       else {
         errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
+        payloadTypes = [];
         continue;
       }
       streamCount++;
-      isSkippedType = false;
       continue;
     }
-    if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch) {
-        encodingName = rtpmapMatch[2];
-      }
-      if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
-        isSkippedType = true;
+    if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
+      let fmtpMatch = lines[x].match(fmtpPattern);
+      if (!fmtpMatch) {
+        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
         continue;
       }
-    }
-    if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
-      if (!fmtpPattern.test(lines[x])) {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
+      // A payload type that is not a format of the media description is reported by test_10_62_2
+      let fmtpPayloadType = +fmtpMatch[1];
+      let fmtpEncodingName = encodingNames[section][fmtpPayloadType] ?? -1;
+      if (!payloadTypes.includes(fmtpPayloadType) || skipVideoTypes.includes(fmtpEncodingName)) {
         continue;
       }
       let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
@@ -685,11 +740,11 @@ const extractMTParams = (sdp, params = {}) => {
         x[y[0]] = y[1];
         return x;
       }, {});
-      paramsObject._payloadType = payloadType;
+      paramsObject._payloadType = fmtpPayloadType;
       paramsObject._line = x + 1;
       paramsObject._streamNumber = streamCount;
       paramsObject._mediaType = mediaType;
-      paramsObject._encodingName = encodingName;
+      paramsObject._encodingName = fmtpEncodingName;
       mtParams.push(paramsObject);
     }
   }
@@ -1055,9 +1110,6 @@ const test_30_62_1 = (sdp, params) => {
   let hasRtpmap = true;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      if (hasRtpmap === false && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, required attribute 'rtpmap' is missing for audio stream.`));
-      }
       let audioMatch = lines[x].match(audioPattern);
       payloadType = audioMatch ? +audioMatch[4] : -1;
       streamCount++;
@@ -1097,9 +1149,6 @@ const test_30_62_1 = (sdp, params) => {
         break;
       }
     }
-  }
-  if (hasRtpmap === false && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, required attribute 'rtpmap' is missing for audio stream.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 1 - Compliant with AES-67 Section 7.1');
@@ -1601,7 +1650,7 @@ const test_40_2023_7_4 = (sdp, params) => {
 };
 
 const section_10_62 = (sdp, params) => {
-  let tests = [test_10_62_1];
+  let tests = [test_10_62_1, test_10_62_2];
   return concat(tests.map(t => t(sdp, params)));
 };
 
