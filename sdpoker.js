@@ -38,10 +38,11 @@ const args = yargs(hideBin(process.argv))
   .default('multicast', false)
   .default('unicast', false)
   .default('shaping', false)
+  .default('midLast', false)
   .default('verbose', false)
   .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
     'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
-    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'verbose' ])
+    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'midLast', 'verbose' ])
   .usage('Check an SDP file for conformance with RFC4566 and SMPTE ST 2110.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
   .describe('checkEndings', 'Check line endings are CRLF, no other CR/LF.')
@@ -60,6 +61,7 @@ const args = yargs(hideBin(process.argv))
   .describe('multicast', 'Connection addresses must be multicast.')
   .describe('unicast', 'Connection addresses must be unicast.')
   .describe('shaping', 'Check adherence to traffic shaping specification.')
+  .describe('midLast', 'Check each media description ends with a=mid, as expected by SMPTE RP 2110-23.')
   .describe('verbose', 'Print passed tests as well as failed.')
   .check(argv => {
     if (argv._.length < 1) {

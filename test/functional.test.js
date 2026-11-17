@@ -9,7 +9,7 @@ const cliDefaults = {
   duplicate: false, videoOnly: false, audioOnly: false,
   skipRFC4566: false, skipRFC4570: false, skipST2110: false,
   channelOrder: false, useIP4: false, useIP6: false,
-  multicast: false, unicast: false, shaping: false, verbose: false
+  multicast: false, unicast: false, shaping: false, midLast: false, verbose: false
 };
 const fixturesRoot = path.join(__dirname, 'fixtures');
 const validFixturesDir = path.join(fixturesRoot, 'valid');
@@ -166,4 +166,16 @@ test('invalid SDP fixtures are rejected', t => {
       );
     }
   }
+});
+
+test('midLast reports media descriptions that do not end with a=mid', t => {
+  const params = { ...cliDefaults, midLast: true };
+  const errors = runAllChecks(readFixture('valid/rfc7104_sep_dest.sdp'), params);
+  t.equal(errors.length, 2, 'one error for each media description');
+  t.ok(errors.every(error => error.message.includes('SMPTE RP 2110-23')),
+    'errors mention SMPTE RP 2110-23');
+
+  t.same(runAllChecks(readFixture('valid/rfc7104_sep_dest_mid_last.sdp'), params), [],
+    'passes when each media description ends with a=mid');
+  t.end();
 });

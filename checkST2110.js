@@ -411,6 +411,38 @@ const test_10_83_3 = (sdp, params) => {
   return errors;
 };
 
+// SMPTE RP 2110-23 Section 5.3 Test 1 - Each media description ends with its a=mid attribute
+const test_23_53_1 = (sdp, params) => {
+  if (!params.midLast) {
+    if (params.verbose) {
+      console.log('Test Skipped: SMPTE RP 2110-23 Section 5.3 Test 1 - Use --midLast to check that each media description ends with a=mid');
+    }
+    return [];
+  }
+  if (!sdp.match(/a=mid:/)) {
+    if (params.verbose) {
+      console.log('Test Skipped: SMPTE RP 2110-23 Section 5.3 Test 1 - No a=mid present.');
+    }
+    return [];
+  }
+  let lines = splitLines(sdp);
+  let errors = [];
+  let streamCounter = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCounter++;
+    }
+    let lastLine = x + 1 === lines.length || lines[x + 1].startsWith('m=');
+    if (streamCounter > 0 && lastLine && !lines[x].startsWith('a=mid:')) {
+      errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, the media description does not end with its 'a=mid' attribute. RFC 8866 does not require this, but receivers that follow SMPTE RP 2110-23 Section 5.3 may expect it.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: SMPTE RP 2110-23 Section 5.3 Test 1 - Each media description ends with its a=mid attribute');
+  }
+  return errors;
+};
+
 // ST 2110-10 Section 8.6 Test 1 - MAXUDP has an acceptable value
 const test_10_86_1 = (sdp, params) => {
   const [mtParams, errors] = extractMTParams(sdp, params);
@@ -1753,6 +1785,11 @@ const section_10_83 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_23_53 = (sdp, params) => {
+  let tests = [test_23_53_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_10_86 = (sdp, params) => {
   let tests = [test_10_86_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1883,6 +1920,7 @@ const st2110_10_sections = [
   section_10_83,
   section_10_86,
   section_10_2022_87,
+  section_23_53,
 ];
 
 const allSections = (sdp, params) => {
@@ -1958,5 +1996,6 @@ module.exports = {
   section_21_82,
   section_40_2023_7,
   section_43_2021_41,
-  section_43_2021_42
+  section_43_2021_42,
+  section_23_53
 };
