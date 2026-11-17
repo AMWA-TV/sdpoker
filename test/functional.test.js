@@ -86,6 +86,10 @@ const invalidCases = [
     messageIncludes: 'Timing field ("t=") is not an acceptable pattern'
   },
   {
+    file: 'invalid/bandwidth-pattern.sdp',
+    messageIncludes: 'Bandwidth field ("b=") is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
