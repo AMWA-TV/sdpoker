@@ -68,6 +68,26 @@ const invalidCases = [
   {
     file: 'invalid/missing-ts-refclk.sdp',
     messageIncludes: 'ts-refclk'
+  },
+  {
+    file: 'invalid/st2110-43-video.sdp',
+    messageIncludes: 'requires media type \'application\''
+  },
+  {
+    file: 'invalid/st2110-43-missing-fmtp.sdp',
+    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
+  },
+  {
+    file: 'invalid/st2110-43-missing-codecs.sdp',
+    messageIncludes: 'format parameter \'codecs\' is not present'
+  },
+  {
+    file: 'invalid/st2110-43-clock-rate.sdp',
+    messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
+  },
+  {
+    file: 'invalid/st2110-43-upper-case-clock-rate.sdp',
+    messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
   }
 ];
 

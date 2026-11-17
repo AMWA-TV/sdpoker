@@ -33,6 +33,7 @@ const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
 const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
+const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])$/;
@@ -1600,6 +1601,95 @@ const test_40_2023_7_4 = (sdp, params) => {
   return errors;
 };
 
+// Collect the media type, rtpmap and fmtp of each stream with encoding name 'ttml+xml'
+const extractTTMLStreams = sdp => {
+  let streams = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  let mediaType = null;
+  let stream = null;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      let mediaMatch = lines[x].match(mediaPattern);
+      mediaType = mediaMatch ? mediaMatch[1] : null;
+      stream = null;
+      streamCount++;
+      continue;
+    }
+    if (lines[x].startsWith('a=rtpmap') && streamCount > 0) {
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (rtpmapMatch && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
+        stream = {
+          streamNumber: streamCount,
+          mediaType: mediaType,
+          rtpmapLine: x + 1,
+          clockRate: rtpmapMatch[3],
+          fmtpLine: null,
+          codecs: null
+        };
+        streams.push(stream);
+      }
+      continue;
+    }
+    if (lines[x].startsWith('a=fmtp') && stream !== null) {
+      let codecsMatch = lines[x].match(codecsPattern);
+      stream.fmtpLine = x + 1;
+      stream.codecs = codecsMatch ? codecsMatch[1] : null;
+    }
+  }
+  return streams;
+};
+
+// ST 2110-43:2021 Section 4.1 Test 1 - TTML streams use media type 'application'
+/* ST 2110-43 Section 4.1 requires the SDP defined in RFC 8759. RFC 8759 Section 11.2 says:
+The type name "application" goes in SDP "m=" as the media name.
+*/
+const test_43_41_1 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    if (stream.mediaType !== 'application') {
+      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, encoding name 'ttml+xml' requires media type 'application', as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-43:2021 Section 4.1 Test 1 - TTML streams use media type \'application\'.');
+  }
+  return errors;
+};
+
+// ST 2110-43:2021 Section 4.1 Test 2 - TTML streams have an fmtp attribute with a codecs parameter
+/* RFC 8759 Section 11.2 says:
+The "codecs" parameter MUST be included in the "a=fmtp" line of the SDP file.
+*/
+const test_43_41_2 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    if (stream.fmtpLine === null) {
+      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, an 'fmtp' attribute with format parameter 'codecs' is required, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+    } else if (stream.codecs === null) {
+      errors.push(new Error(`Line ${stream.fmtpLine}: For stream ${stream.streamNumber}, format parameter 'codecs' is not present and is required, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-43:2021 Section 4.1 Test 2 - TTML streams have an fmtp attribute with a codecs parameter.');
+  }
+  return errors;
+};
+
+// ST 2110-43:2021 Section 4.2 Test 1 - TTML streams have a 90 kHz RTP clock
+const test_43_42_1 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    if (stream.clockRate !== '90000') {
+      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, clock rate must be 90000Hz, as per ST 2110-43:2021 Section 4.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-43:2021 Section 4.2 Test 1 - TTML streams have a 90 kHz RTP clock.');
+  }
+  return errors;
+};
+
 const section_10_62 = (sdp, params) => {
   let tests = [test_10_62_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -1711,6 +1801,16 @@ const section_40_2023_7 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_43_41 = (sdp, params) => {
+  let tests = [test_43_41_1, test_43_41_2];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_43_42 = (sdp, params) => {
+  let tests = [test_43_42_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const no_copy = (sdp, specSDP) => {
   let lines = splitLines(sdp.trim());
   let exlines = splitLines(specSDP);
@@ -1755,8 +1855,16 @@ const allSections = (sdp, params) => {
   if (errors.length != 0) {
     return errors;
   }
+  // Encoding names are case-insensitive, as per RFC 4855 Section 3
+  let encodingName = mtParams[0]._encodingName;
+  let isTTML = typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml';
+  // Load tests for TTML by encoding name, so that ST 2110-43 tests can check its media type
+  if (isTTML) {
+    sections = [
+      ...st2110_10_sections,
+      section_43_41, section_43_42];
   // Load tests for video or audio mediaTypes
-  if (mtParams[0]._mediaType == 'video') {
+  } else if (mtParams[0]._mediaType == 'video') {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
@@ -1810,5 +1918,7 @@ module.exports = {
   section_22_2022_72,
   section_21_81,
   section_21_82,
-  section_40_2023_7
+  section_40_2023_7,
+  section_43_41,
+  section_43_42
 };
