@@ -1699,7 +1699,7 @@ const extractTTMLStreams = sdp => {
 /* RFC 8759 Section 11.2 says:
 The "codecs" parameter MUST be included in the "a=fmtp" line of the SDP file.
 */
-const test_43_41_1 = (sdp, params) => {
+const test_43_2021_41_1 = (sdp, params) => {
   let errors = [];
   for (let stream of extractTTMLStreams(sdp)) {
     if (stream.fmtpLine === null) {
@@ -1715,7 +1715,7 @@ const test_43_41_1 = (sdp, params) => {
 };
 
 // ST 2110-43:2021 Section 4.2 Test 1 - TTML streams have a 90 kHz RTP clock
-const test_43_42_1 = (sdp, params) => {
+const test_43_2021_42_1 = (sdp, params) => {
   let errors = [];
   for (let stream of extractTTMLStreams(sdp)) {
     if (stream.clockRate !== '90000') {
@@ -1839,13 +1839,13 @@ const section_40_2023_7 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_43_41 = (sdp, params) => {
-  let tests = [test_43_41_1];
+const section_43_2021_41 = (sdp, params) => {
+  let tests = [test_43_2021_41_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const section_43_42 = (sdp, params) => {
-  let tests = [test_43_42_1];
+const section_43_2021_42 = (sdp, params) => {
+  let tests = [test_43_2021_42_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1927,7 +1927,7 @@ const allSections = (sdp, params) => {
     if (typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml') {
       sections = [
         ...st2110_10_sections,
-        section_43_41, section_43_42];
+        section_43_2021_41, section_43_2021_42];
     }
   }
 
@@ -1957,6 +1957,6 @@ module.exports = {
   section_21_81,
   section_21_82,
   section_40_2023_7,
-  section_43_41,
-  section_43_42
+  section_43_2021_41,
+  section_43_2021_42
 };
