@@ -64,6 +64,8 @@ const followedBy = {
 };
 const oPattern = /^o=(\S+)\s+(\d+)\s+(\d+)\s+IN\s+(IP[4|6])\s+(\S+)$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
+const bPattern = /^b=[^\s:]+:\d+$/;
+const tPattern = /^t=(0|[1-9]\d{9,})\s+(0|[1-9]\d{9,})$/;
 const ip4Pattern = /^([1-9]\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)$/;
 // Tne following is a very basic test of IPv6 addresses
 const ip6Pattern = /^[0-9a-f]*:[0-9a-f]*(:[0-9a-f]+)*:[0-9a-f]+$/;
@@ -251,7 +253,7 @@ const test_57_2 = (sdp, params) => {
     if (lines[x].startsWith('c=')) {
       let cMatch = lines[x].match(cPattern);
       if (!cMatch) {
-        errors.push(new Error(`Line ${x + 1}: Connection data field does not match an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
+        errors.push(new Error(`Line ${x + 1}: Connection data field ("c=") is not an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
         continue;
       }
       if (params.useIP4 === true && cMatch[1] !== 'IP4') {
@@ -316,6 +318,30 @@ const test_57_3 = (sdp, params) => {
 };
 // TODO Future work - test ability to join multicast group or DNS lookup address
 
+// Section 5.8 Test 1 - Bandwidth matches acceptable pattern
+const test_58_1 = sdp => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('b=') && !bPattern.test(lines[x])) {
+      errors.push(new Error(`Line ${x + 1}: Bandwidth field ("b=") is not an acceptable pattern, as per RFC 4566 Section 5.8.`));
+    }
+  }
+  return errors;
+};
+
+// Section 5.9 Test 1 - Timing matches acceptable pattern
+const test_59_1 = sdp => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('t=') && !tPattern.test(lines[x])) {
+      errors.push(new Error(`Line ${x + 1}: Timing field ("t=") is not an acceptable pattern, as per RFC 4566 Section 5.9.`));
+    }
+  }
+  return errors;
+};
+
 const section_50 = (sdp, params) => {
   let endingTests = [ test50_1, test50_1_1 ];
   let lines = splitLines(sdp);
@@ -338,6 +364,16 @@ const section_57 = (sdp, params) => {
   return tests.flatMap(s => s(sdp, params));
 };
 
+const section_58 = (sdp, params) => {
+  let tests = [ test_58_1 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_59 = (sdp, params) => {
+  let tests = [ test_59_1 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 // Test if SDP file is missing media descriptions
 const no_media = sdp => {
   let lines = splitLines(sdp.trim());
@@ -352,7 +388,7 @@ const no_media = sdp => {
 };
 
 const allSections = (sdp, params) => {
-  let sections = [ section_50, section_51, section_52, section_57 ];
+  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59 ];
   if (params.noMedia) {
     sections.push(no_media);
   }
@@ -364,5 +400,7 @@ module.exports = {
   section_50,
   section_51,
   section_52,
-  section_57
+  section_57,
+  section_58,
+  section_59
 };

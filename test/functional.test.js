@@ -58,6 +58,50 @@ const invalidCases = [
     messageIncludes: 'form \'<type>=<value>\''
   },
   {
+    file: 'invalid/origin-pattern.sdp',
+    messageIncludes: 'Origin field ("o=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/connection-pattern.sdp',
+    messageIncludes: 'Connection data field ("c=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/media-pattern.sdp',
+    messageIncludes: 'Media description field ("m=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/ts-refclk-pattern.sdp',
+    messageIncludes: 'Attribute \'ts-refclk\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/source-filter-value-pattern.sdp',
+    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/fmtp-pattern.sdp',
+    messageIncludes: 'attribute \'fmtp\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/time-pattern.sdp',
+    messageIncludes: 'Timing field ("t=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/bandwidth-pattern.sdp',
+    messageIncludes: 'Bandwidth field ("b=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/rtpmap-pattern.sdp',
+    messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/mediaclk-pattern.sdp',
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/source-filter-pattern.sdp',
+    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
