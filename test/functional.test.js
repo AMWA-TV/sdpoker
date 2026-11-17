@@ -58,6 +58,30 @@ const invalidCases = [
     messageIncludes: 'form \'<type>=<value>\''
   },
   {
+    file: 'invalid/origin-pattern.sdp',
+    messageIncludes: 'Origin field ("o=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/connection-pattern.sdp',
+    messageIncludes: 'Connection data field does not match an acceptable pattern'
+  },
+  {
+    file: 'invalid/media-pattern.sdp',
+    messageIncludes: 'should be of the form \'m=mediaType udpPort RTP/AVP payloadType\''
+  },
+  {
+    file: 'invalid/ts-refclk-pattern.sdp',
+    messageIncludes: 'Reference clocks shall use the PTP form or shall use the localmac form'
+  },
+  {
+    file: 'invalid/source-filter-value-pattern.sdp',
+    messageIncludes: 'Source-filters must follow the pattern'
+  },
+  {
+    file: 'invalid/fmtp-pattern.sdp',
+    messageIncludes: 'should be of the form \'a=fmtp:<format>'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
