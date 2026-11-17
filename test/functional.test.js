@@ -90,6 +90,10 @@ const invalidCases = [
     messageIncludes: 'Bandwidth field ("b=") is not an acceptable pattern'
   },
   {
+    file: 'invalid/rtpmap-pattern.sdp',
+    messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
