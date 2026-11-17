@@ -68,6 +68,14 @@ const invalidCases = [
   {
     file: 'invalid/missing-ts-refclk.sdp',
     messageIncludes: 'ts-refclk'
+  },
+  {
+    file: 'invalid/st2110-20-fmtp-first.sdp',
+    messageIncludes: 'required parameter \'SSN\' is missing'
+  },
+  {
+    file: 'invalid/st2110-40-fmtp-first.sdp',
+    messageIncludes: 'format parameter \'TM\' is not set to a required value'
   }
 ];
 

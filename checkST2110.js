@@ -627,40 +627,53 @@ const extractMTParams = (sdp, params = {}) => {
   let mtParams = [];
   let errors = [];
   let lines = splitLines(sdp);
-  let isSkippedType = false;
   let streamCount = 0;
   let payloadType = -1;
+  let payloadTypes = [];
   let mediaType = -1;
   let encodingName = -1;
 
+  // Encoding names by payload type for each media description, as 'rtpmap' and 'fmtp' may be in either order
+  let encodingNames = [];
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
+      encodingNames.push({});
+    } else if (lines[x].startsWith('a=rtpmap') && encodingNames.length > 0) {
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (rtpmapMatch) {
+        encodingNames[encodingNames.length - 1][+rtpmapMatch[1]] = rtpmapMatch[2];
+      }
+    }
+  }
+
+  let section = -1;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      section++;
       let mediaMatch = lines[x].match(mediaPattern);
       if (mediaMatch) {
         mediaType = mediaMatch[1];
         payloadType = +mediaMatch[5];
+        payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
+        encodingName = encodingNames[section][payloadType] ?? -1;
       }
       else {
         errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
+        payloadTypes = [];
         continue;
       }
       streamCount++;
-      isSkippedType = false;
       continue;
     }
-    if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch) {
-        encodingName = rtpmapMatch[2];
-      }
-      if (rtpmapMatch && skipVideoTypes.includes(rtpmapMatch[2])) {
-        isSkippedType = true;
+    if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
+      let fmtpMatch = lines[x].match(fmtpPattern);
+      if (!fmtpMatch) {
+        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
         continue;
       }
-    }
-    if (lines[x].startsWith('a=fmtp') && payloadType >= 0 && !isSkippedType) {
-      if (!fmtpPattern.test(lines[x])) {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
+      let fmtpPayloadType = +fmtpMatch[1];
+      let fmtpEncodingName = encodingNames[section][fmtpPayloadType] ?? -1;
+      if (!payloadTypes.includes(fmtpPayloadType) || skipVideoTypes.includes(fmtpEncodingName)) {
         continue;
       }
       let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
@@ -685,11 +698,11 @@ const extractMTParams = (sdp, params = {}) => {
         x[y[0]] = y[1];
         return x;
       }, {});
-      paramsObject._payloadType = payloadType;
+      paramsObject._payloadType = fmtpPayloadType;
       paramsObject._line = x + 1;
       paramsObject._streamNumber = streamCount;
       paramsObject._mediaType = mediaType;
-      paramsObject._encodingName = encodingName;
+      paramsObject._encodingName = fmtpEncodingName;
       mtParams.push(paramsObject);
     }
   }
