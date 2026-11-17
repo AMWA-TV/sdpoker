@@ -98,6 +98,10 @@ const invalidCases = [
     messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/source-filter-pattern.sdp',
+    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
