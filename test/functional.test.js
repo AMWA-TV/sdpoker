@@ -94,6 +94,10 @@ const invalidCases = [
     messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/mediaclk-pattern.sdp',
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
