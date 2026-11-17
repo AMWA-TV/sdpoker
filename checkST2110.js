@@ -1116,9 +1116,6 @@ const test_30_62_1 = (sdp, params) => {
   let hasRtpmap = true;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      if (hasRtpmap === false && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, required attribute 'rtpmap' is missing for audio stream.`));
-      }
       let audioMatch = lines[x].match(audioPattern);
       payloadType = audioMatch ? +audioMatch[4] : -1;
       streamCount++;
@@ -1158,9 +1155,6 @@ const test_30_62_1 = (sdp, params) => {
         break;
       }
     }
-  }
-  if (hasRtpmap === false && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, required attribute 'rtpmap' is missing for audio stream.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 1 - Compliant with AES-67 Section 7.1');

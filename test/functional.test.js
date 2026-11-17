@@ -88,6 +88,16 @@ const invalidCases = [
   {
     file: 'invalid/missing-rtpmap.sdp',
     messageIncludes: 'dynamic payload type \'105\' has no \'rtpmap\' attribute'
+  },
+  {
+    file: 'invalid/st2110-30-missing-rtpmap.sdp',
+    messageIncludes: 'dynamic payload type \'102\' has no \'rtpmap\' attribute',
+    messageExcludes: 'required attribute \'rtpmap\' is missing'
+  },
+  {
+    file: 'invalid/st2110-30-encoding-name.sdp',
+    messageIncludes: 'does not match the acceptable audio pattern',
+    messageExcludes: 'required attribute \'rtpmap\' is missing'
   }
 ];
 
@@ -107,7 +117,7 @@ test('valid SDP fixtures pass default checks', t => {
 });
 
 test('invalid SDP fixtures are rejected', t => {
-  t.plan(invalidCases.length * 2);
+  t.plan(invalidCases.length * 2 + invalidCases.filter(invalidCase => invalidCase.messageExcludes).length);
 
   for (const invalidCase of invalidCases) {
     const sdp = readFixture(invalidCase.file);
@@ -119,5 +129,11 @@ test('invalid SDP fixtures are rejected', t => {
       messages.includes(invalidCase.messageIncludes),
       `${invalidCase.file} reports an error mentioning "${invalidCase.messageIncludes}"`
     );
+    if (invalidCase.messageExcludes) {
+      t.notOk(
+        messages.includes(invalidCase.messageExcludes),
+        `${invalidCase.file} does not report an error mentioning "${invalidCase.messageExcludes}"`
+      );
+    }
   }
 });
