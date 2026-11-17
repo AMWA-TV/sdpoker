@@ -555,7 +555,7 @@ const test_10_2022_87_1 = (sdp, params) => {
   return errors;
 };
 
-// Function to check that rtpmap is present and has passed in type and clockRate.
+// Function to check that rtpmap has passed in type and clockRate.
 // An optional specification string can be used to be included in errors
 // produced as a reference back to a spec
 const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
@@ -566,9 +566,6 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
   let streamCount = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      if (!rtpmapInStream && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
-      }
       let videoMatch = lines[x].match(videoPattern);
       payloadType = videoMatch ? +videoMatch[4] : -1;
       rtpmapInStream = false;
@@ -598,9 +595,6 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate must be ${clockRate}Hz, as per ${specification}`));
       }
     }
-  }
-  if (!rtpmapInStream && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'rtpmap' attribute.`));
   }
   return errors;
 };

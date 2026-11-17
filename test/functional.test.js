@@ -90,6 +90,11 @@ const invalidCases = [
     messageIncludes: 'dynamic payload type \'105\' has no \'rtpmap\' attribute'
   },
   {
+    file: 'invalid/st2110-20-missing-rtpmap.sdp',
+    messageIncludes: 'For stream 2, dynamic payload type \'97\' has no \'rtpmap\' attribute',
+    messageExcludes: 'does not have an \'rtpmap\' attribute'
+  },
+  {
     file: 'invalid/st2110-30-missing-rtpmap.sdp',
     messageIncludes: 'dynamic payload type \'102\' has no \'rtpmap\' attribute',
     messageExcludes: 'required attribute \'rtpmap\' is missing'
