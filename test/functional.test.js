@@ -76,6 +76,18 @@ const invalidCases = [
   {
     file: 'invalid/st2110-40-fmtp-first.sdp',
     messageIncludes: 'format parameter \'TM\' is not set to a required value'
+  },
+  {
+    file: 'invalid/rtpmap-payload-type.sdp',
+    messageIncludes: 'attribute \'rtpmap\' has payload type \'106\', which is not a format of the media description'
+  },
+  {
+    file: 'invalid/fmtp-payload-type.sdp',
+    messageIncludes: 'attribute \'fmtp\' has payload type \'106\', which is not a format of the media description'
+  },
+  {
+    file: 'invalid/missing-rtpmap.sdp',
+    messageIncludes: 'dynamic payload type \'105\' has no \'rtpmap\' attribute'
   }
 ];
 
