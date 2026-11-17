@@ -82,6 +82,10 @@ const invalidCases = [
     messageIncludes: 'attribute \'fmtp\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/time-pattern.sdp',
+    messageIncludes: 'Timing field ("t=") is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
