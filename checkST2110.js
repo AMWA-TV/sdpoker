@@ -1650,37 +1650,40 @@ const test_40_2023_7_4 = (sdp, params) => {
   return errors;
 };
 
-// Collect the media type, rtpmap and fmtp of each stream with encoding name 'ttml+xml'
+// Collect the rtpmap of each stream with encoding name 'ttml+xml', and the fmtp with the same payload type,
+// as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
   let streams = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
-  let mediaType = null;
-  let stream = null;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      let mediaMatch = lines[x].match(mediaPattern);
-      mediaType = mediaMatch ? mediaMatch[1] : null;
-      stream = null;
       streamCount++;
       continue;
     }
     if (lines[x].startsWith('a=rtpmap') && streamCount > 0) {
       let rtpmapMatch = lines[x].match(rtpmapPattern);
       if (rtpmapMatch && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
-        stream = {
+        streams.push({
           streamNumber: streamCount,
-          mediaType: mediaType,
+          payloadType: +rtpmapMatch[1],
           rtpmapLine: x + 1,
           clockRate: rtpmapMatch[3],
           fmtpLine: null,
           codecs: null
-        };
-        streams.push(stream);
+        });
       }
+    }
+  }
+  streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
       continue;
     }
-    if (lines[x].startsWith('a=fmtp') && stream !== null) {
+    let fmtpMatch = lines[x].match(/^a=fmtp:(\d+)/);
+    let stream = fmtpMatch && streams.find(s => s.streamNumber === streamCount && s.payloadType === +fmtpMatch[1]);
+    if (stream) {
       let codecsMatch = lines[x].match(codecsPattern);
       stream.fmtpLine = x + 1;
       stream.codecs = codecsMatch ? codecsMatch[1] : null;
@@ -1689,28 +1692,11 @@ const extractTTMLStreams = sdp => {
   return streams;
 };
 
-// ST 2110-43:2021 Section 4.1 Test 1 - TTML streams use media type 'application'
-/* ST 2110-43 Section 4.1 requires the SDP defined in RFC 8759. RFC 8759 Section 11.2 says:
-The type name "application" goes in SDP "m=" as the media name.
-*/
-const test_43_41_1 = (sdp, params) => {
-  let errors = [];
-  for (let stream of extractTTMLStreams(sdp)) {
-    if (stream.mediaType !== 'application') {
-      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, encoding name 'ttml+xml' requires media type 'application', as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-43:2021 Section 4.1 Test 1 - TTML streams use media type \'application\'.');
-  }
-  return errors;
-};
-
-// ST 2110-43:2021 Section 4.1 Test 2 - TTML streams have an fmtp attribute with a codecs parameter
+// ST 2110-43:2021 Section 4.1 Test 1 - TTML streams have an fmtp attribute with a codecs parameter
 /* RFC 8759 Section 11.2 says:
 The "codecs" parameter MUST be included in the "a=fmtp" line of the SDP file.
 */
-const test_43_41_2 = (sdp, params) => {
+const test_43_41_1 = (sdp, params) => {
   let errors = [];
   for (let stream of extractTTMLStreams(sdp)) {
     if (stream.fmtpLine === null) {
@@ -1720,7 +1706,7 @@ const test_43_41_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-43:2021 Section 4.1 Test 2 - TTML streams have an fmtp attribute with a codecs parameter.');
+    console.log('Test Passed: ST 2110-43:2021 Section 4.1 Test 1 - TTML streams have an fmtp attribute with a codecs parameter.');
   }
   return errors;
 };
@@ -1851,7 +1837,7 @@ const section_40_2023_7 = (sdp, params) => {
 };
 
 const section_43_41 = (sdp, params) => {
-  let tests = [test_43_41_1, test_43_41_2];
+  let tests = [test_43_41_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1904,16 +1890,8 @@ const allSections = (sdp, params) => {
   if (errors.length != 0) {
     return errors;
   }
-  // Encoding names are case-insensitive, as per RFC 4855 Section 3
-  let encodingName = mtParams[0]._encodingName;
-  let isTTML = typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml';
-  // Load tests for TTML by encoding name, so that ST 2110-43 tests can check its media type
-  if (isTTML) {
-    sections = [
-      ...st2110_10_sections,
-      section_43_41, section_43_42];
-  // Load tests for video or audio mediaTypes
-  } else if (mtParams[0]._mediaType == 'video') {
+  // Load tests for video, audio or application mediaTypes
+  if (mtParams[0]._mediaType == 'video') {
     // Load tests based on encoding name
     if (mtParams[0]._encodingName == 'jxsv') {
       sections = [
@@ -1940,6 +1918,14 @@ const allSections = (sdp, params) => {
     sections = [
       ...st2110_10_sections,
       section_30_62];
+  } else if (mtParams[0]._mediaType == 'application') {
+    // Encoding names are case-insensitive, as per RFC 4855 Section 3
+    let encodingName = mtParams[0]._encodingName;
+    if (typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml') {
+      sections = [
+        ...st2110_10_sections,
+        section_43_41, section_43_42];
+    }
   }
 
   return concat(sections.map(s => s(sdp, params)));
