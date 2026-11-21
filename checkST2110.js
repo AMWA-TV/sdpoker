@@ -1553,12 +1553,11 @@ const test_22_73_1 = (sdp, params) => {
 const test_22_74_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/);
   let sdpLineNumb = 1;
-  let errors = [];
 
-  let [mtParams, paramErrors] = extractMTParams(sdp, params);
-  if (paramErrors.length != 0) {
-    errors.push(paramErrors);
-    return;
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  if (errors.length != 0) {
+    // A stream's format parameters may be missing from mtParams, so its framerate cannot be checked
+    return errors;
   }
   for (let s = 0; s < streams.length; s++) {
     let lines = splitLines(streams[s]);
@@ -1576,7 +1575,7 @@ const test_22_74_1 = (sdp, params) => {
       let framerateAttributePresent = false;
       let framerateParameterPresent = false;
       // First check if exactframerate is specified as a parameter of fmtp
-      if (mtParams[s - 1].exactframerate != null) {
+      if (mtParams.some(stream => stream._streamNumber == s && stream.exactframerate != null)) {
         framerateParameterPresent = true;
       }
       // Now check if it's present as a media level attribute

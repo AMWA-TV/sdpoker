@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const test = require('tape');
 const { checkRFC4566, checkRFC4570, checkST2110 } = require('../index.js');
+const { section_22_74 } = require('../checkST2110.js');
 
 // Mirror sdpoker.js default CLI options so library tests match CLI behaviour.
 const cliDefaults = {
@@ -172,6 +173,10 @@ const invalidCases = [
   {
     file: 'invalid/st2110-43-upper-case-encoding-name.sdp',
     messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
+  },
+  {
+    file: 'invalid/st2110-22-missing-fmtp.sdp',
+    messageIncludes: 'Media Stream 1: Framerate must specified as either an attribute or a parameter of video fmtp'
   }
 ];
 
@@ -234,5 +239,14 @@ test('ts-refclk and source-filter attributes must match a pattern to the end of 
     const messages = runAllChecks(variant).map(error => error.message).join(' ');
     t.ok(messages.includes(message), `'${attribute}' is reported`);
   }
+  t.end();
+});
+
+test('ST 2110-22 Section 7.4 tests report fmtp errors', t => {
+  const sdp = readFixture('valid/st2110-22.sdp').replace('a=fmtp:112 ', 'a=fmtp:112 ;');
+  const errors = section_22_74(sdp, cliDefaults);
+
+  t.ok(errors.length > 0, 'a malformed fmtp is reported');
+  t.ok(errors.every(error => error instanceof Error), 'every result is an Error');
   t.end();
 });
