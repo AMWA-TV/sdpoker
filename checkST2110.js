@@ -1077,13 +1077,12 @@ const colorPermitted20_2017 = [
 const colorPermitted20_2022 = ['ALPHA'];
 
 // ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
-// [also ST 2110-20:2022 Section 7.4]
 const test_20_75_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.colorimetry !== 'undefined') {
       if (colorPermitted20_2017.indexOf(stream.colorimetry) < 0 && colorPermitted20_2022.indexOf(stream.colorimetry) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5 [also ST 2110-20:2022 Section 7.4].`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5.`));
       }
     }
   }
@@ -1097,7 +1096,7 @@ const test_20_75_1 = (sdp, params) => {
 const test_20_75_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 7.5 Test 2 - Use --should to check that signals using BT.2100 specify RANGE');
+      console.log('Test Skipped: ST 2110-20 Section 7.5 Test 2 - Use --should to check that signals using BT.2100 specify RANGE');
     }
     return [];
   }
@@ -1123,18 +1122,17 @@ const tcsPermitted20_2017 = [
 const tcsPermitted20_2022 = ['ST2115LOGS3'];
 
 // ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
-// [also ST 2110-20:2022 Section 7.5]
 const test_20_76_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TCS !== 'undefined') {
       if (tcsPermitted20_2017.indexOf(stream.TCS) < 0 && tcsPermitted20_2022.indexOf(stream.TCS) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20 Section 7.6 [also ST 2110-20:2012 Section 7.5].`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20 Section 7.6.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.6 [also ST 2110-20:2022 Section 7.5] Test 1 - TCS is a permitted value');
+    console.log('Test Passed: ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value');
   }
   return errors;
 };
