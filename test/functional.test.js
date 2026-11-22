@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const test = require('tape');
 const { checkRFC4566, checkRFC4570, checkST2110 } = require('../index.js');
-const { section_22_74, section_40_2023_7, section_8331_4 } = require('../checkST2110.js');
+const { section_22_74, section_40_2023_7, section_8331_4, section_2022_8_71 } = require('../checkST2110.js');
 
 // Mirror sdpoker.js default CLI options so library tests match CLI behaviour.
 const cliDefaults = {
@@ -153,6 +153,26 @@ const invalidCases = [
   {
     file: 'invalid/st2022-8-clock-rate.sdp',
     messageIncludes: 'For stream 1, clock rate must be 27000000Hz, as per ST 2022-8 Section 5.3'
+  },
+  {
+    file: 'valid/st2022-6.sdp',
+    params: { shaping: true },
+    messageIncludes: 'For stream 1, parameter \'TP\' is not provided, as required by ST 2022-8 Section 6'
+  },
+  {
+    file: 'invalid/st2022-8-tp.sdp',
+    params: { shaping: true },
+    messageIncludes: 'For stream 1, format parameter \'TP\' is not one of \'2110TPNL\' or \'2110TPW\', as per ST 2022-8 Section 6'
+  },
+  {
+    file: 'invalid/st2022-8-dup-missing-tp.sdp',
+    params: { shaping: true, duplicate: true },
+    messageIncludes: 'Stream 2 does not have an \'fmtp\' attribute, as per ST 2022-8 Section 6'
+  },
+  {
+    file: 'invalid/st2022-8-troff.sdp',
+    params: { shaping: true },
+    messageIncludes: 'For stream 1, TROFF parameter cannot be negative, as per ST 2110-21 Section 8.2'
   },
   {
     file: 'invalid/st2110-40-ssn.sdp',
@@ -379,6 +399,11 @@ test('BT.2100 signals without RANGE are reported only with --should', t => {
     const messages = checkST2110(sdp, { ...cliDefaults, should: true }).map(error => error.message);
     t.ok(messages.some(m => m.includes(`${message} ${specification}.`)), `${specification} is reported with --should`);
   }
+  t.end();
+});
+
+test('ST 2022-8 Section 7.1 tests check TROFF only when shaping', t => {
+  t.same(section_2022_8_71(readFixture('invalid/st2022-8-troff.sdp'), cliDefaults), [], 'a negative TROFF is not reported');
   t.end();
 });
 
