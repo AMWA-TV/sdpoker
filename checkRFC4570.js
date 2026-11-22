@@ -18,7 +18,6 @@ const concat = arrays => Array.prototype.concat.apply([], arrays);
 
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
-const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[0-9a-f:.]*))$/i;
 
 // Section 3 Test 1 - Source-filter correctly formatted if present
 const test_30_1 = sdp => {
@@ -32,33 +31,6 @@ const test_30_1 = sdp => {
         continue;
       }
     }
-  }
-  return errors;
-};
-
-// Section 3 Test 2 - Source-filters are present when multicast addresses are used
-const test_30_2 = sdp => {
-  let lines = splitLines(sdp);
-  let errors = [];
-  let isMulticast = false;
-  let seenSourceFilter = false;
-  for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines[x].startsWith('c=')) {
-      let addrMatch = lines[x].match(cPattern);
-      if (!addrMatch) {
-        continue;
-      }
-      if (multiPattern.test(addrMatch[2])) {
-        isMulticast = true;
-      }
-    }
-    if (lines[x].startsWith('a=source-filter:')) {
-      seenSourceFilter = true;
-    }
-  }
-  if (isMulticast && !seenSourceFilter) {
-    // A basic check that at least one source-filter is included when using a multicast destination
-    errors.push(new Error('SDP file includes one or more multicast destinations but does not include any a=source-filter lines as per RFC 4570 Section 3.'));
   }
   return errors;
 };
@@ -100,7 +72,7 @@ const test_30_3 = sdp => {
 };
 
 const section_30 = (sdp, params) => {
-  let tests = [ test_30_1, test_30_2, test_30_3 ];
+  let tests = [ test_30_1, test_30_3 ];
   return concat(tests.map(t => t(sdp, params)));
 };
 

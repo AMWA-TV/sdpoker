@@ -101,7 +101,7 @@ test('CLI skip options skip each group of checks', t => {
   const skipCases = [
     ['--skipST2110', 'invalid/st2022-6.sdp'],
     ['--skipST2110', '--verbose', 'invalid/st2022-6.sdp'],
-    ['--skipRFC4570', 'invalid/aes67-mcast.sdp'],
+    ['--skipRFC4570', 'invalid/source-filter-pattern.sdp'],
     ['--skipRFC4566', '--skipST2110', 'invalid/missing-v0.sdp']
   ];
 
