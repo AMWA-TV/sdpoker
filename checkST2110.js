@@ -451,26 +451,6 @@ const test_10_86_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-20 Section 7.1 Test 1 - If required, check all streams are video
-const test_20_71_1 = (sdp, params) => {
-  let streams = sdp.split(/[\r\n]m=/);
-  let errors = [];
-  if (params.videoOnly) {
-    for (let s = 1; s < streams.length; s++) {
-      if (!streams[s].startsWith('video')) {
-        errors.push(new Error(`Stream ${s}: Media type is not 'video' and video only files are in test, as per ST 2110-20 Section 7.1.`));
-      }
-    }
-  }
-  if (params.verbose && !params.videoOnly) {
-    console.log('Test Skipped: ST 2110-20 Section 7.1 Test 1 - Use --videoOnly to check if all streams are video.');
-  }
-  if (params.videoOnly && params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-20 Section 7.1 Test 1 - All streams are video');
-  }
-  return errors;
-};
-
 // ST 2110-10 Section 6.2 Test 1 - For all streams, check RTP parameters
 const test_10_62_1 = (sdp, params) => {
   let errors = [];
@@ -1294,26 +1274,6 @@ const test_30_62_4 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-30 Section 6.2.2 Test 5 - If required, check all streams are audio
-const test_30_62_5 = (sdp, params) => {
-  let streams = sdp.split(/[\r\n]m=/);
-  let errors = [];
-  if (params.audioOnly) {
-    for (let s = 1; s < streams.length; s++) {
-      if (!streams[s].startsWith('audio')) {
-        errors.push(new Error(`Stream ${s}: Media type is not 'audio' and audio only files are in test.`));
-      }
-    }
-  }
-  if (params.verbose && !params.audioOnly) {
-    console.log('Test Skipped: ST 2110-30 Section 6.2.2 Test 5 - Use --audioOnly to check if all streams are audio.');
-  }
-  if (params.verbose && params.audioOnly && errors.length == 0) {
-    console.log('Test Passed: ST 2110-30 Section 6.2.2 Test 5 - Check all streams are audio');
-  }
-  return errors;
-};
-
 // ST 2110-21 Section 8.1 Test 1 - When traffic shaping, TP parameter is specified.
 const test_21_81_1 = (sdp, params) => {
   if (params.shaping === false) {
@@ -1802,7 +1762,7 @@ const section_10_2022_87 = (sdp, params) => {
 };
 
 const section_20_71 = (sdp, params) => {
-  let tests = [test_20_71_1, test_20_71_3, test_20_71_4];
+  let tests = [test_20_71_3, test_20_71_4];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1833,7 +1793,7 @@ const section_20_76 = (sdp, params) => {
 };
 
 const section_30_62 = (sdp, params) => {
-  let tests = [test_30_62_1, test_30_62_3, test_30_62_4, test_30_62_5];
+  let tests = [test_30_62_1, test_30_62_3, test_30_62_4];
   return concat(tests.map(t => t(sdp, params)));
 };
 

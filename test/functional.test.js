@@ -7,7 +7,7 @@ const { section_22_74 } = require('../checkST2110.js');
 // Mirror sdpoker.js default CLI options so library tests match CLI behaviour.
 const cliDefaults = {
   checkEndings: false, should: false, noCopy: true, noMedia: true,
-  duplicate: false, videoOnly: false, audioOnly: false,
+  duplicate: false,
   skipRFC4566: false, skipRFC4570: false, skipST2110: false,
   channelOrder: false, useIP4: false, useIP6: false,
   multicast: false, unicast: false, shaping: false, verbose: false

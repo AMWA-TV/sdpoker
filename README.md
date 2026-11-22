@@ -18,6 +18,7 @@ This is a fork of the original repository from [Streampunk/sdpoker](https://gith
 
 Recent activity on the project (newest first):
 
+- Removed the `--videoOnly` and `--audioOnly` options, because SDPoker now reports any SDP file that describes more than one essence
 - v0.5.0 supports Node.js 22.12 or later
 - Fixed `sdpoker --version` when SDPoker is installed from the repository
 - Added functional and CLI tests, and lint in CI
@@ -138,8 +139,6 @@ The parameters of the library are binary flags that match the command line optio
 * `noCopy`: Fail obvious copies of the ST 2110-10 SDP example.
 * `noMedia`: Fail SDP files which do not include any media descriptions.
 * `duplicate`: Expect duplicate streams aka ST 2022-7.
-* `videoOnly`: Describes only SMPTE ST 2110-20 streams.
-* `audioOnly`: Describes only SMPTE ST 2110-30 streams.
 * `channelOrder`: Expect audio with ST2110-30 channel-order.
 * `shaping`: Check adherence to traffic shaping specification.
 * `useIP4`: All addresses expressed in IP v4 notation.

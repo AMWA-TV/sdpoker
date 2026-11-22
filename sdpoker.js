@@ -28,8 +28,6 @@ const args = yargs(hideBin(process.argv))
     noCopy: { type: 'boolean', default: true, describe: 'Fail obvious copies of the ST 2110-10 SDP example' },
     noMedia: { type: 'boolean', default: true, describe: 'Fail SDP files which do not include any media descriptions' },
     duplicate: { type: 'boolean', default: false, describe: 'Expect duplicate streams aka ST 2022-7' },
-    videoOnly: { type: 'boolean', default: false, describe: 'Describes only SMPTE ST 2110-20 streams' },
-    audioOnly: { type: 'boolean', default: false, describe: 'Describes only SMPTE ST 2110-30 streams' },
     skipRFC4566: { type: 'boolean', default: false, describe: 'Skips RFC4566 checks' },
     skipRFC4570: { type: 'boolean', default: false, describe: 'Skips RFC4570 checks' },
     skipST2110: { type: 'boolean', default: false, describe: 'Skips ST2110 checks' },
@@ -55,9 +53,6 @@ const args = yargs(hideBin(process.argv))
     }
     if (argv.multicast && argv.unicast) {
       throw new Error('Cannot set both multicast and unicast flags at the same time.');
-    }
-    if (argv.audioOnly && argv.videoOnly) {
-      throw new Error('Cannot set both videoOnly and audioOnly flags at the same time.');
     }
     return true;
   })
