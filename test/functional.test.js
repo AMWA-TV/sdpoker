@@ -236,17 +236,17 @@ const invalidCases = [
   }
 ];
 
-test('valid SDP fixtures pass default checks', t => {
+test('valid SDP fixtures pass default checks and have CRLF line endings', t => {
   t.plan(validFixtures.length);
 
   for (const fileName of validFixtures) {
     const sdp = fs.readFileSync(path.join(validFixturesDir, fileName), 'utf8');
-    const errors = runAllChecks(sdp);
+    const errors = runAllChecks(sdp, { ...cliDefaults, checkEndings: true });
 
     t.same(
       errors,
       [],
-      `${fileName} passes default checks`
+      `${fileName} passes default checks and has CRLF line endings`
     );
   }
 });
