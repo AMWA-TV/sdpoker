@@ -66,11 +66,20 @@ const invalidCases = [
     messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
   },
   {
+    file: 'invalid/line-endings-final-cr.sdp',
+    params: { checkEndings: true },
+    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+  },
+  {
     file: 'invalid/no-final-line-ending.sdp',
     messageIncludes: 'does not contain a newline character at the end of the last record, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/blank-line.sdp',
+    messageIncludes: 'Blank lines are not permitted, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/blank-first-line.sdp',
     messageIncludes: 'Blank lines are not permitted, as per RFC 4566 Section 5'
   },
   {
