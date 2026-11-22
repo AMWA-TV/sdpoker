@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const test = require('tape');
 const { checkRFC4566, checkRFC4570, checkST2110 } = require('../index.js');
-const { section_22_74, section_40_2023_7 } = require('../checkST2110.js');
+const { section_22_74, section_40_2023_7, section_8331_4 } = require('../checkST2110.js');
 
 // Mirror sdpoker.js default CLI options so library tests match CLI behaviour.
 const cliDefaults = {
@@ -153,6 +153,18 @@ const invalidCases = [
   {
     file: 'invalid/st2110-40-ssn.sdp',
     messageIncludes: 'format parameter \'SSN\' must be set to ST2110-40:2023 when TM is present as per ST 2110-40:2023 Section 7'
+  },
+  {
+    file: 'invalid/st2110-40-did-sdid.sdp',
+    messageIncludes: 'format parameter \'DID_SDID\' value \'{0x141,0x05}\' is not of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
+  },
+  {
+    file: 'invalid/st2110-40-did-sdid-no-value.sdp',
+    messageIncludes: 'format parameter \'DID_SDID\' value \'\' is not of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
+  },
+  {
+    file: 'invalid/st2110-40-vpid-code.sdp',
+    messageIncludes: 'format parameter \'VPID_Code\' is not an integer from 0 to 255, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4'
   },
   {
     file: 'invalid/st2110-40-fmtp-first.sdp',
@@ -367,5 +379,15 @@ test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --shou
     section_40_2023_7(sdp, { ...cliDefaults, should: true }).some(error => error.message.includes(message)),
     'SSN=ST2110-40:2021 is reported with --should'
   );
+  t.end();
+});
+
+test('RFC 8331 Section 4 tests check VPID_Code is no more than 255', t => {
+  const sdp = readFixture('valid/st2110-40-rfc8331.sdp');
+  const message = 'format parameter \'VPID_Code\' is not an integer from 0 to 255';
+  const messages = vpid => section_8331_4(sdp.replace('VPID_Code=132', `VPID_Code=${vpid}`), cliDefaults).map(error => error.message).join(' ');
+
+  t.notOk(messages(255).includes(message), 'VPID_Code=255 is accepted');
+  t.ok(messages(256).includes(message), 'VPID_Code=256 is reported');
   t.end();
 });

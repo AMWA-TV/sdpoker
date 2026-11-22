@@ -50,7 +50,9 @@ const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2', 'SMPTE2022-6'];
-const repeatableParams = ['DID_SDID']; // Multiple DID_SDID parameters can be specified, as per RFC 8331 Section 4
+// Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
+// extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
+const repeatableParams = ['DID_SDID'];
 
 const specExample20 = `v=0
 o=- 123456 11 IN IP4 192.168.100.2
@@ -756,7 +758,7 @@ const extractMTParams = (sdp, params = {}) => {
         }
       }
       let paramsObject = splitParams.reduce((x, y) => {
-        x[y[0]] = y[1];
+        x[y[0]] = repeatableParams.includes(y[0]) ? [...(x[y[0]] ?? []), y[1]] : y[1];
         return x;
       }, {});
       paramsObject._payloadType = fmtpPayloadType;
@@ -1872,6 +1874,49 @@ const test_40_2023_7_4 = (sdp, params) => {
   return errors;
 };
 
+const didSdidPattern = /^\{0x[0-9a-f]{1,2},0x[0-9a-f]{1,2}\}$/i;
+
+// RFC 8331 Section 4 Test 1 - When DID_SDID parameters are specified they are acceptable values
+/* RFC 8331 Section 4 says:
+The ABNF as per RFC 5234 [RFC5234] of the DID_SDID optional parameter SHALL be:
+        TwoHex = "0x" 1*2(HEXDIG)
+        DidSdid = "DID_SDID={" TwoHex "," TwoHex "}"
+*/
+const test_8331_4_1 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    for (let didSdid of stream.DID_SDID ?? []) {
+      if (!didSdidPattern.test(didSdid)) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'DID_SDID' value '${didSdid}' is not of the form '{0xNN,0xNN}', as per RFC 8331 Section 4.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 8331 Section 4 Test 1 - When DID_SDID parameters are specified they are acceptable values.');
+  }
+  return errors;
+};
+
+// RFC 8331 Section 4 Test 2 - When VPID_Code parameter is specified it is an acceptable value
+/* RFC 8331 Section 3.1 says the VPID_Code integer is the value of byte 1 of the VPID as defined in SMPTE ST 352,
+and Section 4 says it SHALL be present only once, taking a single integer value.
+*/
+const test_8331_4_2 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.VPID_Code === 'undefined') {
+      continue;
+    }
+    if (!/^\d+$/.test(stream.VPID_Code) || +stream.VPID_Code > 255) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'VPID_Code' is not an integer from 0 to 255, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 8331 Section 4 Test 2 - When VPID_Code parameter is specified it is an acceptable value.');
+  }
+  return errors;
+};
+
 // Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
 // and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
@@ -2068,6 +2113,11 @@ const section_40_2023_7 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_8331_4 = (sdp, params) => {
+  let tests = [test_8331_4_1, test_8331_4_2];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_43_2021_41 = (sdp, params) => {
   let tests = [test_43_2021_41_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -2179,7 +2229,7 @@ const allSections = (sdp, params) => {
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,
-        section_40_2023_7];
+        section_40_2023_7, section_8331_4];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
@@ -2222,6 +2272,7 @@ module.exports = {
   section_21_82,
   section_9134_71,
   section_40_2023_7,
+  section_8331_4,
   section_43_2021_41,
   section_43_2021_42
 };
