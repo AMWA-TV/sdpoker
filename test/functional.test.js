@@ -211,3 +211,21 @@ test('invalid SDP fixtures are rejected', t => {
     }
   }
 });
+
+test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const cases = [
+    ['a=ts-refclk:ptp=IEEE1588-2008:nottraceablex', 'do not match acceptable patterns'],
+    ['a=ts-refclk:ptp=IEEE1588-2008:junk39-A7-94-FF-FE-07-CB-D0:37', 'do not match acceptable patterns'],
+    ['a=ts-refclk:localmac=7C-E9-D3-1B-9A-AFjunk', 'has an invalid MAC address'],
+    ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'Attribute \'source-filter\' is not an acceptable pattern']
+  ];
+
+  for (const [attribute, message] of cases) {
+    const name = attribute.split(':')[0];
+    const variant = sdp.replace(new RegExp(`${name}:[^\\r\\n]*`), attribute);
+    const messages = runAllChecks(variant).map(error => error.message).join(' ');
+    t.ok(messages.includes(message), `'${attribute}' is reported`);
+  }
+  t.end();
+});
