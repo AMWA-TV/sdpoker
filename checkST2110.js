@@ -837,11 +837,11 @@ Checks if frame rate expressed as a ratio of integers is in lowest common denomi
 **_exactframerate Signals the frame rate in frames per second. Integer frame rates shall be signaled as a single decimal number (e.g. “25”) whilst non-integer frame rates shall be signaled as a ratio of two integer decimal numbers separated by a “forward-slash”_**
 
 */
-const checkExactframerate = (stream = {}) => {
+const checkExactframerate = (stream = {}, specification = 'ST 2110-20 Section 7.2') => {
   let errors = [];
   let frMatch = stream.exactframerate.match(frameRatePattern);
   if (!frMatch) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per ST 2110-20 Section 7.2.`));
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' does not match an acceptable pattern, as per ${specification}.`));
     return errors;
   }
   if (!frMatch[2]) { // Non-integer value tests
@@ -850,13 +850,13 @@ const checkExactframerate = (stream = {}) => {
   let numerator = +frMatch[1];
   let denominator = +frMatch[2];
   if (Number.isInteger(numerator / denominator)) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' is an integer rate expressed as a non-integer rational, as per ST 2110-20 Section 7.2.`));
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' is an integer rate expressed as a non-integer rational, as per ${specification}.`));
   }
   if (denominator > numerator) {
     errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate slower than one per second. Unlikely. Parameter order correct?`));
   }
   if (greatestCommonDivisor(numerator, denominator) !== 1) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate using integer values that are not the minimum possible, as per ST 2110-20 Section 7.2.`));
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'exactframerate' specifies a frame rate using integer values that are not the minimum possible, as per ${specification}.`));
   }
   return errors;
 };
@@ -922,18 +922,37 @@ const test_20_72_5 = (sdp, params) => {
   return errors;
 };
 
+const checkInterlace = (stream, specification) => {
+  let errors = [];
+  if (typeof stream.interlace !== 'undefined') {
+    if (stream.interlace !== '') {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'interlace' is name only, as per ${specification}.`));
+    }
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.3 Test 1 - Interlace is name only
 const test_20_73_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.interlace !== 'undefined') {
-      if (stream.interlace !== '') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'interlace' is name only, as per ST 2110-20 Section 7.3.`));
-      }
-    }
+    errors = errors.concat(checkInterlace(stream, 'ST 2110-20 Section 7.3'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.3 Test 1 - Interlace is name only');
+  }
+  return errors;
+};
+
+const checkSegmented = (stream, specification) => {
+  let errors = [];
+  if (typeof stream.segmented !== 'undefined') {
+    if (stream.segmented !== '') {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'segmented' is name only, as per ${specification}.`));
+    }
+    if (typeof stream.interlace === 'undefined') {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'segmented' is signalled without 'interlace' being signalled, as per ${specification}.`));
+    }
   }
   return errors;
 };
@@ -942,14 +961,7 @@ const test_20_73_1 = (sdp, params) => {
 const test_20_73_2 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.segmented !== 'undefined') {
-      if (stream.segmented !== '') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'segmented' is name only, as per ST 2110-20 Section 7.3.`));
-      }
-      if (typeof stream.interlace === 'undefined') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'segmented' is signalled without 'interlace' being signalled, as per ST 2110-20 Section 7.3.`));
-      }
-    }
+    errors = errors.concat(checkSegmented(stream, 'ST 2110-20 Section 7.3'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.3 Test 2 - Segmented is name only and interlace is also signalled');
@@ -959,21 +971,27 @@ const test_20_73_2 = (sdp, params) => {
 
 const rangePermitted = ['NARROW', 'FULLPROTECT', 'FULL'];
 
+const checkRange = (stream, specification) => {
+  let errors = [];
+  if (typeof stream.RANGE !== 'undefined') {
+    if (stream.colorimetry === 'BT2100') {
+      if (stream.RANGE !== 'FULL' && stream.RANGE !== 'NARROW') {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' is '${stream.RANGE}' and not one of the acceptable values for colorimetry BT.2100 of 'FULL' or 'NARROW', as per ${specification}.`));
+      }
+      return errors;
+    }
+    if (rangePermitted.indexOf(stream.RANGE) < 0) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' is '${stream.RANGE}' and not one of the acceptable values 'FULL', 'FULLPROTECT' or 'NARROW', as per ${specification}.`));
+    }
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.3 Test 3 - RANGE has acceptable values in colorimetry context
 const test_20_73_3 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.RANGE !== 'undefined') {
-      if (stream.colorimetry === 'BT2100') {
-        if (stream.RANGE !== 'FULL' && stream.RANGE !== 'NARROW') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' is '${stream.RANGE}' and not one of the acceptable values for colorimetry BT.2100 of 'FULL' or 'NARROW', as per ST 2110-20 Section 7.3`));
-        }
-        continue;
-      }
-      if (rangePermitted.indexOf(stream.RANGE) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' is '${stream.RANGE}' and not one of the acceptable values 'FULL', 'FULLPROTECT' or 'NARROW', as per ST 2110-20 Section 7.3.`));
-      }
-    }
+    errors = errors.concat(checkRange(stream, 'ST 2110-20 Section 7.3'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.3 Test 3 - RANGE has acceptable values in colorimetry context');
@@ -1010,17 +1028,23 @@ const samplingPermitted = [
   'RGB', 'XYZ', 'KEY'
 ];
 
+const checkSampling = (stream, permitted, specification) => {
+  let errors = [];
+  if (typeof stream.sampling !== 'undefined') {
+    if (permitted.indexOf(stream.sampling) < 0) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'sampling' is not an acceptable value, as per ${specification}.`));
+      return errors;
+    }
+    // TODO colorimetry-specific tests - if possible
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.4 Test 1 - Sampling is a defined value
 const test_20_74_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.sampling !== 'undefined') {
-      if (samplingPermitted.indexOf(stream.sampling) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'sampling' is not an acceptable value, as per ST 2110-20 Section 7.4.1.`));
-        continue;
-      }
-      // TODO colorimetry-specific tests - if possible
-    }
+    errors = errors.concat(checkSampling(stream, samplingPermitted, 'ST 2110-20 Section 7.4.1'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.4 Test 1 - Sampling is a defined value');
@@ -1052,18 +1076,34 @@ const colorPermitted20_2017 = [
 
 const colorPermitted20_2022 = ['ALPHA'];
 
+const checkColorimetry = (stream, permitted, specification) => {
+  let errors = [];
+  if (typeof stream.colorimetry !== 'undefined') {
+    if (permitted.indexOf(stream.colorimetry) < 0) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ${specification}.`));
+    }
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.
 const test_20_75_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.colorimetry !== 'undefined') {
-      if (colorPermitted20_2017.indexOf(stream.colorimetry) < 0 && colorPermitted20_2022.indexOf(stream.colorimetry) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is not a permitted value, as per ST 2110-20 Section 7.5.`));
-      }
-    }
+    errors = errors.concat(checkColorimetry(stream, colorPermitted20_2017.concat(colorPermitted20_2022), 'ST 2110-20 Section 7.5'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.5 Test 1 - Colorimetry is a permitted value.');
+  }
+  return errors;
+};
+
+const checkRangeSpecified = (stream, specification) => {
+  let errors = [];
+  if (typeof stream.colorimetry !== 'undefined') {
+    if (stream.colorimetry === 'BT2100' && typeof stream.RANGE === 'undefined') {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is 'BT2100' and so a 'RANGE' parameter should also be specified, as per ${specification}.`));
+    }
   }
   return errors;
 };
@@ -1078,11 +1118,7 @@ const test_20_75_2 = (sdp, params) => {
   }
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.colorimetry !== 'undefined') {
-      if (stream.colorimetry === 'BT2100' && typeof stream.RANGE === 'undefined') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' is 'BT2100' and so a 'RANGE' parameter should also be specified, as per ST 2110-20 Section 7.5.`));
-      }
-    }
+    errors = errors.concat(checkRangeSpecified(stream, 'ST 2110-20 Section 7.5'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.5 Test 2 - Signals using BT.2100 should specify RANGE');
@@ -1097,15 +1133,21 @@ const tcsPermitted20_2017 = [
 
 const tcsPermitted20_2022 = ['ST2115LOGS3'];
 
+const checkTCS = (stream, permitted, specification) => {
+  let errors = [];
+  if (typeof stream.TCS !== 'undefined') {
+    if (permitted.indexOf(stream.TCS) < 0) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ${specification}.`));
+    }
+  }
+  return errors;
+};
+
 // ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value
 const test_20_76_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
-    if (typeof stream.TCS !== 'undefined') {
-      if (tcsPermitted20_2017.indexOf(stream.TCS) < 0 && tcsPermitted20_2022.indexOf(stream.TCS) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) is not a permitted value, as per ST 2110-20 Section 7.6.`));
-      }
-    }
+    errors = errors.concat(checkTCS(stream, tcsPermitted20_2017.concat(tcsPermitted20_2022), 'ST 2110-20 Section 7.6'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.6 Test 1 - TCS is a permitted value');
@@ -1452,6 +1494,165 @@ const test_9134_71_1 = (sdp, params) => {
   return errors;
 };
 
+const modesPermitted9134 = ['0', '1'];
+
+// RFC 9134 Section 7.1 Test 2 - Packetization and transmission modes are permitted values
+const test_9134_71_2 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    for (let param of ['packetmode', 'transmode']) {
+      if (typeof stream[param] !== 'undefined' && modesPermitted9134.indexOf(stream[param]) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' is not one of '0' or '1', as per RFC 9134 Section 7.1.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 2 - Packetization and transmission modes are permitted values');
+  }
+  return errors;
+};
+
+// Profile, level and sublevel names defined by ISO/IEC 21122-2, with white space omitted as per RFC 9134
+const profilesPermitted9134 = [
+  'HighBayer', 'MainBayer', 'LightBayer',
+  'High4444.12', 'Main4444.12', 'High444.12', 'Main444.12', 'Light444.12',
+  'Main422.10', 'Light422.10', 'Light-Subline422.10',
+  'MLS.12', 'High420.12', 'Main420.12'
+];
+
+const levelsPermitted9134 = [
+  '1k-1', 'Bayer2k-1', '2k-1', 'Bayer4k-1', '4k-1', 'Bayer8k-1',
+  '4k-2', 'Bayer8k-2', '4k-3', 'Bayer8k-3', '8k-1', 'Bayer16k-1',
+  '8k-2', 'Bayer16k-2', '8k-3', 'Bayer16k-3', '10k-1', 'Bayer20k-1'
+];
+
+const sublevelsPermitted9134 = [
+  'Full', 'Sublev12bpp', 'Sublev9bpp', 'Sublev6bpp', 'Sublev4bpp', 'Sublev3bpp', 'Sublev2bpp'
+];
+
+// RFC 9134 Section 7.1 Test 3 - JPEG XS profile, level and sublevel are permitted values
+const test_9134_71_3 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  let permitted = {
+    profile: profilesPermitted9134,
+    level: levelsPermitted9134,
+    sublevel: sublevelsPermitted9134
+  };
+  for (let stream of mtParams) {
+    for (let param of Object.keys(permitted)) {
+      if (typeof stream[param] !== 'undefined' && permitted[param].indexOf(stream[param]) < 0) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' is not a JPEG XS ${param} defined by ISO/IEC 21122-2, as per RFC 9134 Section 7.1.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 3 - JPEG XS profile, level and sublevel are permitted values');
+  }
+  return errors;
+};
+
+// RFC 9134 Section 7.1 Test 4 - Bit depth is an integer
+const test_9134_71_4 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.depth !== 'undefined' && !integerPattern.test(stream.depth)) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'depth' is not a positive integer, as per RFC 9134 Section 7.1.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 4 - Bit depth is an integer');
+  }
+  return errors;
+};
+
+// RFC 9134 Section 7.1 Test 5 - Interlace and segmented are name only, and segmented is signalled with interlace
+const test_9134_71_5 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    errors = errors.concat(checkInterlace(stream, 'RFC 9134 Section 7.1'));
+    errors = errors.concat(checkSegmented(stream, 'RFC 9134 Section 7.1'));
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 5 - Interlace and segmented are name only, and segmented is signalled with interlace');
+  }
+  return errors;
+};
+
+const samplingPermitted9134 = samplingPermitted.concat(['UNSPECIFIED']);
+
+// RFC 9134 Section 7.1 Test 6 - Sampling is a permitted value
+const test_9134_71_6 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    errors = errors.concat(checkSampling(stream, samplingPermitted9134, 'RFC 9134 Section 7.1'));
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 6 - Sampling is a permitted value');
+  }
+  return errors;
+};
+
+const colorPermitted9134 = [
+  'BT601-5', 'BT709-2', 'SMPTE240M', 'BT601', 'BT709', 'BT2020', 'BT2100',
+  'ST2065-1', 'ST2065-3', 'XYZ', 'UNSPECIFIED'
+];
+
+// RFC 9134 Section 7.1 Test 7 - Colorimetry is a permitted value
+const test_9134_71_7 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    errors = errors.concat(checkColorimetry(stream, colorPermitted9134, 'RFC 9134 Section 7.1'));
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 7 - Colorimetry is a permitted value');
+  }
+  return errors;
+};
+
+// RFC 9134 Section 7.1 Test 8 - Signals using BT.2100 should specify RANGE
+const test_9134_71_8 = (sdp, params) => {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: RFC 9134 Section 7.1 Test 8 - Use --should to check that signals using BT.2100 specify RANGE');
+    }
+    return [];
+  }
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    errors = errors.concat(checkRangeSpecified(stream, 'RFC 9134 Section 7.1'));
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 8 - Signals using BT.2100 should specify RANGE');
+  }
+  return errors;
+};
+
+const tcsPermitted9134 = ['SDR', 'PQ', 'HLG', 'UNSPECIFIED'];
+
+// RFC 9134 Section 7.1 Test 9 - TCS is a permitted value
+const test_9134_71_9 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    errors = errors.concat(checkTCS(stream, tcsPermitted9134, 'RFC 9134 Section 7.1'));
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 9 - TCS is a permitted value');
+  }
+  return errors;
+};
+
+// RFC 9134 Section 7.1 Test 10 - RANGE has acceptable values in colorimetry context
+const test_9134_71_10 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    errors = errors.concat(checkRange(stream, 'RFC 9134 Section 7.1'));
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 10 - RANGE has acceptable values in colorimetry context');
+  }
+  return errors;
+};
+
 const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
 
 // ST 2110-22:2022 Section 7.2 Test 1 - If present, check SSN is the required fixed value
@@ -1566,6 +1767,20 @@ const test_22_74_1 = (sdp, params) => {
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-22 Section 7.4 Test 1 - Check for framerate specified');
+  }
+  return errors;
+};
+
+// ST 2110-22 Section 7.4 Test 2 - Exactframerate is as specified
+const test_22_74_2 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.exactframerate !== 'undefined') {
+      errors = errors.concat(checkExactframerate(stream, 'ST 2110-22 Section 7.4'));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-22 Section 7.4 Test 2 - Exactframerate is as specified');
   }
   return errors;
 };
@@ -1828,7 +2043,7 @@ const section_22_73 = (sdp, params) => {
 };
 
 const section_22_74 = (sdp, params) => {
-  let tests = [test_22_74_1];
+  let tests = [test_22_74_1, test_22_74_2];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1838,7 +2053,9 @@ const section_22_2022_72 = (sdp, params) => {
 };
 
 const section_9134_71 = (sdp, params) => {
-  let tests = [test_9134_71_1];
+  let tests = [test_9134_71_1, test_9134_71_2, test_9134_71_3, test_9134_71_4,
+    test_9134_71_5, test_9134_71_6, test_9134_71_7, test_9134_71_8,
+    test_9134_71_9, test_9134_71_10];
   return concat(tests.map(t => t(sdp, params)));
 };
 
