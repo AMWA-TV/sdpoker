@@ -1874,6 +1874,27 @@ const test_40_2023_7_4 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-40:2023 Section 5.3 Test 1 - Check the RTP clock rate is 90 kHz
+const test_40_2023_53_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let rtpmapMatch = lines[x].match(rtpmapPattern);
+    if (rtpmapMatch && rtpmapMatch[2].toLowerCase() === 'smpte291' && rtpmapMatch[3] !== '90000') {
+      errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate must be 90000Hz, as per ST 2110-40:2023 Section 5.3.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-40:2023 Section 5.3 Test 1 - RTP clock rate is 90 kHz.');
+  }
+  return errors;
+};
+
 const didSdidPattern = /^\{0x[0-9a-f]{1,2},0x[0-9a-f]{1,2}\}$/i;
 
 // RFC 8331 Section 4 Test 1 - When DID_SDID parameters are specified they are acceptable values
@@ -2113,6 +2134,11 @@ const section_40_2023_7 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_40_2023_53 = (sdp, params) => {
+  let tests = [test_40_2023_53_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_8331_4 = (sdp, params) => {
   let tests = [test_8331_4_1, test_8331_4_2];
   return concat(tests.map(t => t(sdp, params)));
@@ -2229,7 +2255,7 @@ const allSections = (sdp, params) => {
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,
-        section_40_2023_7, section_8331_4];
+        section_40_2023_53, section_40_2023_7, section_8331_4];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
@@ -2271,6 +2297,7 @@ module.exports = {
   section_21_81,
   section_21_82,
   section_9134_71,
+  section_40_2023_53,
   section_40_2023_7,
   section_8331_4,
   section_43_2021_41,

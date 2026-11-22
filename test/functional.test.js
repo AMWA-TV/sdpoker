@@ -155,6 +155,14 @@ const invalidCases = [
     messageIncludes: 'format parameter \'SSN\' must be set to ST2110-40:2023 when TM is present as per ST 2110-40:2023 Section 7'
   },
   {
+    file: 'invalid/st2110-40-clock-rate.sdp',
+    messageIncludes: 'For stream 1, clock rate must be 90000Hz, as per ST 2110-40:2023 Section 5.3'
+  },
+  {
+    file: 'invalid/st2110-40-2018-clock-rate.sdp',
+    messageIncludes: 'For stream 1, clock rate must be 90000Hz, as per ST 2110-40:2023 Section 5.3'
+  },
+  {
     file: 'invalid/st2110-40-did-sdid.sdp',
     messageIncludes: 'format parameter \'DID_SDID\' value \'{0x141,0x05}\' is not of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
   },
