@@ -177,6 +177,14 @@ const invalidCases = [
   {
     file: 'invalid/st2110-22-missing-fmtp.sdp',
     messageIncludes: 'Media Stream 1: Framerate must specified as either an attribute or a parameter of video fmtp'
+  },
+  {
+    file: 'invalid/st2110-mixed-essence.sdp',
+    messageIncludes: 'For stream 2, the essence \'audio/L24\' differs from the essence \'video/raw\' of stream 1'
+  },
+  {
+    file: 'invalid/st2110-mixed-encoding.sdp',
+    messageIncludes: 'For stream 2, the essence \'video/jxsv\' differs from the essence \'video/raw\' of stream 1'
   }
 ];
 

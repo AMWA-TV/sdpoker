@@ -1923,11 +1923,45 @@ const st2110_10_sections = [
   section_10_2022_87,
 ];
 
+// The tests for each essence are chosen from the first media description, so further
+// media descriptions are only supported as ST 2022-7 redundant streams of the same essence
+const checkSingleEssence = sdp => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streams = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      let mediaMatch = lines[x].match(mediaPattern);
+      streams.push({ line: x + 1, mediaType: mediaMatch[1], payloadType: +mediaMatch[5] });
+    } else if (lines[x].startsWith('a=rtpmap') && streams.length > 0) {
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      let stream = streams[streams.length - 1];
+      if (rtpmapMatch && +rtpmapMatch[1] === stream.payloadType) {
+        stream.encodingName = rtpmapMatch[2];
+      }
+    }
+  }
+  let essence = stream => stream.encodingName ? `${stream.mediaType}/${stream.encodingName}` : stream.mediaType;
+  for (let s = 1; s < streams.length; s++) {
+    // Encoding names are case-insensitive, as per RFC 4855 Section 3
+    if (streams[s].mediaType !== streams[0].mediaType ||
+      (streams[s].encodingName && streams[0].encodingName &&
+        streams[s].encodingName.toLowerCase() !== streams[0].encodingName.toLowerCase())) {
+      errors.push(new Error(`Line ${streams[s].line}: For stream ${s + 1}, the essence '${essence(streams[s])}' differs from the essence '${essence(streams[0])}' of stream 1. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
+    }
+  }
+  return errors;
+};
+
 const allSections = (sdp, params) => {
   // The array of test functions, defaulting to ST 2110-10 tests. May be overridden below.
   let sections = st2110_10_sections;
   // Pull out the media type
   let [mtParams, errors] = extractMTParams(sdp, params);
+  if (errors.length != 0) {
+    return errors;
+  }
+  errors = checkSingleEssence(sdp);
   if (errors.length != 0) {
     return errors;
   }
