@@ -19,15 +19,16 @@ const concat = arrays => Array.prototype.concat.apply([], arrays);
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /[\r\n]a=mediaclk[^\s=]+/g;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
+const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
-const ptpPattern = /traceable|((([0-9A-F]{2}-){7}[0-9A-F]{2})(:(\d+))?)$/;
-const macPattern = /(([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2})/;
+const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
+const macPattern = /^(([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2})$/;
 const dupPattern = /[\r\n]m=[\s\S]+a=ssrc-group:DUP|[\r\n]a=group:DUP[\s\S]+m=/;
 const ssrcGroupPattern = /a=ssrc-group:DUP\s+(\d+)\s+(\d+)/;
 const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /a=ssrc:(\d+)\s/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
-const rtpmapPattern = /a=rtpmap:(\d+)\s(\S+)\/(\d+)\s*/;
+const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
@@ -175,6 +176,26 @@ const test_10_81_2 = (sdp, params) => {
   }
 };
 
+// ST 2110-10 Section 8.1 Test 3 - mediaclk attributes match an acceptable pattern
+const test_10_81_3 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
+      errors.push(new Error(`Line ${x + 1}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 3 - \'mediaclk\' attributes match an acceptable pattern.');
+  }
+  return errors;
+};
+
 // ST 2110-10 Section 8.2 Test 1 - Shall have a media-level ts-refclk
 const test_10_82_1 = (sdp, params) => {
   let errors = [];
@@ -206,7 +227,7 @@ const test_10_82_2 = (sdp, params) => {
       if (!lines[x].startsWith('a=ts-refclk:ptp=') &&
         !lines[x].startsWith('a=ts-refclk:localmac')) {
         errors.push(
-          new Error(`Line ${x + 1}: Reference clocks shall use the PTP form or shall use the localmac form, as per ST 2110-10 Section 8.2.`));
+          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be the PTP form or the localmac form, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
@@ -532,6 +553,26 @@ const test_10_62_2 = (sdp, params) => {
   return errors;
 };
 
+// ST 2110-10 Section 6.2 Test 3 - rtpmap attributes match an acceptable pattern
+const test_10_62_3 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (lines[x].startsWith('a=rtpmap') && !rtpmapPattern.test(lines[x])) {
+      errors.push(new Error(`Line ${x + 1}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'rtpmap' is not an acceptable pattern, which should be of the form 'a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>]', as per RFC 4566 Section 6.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10 Section 6.2 Test 3 - \'rtpmap\' attributes match an acceptable pattern.');
+  }
+  return errors;
+};
+
 const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
 // ST 2110-10:2022 Section 8.7 Test 1 - RTP Timestamp Mode and Delay, TSMODE and TSDELAY parameters are an acceptable value.
@@ -580,8 +621,8 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
       }
       rtpmapInStream = true;
       let rtpmapMatch = lines[x].match(rtpmapPattern);
+      // An 'rtpmap' that is not an acceptable pattern is reported by test_10_62_3
       if (!rtpmapMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'rtpmap' attribute that is not an acceptable pattern.`));
         continue;
       }
       if (+rtpmapMatch[1] !== payloadType) {
@@ -646,8 +687,8 @@ const test_20_71_4 = (sdp, params) => {
       }
       fmtpInStream = true;
       let fmtpMatch = lines[x].match(fmtpPattern);
+      // An 'fmtp' that is not an acceptable pattern is reported by extractMTParams
       if (!fmtpMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, found an 'fmtp' attribute that is not an acceptable pattern.`));
         continue;
       }
       if (+fmtpMatch[1] !== payloadType) {
@@ -700,7 +741,7 @@ const extractMTParams = (sdp, params = {}) => {
         encodingName = encodingNames[section][payloadType] ?? -1;
       }
       else {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'm=mediaType udpPort RTP/AVP payloadType'`));
+        errors.push(new Error(`Line ${x + 1}: Media description field ("m=") is not an acceptable pattern, which should be of the form 'm=mediaType udpPort RTP/AVP payloadType', as per RFC 4566 Section 5.14.`));
         payloadTypes = [];
         continue;
       }
@@ -710,7 +751,7 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
       let fmtpMatch = lines[x].match(fmtpPattern);
       if (!fmtpMatch) {
-        errors.push(new Error(`Line ${x + 1}: ${lines[x]} should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...'`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which should be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
         continue;
       }
       // A payload type that is not a format of the media description is reported by test_10_62_2
@@ -1729,7 +1770,7 @@ const test_43_2021_42_1 = (sdp, params) => {
 };
 
 const section_10_62 = (sdp, params) => {
-  let tests = [test_10_62_1, test_10_62_2];
+  let tests = [test_10_62_1, test_10_62_2, test_10_62_3];
   return concat(tests.map(t => t(sdp, params)));
 };
 
@@ -1739,7 +1780,7 @@ const section_10_74 = (sdp, params) => {
 };
 
 const section_10_81 = (sdp, params) => {
-  let tests = [test_10_81_1, test_10_81_2];
+  let tests = [test_10_81_1, test_10_81_2, test_10_81_3];
   return concat(tests.map(t => t(sdp, params)));
 };
 

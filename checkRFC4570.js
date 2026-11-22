@@ -16,7 +16,7 @@
 const splitLines = sdp => sdp.match(/[^\r\n]+/g);
 const concat = arrays => Array.prototype.concat.apply([], arrays);
 
-const sourceFilterPattern = /a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+/;
+const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 const multiPattern = /^((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]::[^\s]+)$/;
 
@@ -25,10 +25,10 @@ const test_30_1 = sdp => {
   let lines = splitLines(sdp);
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines[x].startsWith('a=source-filter:')) {
+    if (lines[x].startsWith('a=source-filter')) {
       let sourceFilterMatch = lines[x].match(sourceFilterPattern);
       if (!sourceFilterMatch) {
-        errors.push(new Error(`Line ${x + 1}: Source-filters must follow the pattern 'a=source-filter: <filter-mode> <filter-spec>' as per RFC 4570 Section 3.`));
+        errors.push(new Error(`Line ${x + 1}: Attribute 'source-filter' is not an acceptable pattern, which should be of the form 'a=source-filter: <filter-mode> <filter-spec>', as per RFC 4570 Section 3.`));
         continue;
       }
     }

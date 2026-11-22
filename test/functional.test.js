@@ -58,6 +58,50 @@ const invalidCases = [
     messageIncludes: 'form \'<type>=<value>\''
   },
   {
+    file: 'invalid/origin-pattern.sdp',
+    messageIncludes: 'Origin field ("o=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/connection-pattern.sdp',
+    messageIncludes: 'Connection data field ("c=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/media-pattern.sdp',
+    messageIncludes: 'Media description field ("m=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/ts-refclk-pattern.sdp',
+    messageIncludes: 'Attribute \'ts-refclk\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/source-filter-value-pattern.sdp',
+    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/fmtp-pattern.sdp',
+    messageIncludes: 'attribute \'fmtp\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/time-pattern.sdp',
+    messageIncludes: 'Timing field ("t=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/bandwidth-pattern.sdp',
+    messageIncludes: 'Bandwidth field ("b=") is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/rtpmap-pattern.sdp',
+    messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/mediaclk-pattern.sdp',
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/source-filter-pattern.sdp',
+    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/bad-maxudp.sdp',
     messageIncludes: 'MAXUDP'
   },
@@ -166,4 +210,29 @@ test('invalid SDP fixtures are rejected', t => {
       );
     }
   }
+});
+
+test('ts-refclk PTP grandmaster identities can use lower-case hex digits', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const variant = sdp.replace(/a=ts-refclk:[^\r\n]*/, 'a=ts-refclk:ptp=IEEE1588-2008:39-a7-94-ff-fe-07-cb-d0:37');
+  t.same(runAllChecks(variant).map(error => error.message), []);
+  t.end();
+});
+
+test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const cases = [
+    ['a=ts-refclk:ptp=IEEE1588-2008:nottraceablex', 'do not match acceptable patterns'],
+    ['a=ts-refclk:ptp=IEEE1588-2008:junk39-A7-94-FF-FE-07-CB-D0:37', 'do not match acceptable patterns'],
+    ['a=ts-refclk:localmac=7C-E9-D3-1B-9A-AFjunk', 'has an invalid MAC address'],
+    ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'Attribute \'source-filter\' is not an acceptable pattern']
+  ];
+
+  for (const [attribute, message] of cases) {
+    const name = attribute.split(':')[0];
+    const variant = sdp.replace(new RegExp(`${name}:[^\\r\\n]*`), attribute);
+    const messages = runAllChecks(variant).map(error => error.message).join(' ');
+    t.ok(messages.includes(message), `'${attribute}' is reported`);
+  }
+  t.end();
 });
