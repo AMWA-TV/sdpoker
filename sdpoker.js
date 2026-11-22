@@ -22,45 +22,27 @@ const { accessSync, R_OK } = require('fs');
 const args = yargs(hideBin(process.argv))
   .help('help')
   .version(require('./package.json').version)
-  .default('checkEndings', false)
-  .default('should', false)
-  .default('noCopy', true)
-  .default('noMedia', true)
-  .default('duplicate', false)
-  .default('videoOnly', false)
-  .default('audioOnly', false)
-  .default('skipRFC4566', false)
-  .default('skipRFC4570', false)
-  .default('skipST2110', false)
-  .default('channelOrder', false)
-  .default('useIP4', false)
-  .default('useIP6', false)
-  .default('multicast', false)
-  .default('unicast', false)
-  .default('shaping', false)
-  .default('verbose', false)
-  .boolean([ 'checkEndings', 'should', 'noCopy', 'noMedia',
-    'duplicate', 'videoOnly', 'audioOnly', 'channelOrder',
-    'useIP4', 'useIP6', 'multicast', 'unicast', 'shaping', 'verbose' ])
+  .options({
+    checkEndings: { type: 'boolean', default: false, describe: 'Check line endings are CRLF, no other CR/LF' },
+    should: { type: 'boolean', default: false, describe: 'As well as shall, also check all should clauses' },
+    noCopy: { type: 'boolean', default: true, describe: 'Fail obvious copies of the ST 2110-10 SDP example' },
+    noMedia: { type: 'boolean', default: true, describe: 'Fail SDP files which do not include any media descriptions' },
+    duplicate: { type: 'boolean', default: false, describe: 'Expect duplicate streams aka ST 2022-7' },
+    videoOnly: { type: 'boolean', default: false, describe: 'Describes only SMPTE ST 2110-20 streams' },
+    audioOnly: { type: 'boolean', default: false, describe: 'Describes only SMPTE ST 2110-30 streams' },
+    skipRFC4566: { type: 'boolean', default: false, describe: 'Skips RFC4566 checks' },
+    skipRFC4570: { type: 'boolean', default: false, describe: 'Skips RFC4570 checks' },
+    skipST2110: { type: 'boolean', default: false, describe: 'Skips ST2110 checks' },
+    channelOrder: { type: 'boolean', default: false, describe: 'Expect audio with ST2110-30 channel-order' },
+    useIP4: { type: 'boolean', default: false, describe: 'All addresses expressed in IP v4 notation' },
+    useIP6: { type: 'boolean', default: false, describe: 'All addresses expressed in IP v6 notation' },
+    multicast: { type: 'boolean', default: false, describe: 'Connection addresses must be multicast' },
+    unicast: { type: 'boolean', default: false, describe: 'Connection addresses must be unicast' },
+    shaping: { type: 'boolean', default: false, describe: 'Check adherence to traffic shaping specification' },
+    verbose: { type: 'boolean', default: false, describe: 'Print passed tests as well as failed' }
+  })
   .usage('Check an SDP file for conformance with RFC4566 and SMPTE ST 2110.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
-  .describe('checkEndings', 'Check line endings are CRLF, no other CR/LF.')
-  .describe('should', 'As well as shall, also check all should clauses.')
-  .describe('noCopy', 'Fail obvious copies of the ST 2110-10 SDP example')
-  .describe('noMedia', 'Fail SDP files which do not include any media descriptions')
-  .describe('duplicate', 'Expect duplicate streams aka ST 2022-7.')
-  .describe('videoOnly', 'Describes only SMPTE ST 2110-20 streams.')
-  .describe('audioOnly', 'Describes only SMPTE ST 2110-30 streams.')
-  .describe('skipRFC4566', 'Skips RFC4566 checks.')
-  .describe('skipRFC4570', 'Skips RFC4570 checks.')
-  .describe('skipST2110', 'Skips ST2110 checks.')
-  .describe('channelOrder', 'Expect audio with ST2110-30 channel-order.')
-  .describe('useIP4', 'All addresses expressed in IP v4 notation.')
-  .describe('useIP6', 'All addresses expressed in IP v6 notation.')
-  .describe('multicast', 'Connection addresses must be multicast.')
-  .describe('unicast', 'Connection addresses must be unicast.')
-  .describe('shaping', 'Check adherence to traffic shaping specification.')
-  .describe('verbose', 'Print passed tests as well as failed.')
   .check(argv => {
     if (argv._.length < 1) {
       throw new Error('File name or URL for SDP file must be provided.');

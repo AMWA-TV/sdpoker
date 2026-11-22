@@ -95,3 +95,22 @@ test('CLI validates a valid SDP fixture and exits cleanly', t => {
   );
   t.end();
 });
+
+test('CLI skip options skip each group of checks', t => {
+  // Each fixture fails only the groups of checks that its options skip
+  const skipCases = [
+    ['--skipST2110', 'invalid/st2022-6.sdp'],
+    ['--skipST2110', '--verbose', 'invalid/st2022-6.sdp'],
+    ['--skipRFC4570', 'invalid/aes67-mcast.sdp'],
+    ['--skipRFC4566', '--skipST2110', 'invalid/missing-v0.sdp']
+  ];
+
+  for (const skipCase of skipCases) {
+    const options = skipCase.slice(0, -1);
+    const fixture = path.join(__dirname, 'fixtures', skipCase[skipCase.length - 1]);
+    const result = runCli([...options, fixture]);
+
+    t.equal(result.status, 0, `sdpoker ${skipCase.join(' ')} exits with code 0`);
+  }
+  t.end();
+});
