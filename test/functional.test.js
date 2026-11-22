@@ -212,6 +212,13 @@ test('invalid SDP fixtures are rejected', t => {
   }
 });
 
+test('ts-refclk PTP grandmaster identities can use lower-case hex digits', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const variant = sdp.replace(/a=ts-refclk:[^\r\n]*/, 'a=ts-refclk:ptp=IEEE1588-2008:39-a7-94-ff-fe-07-cb-d0:37');
+  t.same(runAllChecks(variant).map(error => error.message), []);
+  t.end();
+});
+
 test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const cases = [
