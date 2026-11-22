@@ -509,6 +509,36 @@ test('ST 2110-10:2022 Section 8.4 tests check each multicast stream has an inclu
   t.end();
 });
 
+test('RFC 4570 Section 3 tests check source filters match a connection address', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const sourceFilter = 'a=source-filter: incl IN IP4 232.130.55.188 172.29.80.65\r\n';
+  const sessionLevel = sdp.replace(sourceFilter, '').replace('t=0 0\r\n', 't=0 0\r\n' + sourceFilter);
+  const message = 'Source-filter destination addresses must match one or more connection address';
+  const messages = variant => checkRFC4570(variant, cliDefaults).map(error => error.message).join(' ');
+
+  t.same(messages(sessionLevel), '', 'a session-level source filter can match a media-level connection address');
+  t.ok(
+    messages(sessionLevel.replace('232.130.55.188 172', '232.130.55.189 172')).includes(message),
+    'a session-level source filter that matches no connection address is reported'
+  );
+  t.same(
+    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 FF3E::8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
+    '',
+    'a source filter matches a connection address in a different case'
+  );
+  t.same(
+    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 ff3e:0:0:0:0:0:8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
+    '',
+    'a source filter matches a connection address written in another form'
+  );
+  t.same(
+    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP4 Example.com').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP4 example.com 172.29.80.65')),
+    '',
+    'a source filter matches a connection address domain name in a different case'
+  );
+  t.end();
+});
+
 test('ST 2110-22 Section 7.4 tests report fmtp errors', t => {
   const sdp = readFixture('valid/st2110-22.sdp').replace('a=fmtp:112 ', 'a=fmtp:112 ;');
   const errors = section_22_74(sdp, cliDefaults);
