@@ -50,6 +50,7 @@ const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2', 'SMPTE2022-6'];
+const repeatableParams = ['DID_SDID']; // Multiple DID_SDID parameters can be specified, as per RFC 8331 Section 4
 
 const specExample20 = `v=0
 o=- 123456 11 IN IP4 192.168.100.2
@@ -746,7 +747,7 @@ const extractMTParams = (sdp, params = {}) => {
         let keys = splitParams.map(p => p[0]);
         let reported = [];
         for (let y = 0; y < keys.length; y++) {
-          if (keys.filter(k => keys[y] === k).length >= 2) {
+          if (!repeatableParams.includes(keys[y]) && keys.filter(k => keys[y] === k).length >= 2) {
             if (reported.indexOf(keys[y]) < 0) {
               errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, parameter '${keys[y]}' appears more than once.`));
               reported.push(keys[y]);
