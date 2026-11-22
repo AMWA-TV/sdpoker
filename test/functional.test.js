@@ -402,6 +402,59 @@ test('ts-refclk and source-filter attributes must match a pattern to the end of 
   t.end();
 });
 
+test('RFC 4566 Section 5.7 tests recognise multicast addresses in IPv4 and IPv6 notation', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const cases = [
+    ['232.130.55.188/32', true],
+    ['ff3e::8000:1', true],
+    ['FF3E::8000:1', true],
+    ['ff3e:0:0:0:0:0:8000:1', true],
+    ['ff05:1::1', true],
+    ['192.0.2.1', false],
+    ['2001:db8::1', false],
+    ['2001:db8:0:ff05::1', false]
+  ];
+
+  for (const [address, isMulticast] of cases) {
+    const addressType = address.includes(':') ? 'IP6' : 'IP4';
+    const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN ${addressType} ${address}`), { ...cliDefaults, multicast: true });
+    t.equal(
+      errors.some(error => error.message.includes('is unicast')),
+      !isMulticast,
+      `${address} is recognised as ${isMulticast ? 'multicast' : 'unicast'}`
+    );
+  }
+
+  t.end();
+});
+
+test('RFC 4566 Section 5.7 tests recognise IPv6 addresses', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const cases = [
+    ['ff3e::8000:1', true],
+    ['FF3E::8000:1', true],
+    ['ff3e:0:0:0:0:0:8000:1', true],
+    ['ff05:1::1', true],
+    ['2001:db8:0:ff05::1', true],
+    ['::ffff:192.0.2.1', true],
+    ['192.0.2.1', false],
+    ['ff3e::8000::1', false],
+    ['ff3e:::1', false],
+    ['ff3e:12345::1', false],
+    ['ff3g::1', false]
+  ];
+
+  for (const [address, isIP6] of cases) {
+    const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN IP6 ${address}`), { ...cliDefaults, useIP6: true });
+    t.equal(
+      errors.some(error => error.message.includes(`connection data field address '${address}' is not`)),
+      !isIP6,
+      `${address} is ${isIP6 ? '' : 'not '}recognised as IPv6`
+    );
+  }
+  t.end();
+});
+
 test('ST 2110-22 Section 7.4 tests report fmtp errors', t => {
   const sdp = readFixture('valid/st2110-22.sdp').replace('a=fmtp:112 ', 'a=fmtp:112 ;');
   const errors = section_22_74(sdp, cliDefaults);
