@@ -151,6 +151,10 @@ const invalidCases = [
     messageIncludes: 'required parameter \'SSN\' is missing'
   },
   {
+    file: 'invalid/st2022-8-clock-rate.sdp',
+    messageIncludes: 'For stream 1, clock rate must be 27000000Hz, as per ST 2022-8 Section 5.3'
+  },
+  {
     file: 'invalid/st2110-40-ssn.sdp',
     messageIncludes: 'format parameter \'SSN\' must be set to ST2110-40:2023 when TM is present as per ST 2110-40:2023 Section 7'
   },

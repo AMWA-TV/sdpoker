@@ -49,7 +49,7 @@ const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
-const skipVideoTypes = ['vc2', 'SMPTE2022-6'];
+const skipVideoTypes = ['vc2'];
 // Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
 // extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
 const repeatableParams = ['DID_SDID'];
@@ -1938,6 +1938,15 @@ const test_8331_4_2 = (sdp, params) => {
   return errors;
 };
 
+// ST 2022-8 Section 5.3 Test 1 - Must have subtype SMPTE2022-6 and clockrate 27000000
+const test_2022_8_53_1 = (sdp, params) => {
+  let errors = checkStreamsRtpMap(sdp, params, 'SMPTE2022-6', '27000000', 'ST 2022-8 Section 5.3');
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2022-8 Section 5.3 Test 1 - All video streams have rtpmap entry SMPTE2022-6/27000000');
+  }
+  return errors;
+};
+
 // Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
 // and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
@@ -2139,6 +2148,11 @@ const section_40_2023_53 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_2022_8_53 = (sdp, params) => {
+  let tests = [test_2022_8_53_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_8331_4 = (sdp, params) => {
   let tests = [test_8331_4_1, test_8331_4_2];
   return concat(tests.map(t => t(sdp, params)));
@@ -2256,6 +2270,10 @@ const allSections = (sdp, params) => {
       sections = [
         ...st2110_10_sections,
         section_40_2023_53, section_40_2023_7, section_8331_4];
+    } else if (mtParams[0]._encodingName == 'SMPTE2022-6') {
+      sections = [
+        ...st2110_10_sections,
+        section_2022_8_53];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
@@ -2300,6 +2318,7 @@ module.exports = {
   section_40_2023_53,
   section_40_2023_7,
   section_8331_4,
+  section_2022_8_53,
   section_43_2021_41,
   section_43_2021_42
 };
