@@ -630,35 +630,25 @@ const test_20_71_3 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters
-const test_20_71_4 = (sdp, params) => {
+// Function to check that each stream has one 'fmtp' attribute for its payload type,
+// for a format that has required format parameters.
+// The specification string is included in errors as a reference back to a spec
+const checkStreamsFmtp = (sdp, specification) => {
   let errors = [];
   let lines = splitLines(sdp);
   let fmtpInStream = true;
-  let isSkippedType = false;
   let payloadType = -1;
   let streamCount = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
-      if (!fmtpInStream && payloadType >= 0 && !isSkippedType) {
-        errors.push(new Error(`Line ${x + 1}: Stream ${streamCount} does not have an 'fmtp' attribute.`));
+      if (!fmtpInStream && payloadType >= 0) {
+        errors.push(new Error(`Line ${x + 1}: Stream ${streamCount} does not have an 'fmtp' attribute, as per ${specification}.`));
       }
-      let videoMatch = lines[x].match(videoPattern);
-      payloadType = videoMatch ? +videoMatch[4] : -1;
+      let mediaMatch = lines[x].match(mediaPattern);
+      payloadType = mediaMatch ? +mediaMatch[5] : -1;
       fmtpInStream = false;
-      isSkippedType = false;
       streamCount++;
       continue;
-    }
-    if (lines[x].startsWith('a=rtpmap') && payloadType >= 0 && !isSkippedType) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (!rtpmapMatch) {
-        continue;
-      }
-      if (skipVideoTypes.includes(rtpmapMatch[2])) {
-        isSkippedType = true;
-        continue;
-      }
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
       if (fmtpInStream) {
@@ -676,9 +666,15 @@ const test_20_71_4 = (sdp, params) => {
       }
     }
   }
-  if (!fmtpInStream && payloadType >= 0 && !isSkippedType) {
-    errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'fmtp' attribute.`));
+  if (!fmtpInStream && payloadType >= 0) {
+    errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} does not have an 'fmtp' attribute, as per ${specification}.`));
   }
+  return errors;
+};
+
+// ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters
+const test_20_71_4 = (sdp, params) => {
+  let errors = checkStreamsFmtp(sdp, 'ST 2110-20 Section 7.1');
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-20 Section 7.1 Test 4 - All video streams have format parameters');
   }
@@ -1447,6 +1443,15 @@ const test_22_72_2 = (sdp, params) => {
   return errors;
 };
 
+// RFC 9134 Section 7.1 Test 1 - All video streams have format parameters
+const test_9134_71_1 = (sdp, params) => {
+  let errors = checkStreamsFmtp(sdp, 'RFC 9134 Section 7.1');
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 9134 Section 7.1 Test 1 - All video streams have format parameters');
+  }
+  return errors;
+};
+
 const ssnPermitted22 = ['ST2110-22:2019', 'ST2110-22:2022'];
 
 // ST 2110-22:2022 Section 7.2 Test 1 - If present, check SSN is the required fixed value
@@ -1832,6 +1837,11 @@ const section_22_2022_72 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_9134_71 = (sdp, params) => {
+  let tests = [test_9134_71_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_40_2023_7 = (sdp, params) => {
   let tests = [test_40_2023_7_1, test_40_2023_7_2, test_40_2023_7_3, test_40_2023_7_4];
   return concat(tests.map(t => t(sdp, params)));
@@ -1932,7 +1942,8 @@ const allSections = (sdp, params) => {
       sections = [
         ...st2110_10_sections,
         section_21_81, section_21_82,
-        section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72];
+        section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72,
+        section_9134_71];
       if (params.noCopy) {
         sections.push(no_copy_22);
       }
@@ -1988,6 +1999,7 @@ module.exports = {
   section_22_2022_72,
   section_21_81,
   section_21_82,
+  section_9134_71,
   section_40_2023_7,
   section_43_2021_41,
   section_43_2021_42
