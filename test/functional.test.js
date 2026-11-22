@@ -230,6 +230,30 @@ const invalidCases = [
     messageExcludes: 'required attribute \'rtpmap\' is missing'
   },
   {
+    file: 'invalid/st2110-31-clock-rate.sdp',
+    messageIncludes: 'For stream 1, attribute \'rtpmap\' specifies an unacceptable sampling rate \'32000\', as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-channels.sdp',
+    messageIncludes: 'For stream 1, attribute \'rtpmap\' specifies an odd number \'3\' of AES3 subframe sequences, as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-missing-ptime.sdp',
+    messageIncludes: 'For stream 1, required attribute \'ptime\' is missing, as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-ptime.sdp',
+    messageIncludes: 'For stream 1, attribute \'ptime\' value \'0.125\' is not permitted for clock rate \'48000\', as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-44100-ptime.sdp',
+    messageIncludes: 'For stream 1, attribute \'ptime\' value \'1\' is not permitted for clock rate \'44100\', as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-channel-order.sdp',
+    messageIncludes: 'For stream 1, format parameter \'channel-order\' is not acceptable, as per ST 2110-31 Section 6.2'
+  },
+  {
     file: 'invalid/st2110-43-missing-fmtp.sdp',
     messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
   },
