@@ -1786,17 +1786,17 @@ const test_22_74_2 = (sdp, params) => {
   return errors;
 };
 
-const ssnPermitted40 = ['ST2110-40:2018', 'ST2110-40:2021'];
+const ssnPermitted40 = ['ST2110-40:2018', 'ST2110-40:2021', 'ST2110-40:2023'];
 
 // ST 2110-40:2023 Section 7 Test 1 - Check SSN if present is the required fixed value
 /* Tests for conformance with ST 2110-40:2023:
-Senders implementing this standard shall signal a Format Specific Parameter SSN with the value ST2110-40:2018 unless they are signaling Format Specific Parameter TM, in which case they shall signal the value ST2110-40:2021.
+Senders implementing this standard shall signal a Format Specific Parameter SSN with the value ST2110-40:2018 unless they are signaling Format Specific Parameter TM, in which case they shall signal the value ST2110-40:2023. Receivers shall consider a Format Specific Parameter SSN value of ST2110-40:2021 as equivalent to a value of ST2110-40:2023.
 */
 const test_40_2023_7_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     let detect2023tm = typeof stream.TM !== 'undefined';
-    // SSN required in ST 2110-40:2023 but not required in ST 2110-40:2018
+    // SSN is not required by ST 2110-40:2018, which does not define TM
     if (typeof stream.SSN === 'undefined' && detect2023tm) {
       errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to a required value as per ST 2110-40:2023 Section 7.`));
     }
@@ -1805,10 +1805,13 @@ const test_40_2023_7_1 = (sdp, params) => {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to a required value as per ST 2110-40:2023 Section 7.`));
       } else {
         if (detect2023tm && stream.SSN === 'ST2110-40:2018') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' should be set to ST2110-40:2021 when TM is present as per ST 2110-40:2023 Section 7.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' must be set to ST2110-40:2023 when TM is present as per ST 2110-40:2023 Section 7.`));
         }
         if (!detect2023tm && stream.SSN !== 'ST2110-40:2018') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' must be  set ST2110-40:2018 when TM is not present as per ST 2110-40:2023 Section 7.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' must be set to ST2110-40:2018 when TM is not present as per ST 2110-40:2023 Section 7.`));
+        }
+        if (params.should && stream.SSN === 'ST2110-40:2021') {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' should be set to ST2110-40:2023 rather than the equivalent ST2110-40:2021 as per ST 2110-40:2023 Section 7.`));
         }
       }
     }

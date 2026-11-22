@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const test = require('tape');
 const { checkRFC4566, checkRFC4570, checkST2110 } = require('../index.js');
-const { section_22_74 } = require('../checkST2110.js');
+const { section_22_74, section_40_2023_7 } = require('../checkST2110.js');
 
 // Mirror sdpoker.js default CLI options so library tests match CLI behaviour.
 const cliDefaults = {
@@ -149,6 +149,10 @@ const invalidCases = [
   {
     file: 'invalid/st2110-20-fmtp-first.sdp',
     messageIncludes: 'required parameter \'SSN\' is missing'
+  },
+  {
+    file: 'invalid/st2110-40-ssn.sdp',
+    messageIncludes: 'format parameter \'SSN\' must be set to ST2110-40:2023 when TM is present as per ST 2110-40:2023 Section 7'
   },
   {
     file: 'invalid/st2110-40-fmtp-first.sdp',
@@ -351,5 +355,17 @@ test('BT.2100 signals without RANGE are reported only with --should', t => {
     const messages = checkST2110(sdp, { ...cliDefaults, should: true }).map(error => error.message);
     t.ok(messages.some(m => m.includes(`${message} ${specification}.`)), `${specification} is reported with --should`);
   }
+  t.end();
+});
+
+test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --should', t => {
+  const sdp = readFixture('valid/st2110-40-2023.sdp').replace('SSN=ST2110-40:2023', 'SSN=ST2110-40:2021');
+  const message = 'should be set to ST2110-40:2023 rather than the equivalent ST2110-40:2021';
+
+  t.same(section_40_2023_7(sdp, cliDefaults), [], 'SSN=ST2110-40:2021 passes by default');
+  t.ok(
+    section_40_2023_7(sdp, { ...cliDefaults, should: true }).some(error => error.message.includes(message)),
+    'SSN=ST2110-40:2021 is reported with --should'
+  );
   t.end();
 });
