@@ -30,7 +30,7 @@ const canonicalAddress = address => {
   }
 };
 
-// Section 3 Test 1 - Source-filter correctly formatted if present
+// RFC 4570 Section 3 Test 1 - Source filters match an acceptable pattern
 const test_30_1 = (sdp, params) => {
   let lines = splitLines(sdp);
   let errors = [];
@@ -38,7 +38,7 @@ const test_30_1 = (sdp, params) => {
     if (lines[x].startsWith('a=source-filter')) {
       let sourceFilterMatch = lines[x].match(sourceFilterPattern);
       if (!sourceFilterMatch) {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'source-filter' is not an acceptable pattern, which should be of the form 'a=source-filter: <filter-mode> <filter-spec>', as per RFC 4570 Section 3.`));
+        errors.push(new Error(`Line ${x + 1}: Attribute 'source-filter' is not an acceptable pattern, which must be of the form 'a=source-filter: <filter-mode> <filter-spec>', as per RFC 4570 Section 3.`));
         continue;
       }
     }
@@ -49,7 +49,7 @@ const test_30_1 = (sdp, params) => {
   return errors;
 };
 
-// Section 3 Test 3 - Source-filters match addresses used in connection attributes
+// RFC 4570 Section 3 Test 3 - Source filter destination addresses match a connection address
 // A media-level source filter can match the session-level connection address, and a session-level source filter
 // can match the session-level or any media-level connection address, as per RFC 4570 Section 3.
 const test_30_3 = (sdp, params) => {
@@ -86,13 +86,13 @@ const test_30_3 = (sdp, params) => {
       if (!inMedia) {
         globalFilters.push({ line: x + 1, destAddr });
       } else if (destAddr != globalAddr && destAddr != mediaAddr && destAddr != '*') {
-        errors.push(new Error(`Line ${x + 1}: Source-filter destination addresses must match one or more connection address as per RFC 4570 Section 3.`));
+        errors.push(new Error(`Line ${x + 1}: Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`));
       }
     }
   }
   for (let { line, destAddr } of globalFilters) {
     if (destAddr != globalAddr && !mediaAddrs.includes(destAddr) && destAddr != '*') {
-      errors.push(new Error(`Line ${line}: Source-filter destination addresses must match one or more connection address as per RFC 4570 Section 3.`));
+      errors.push(new Error(`Line ${line}: Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`));
     }
   }
   if (params.verbose && errors.length == 0) {

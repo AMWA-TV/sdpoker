@@ -71,7 +71,7 @@ const ip4Pattern = /^([1-9]\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)$/;
 const ip6Pattern = /^([0-9a-f]{1,4}(:[0-9a-f]{1,4})*|([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?::([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?)(:\d{1,3}(\.\d{1,3}){3})?$/i;
 const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[0-9a-f:.]*))$/i;
 
-// Section 5 Test 1 - check if line endings are all CRLF
+// RFC 4566 Section 5 Test 1 - Line endings are all CRLF
 const test50_1 = (sdp, params) => {
   if (!params.checkEndings) {
     if (params.verbose) {
@@ -89,11 +89,11 @@ const test50_1 = (sdp, params) => {
   return errors;
 };
 
-// Section 5 Test 1.1 - check last record is terminated with a newline and there are no blank lines
+// RFC 4566 Section 5 Test 1.1 - Last record ends with a newline and there are no blank lines
 const test50_1_1 = (sdp, params) => {
   let errors = [];
   if (hasNoNewlineAtEnd.test(sdp)) {
-    errors.push(new Error('SDP file does not contain a newline character at the end of the last record, as per RFC 4566 Section 5.'));
+    errors.push(new Error('The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.'));
   }
   if (blankLines.test(sdp)) {
     errors.push(new Error('Blank lines are not permitted, as per RFC 4566 Section 5.'));
@@ -106,7 +106,7 @@ const test50_1_1 = (sdp, params) => {
 
 const splitLines = sdp => sdp.match(/[^\r\n]+/g);
 
-// Section 5 Test 2 - check each line is an acceptable format
+// RFC 4566 Section 5 Test 2 - Every line is of the form '<type>=<value>'
 const test_50_2 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -121,7 +121,7 @@ const test_50_2 = (lines, params) => {
   return errors;
 };
 
-// Section 5 Test 3 - check the only letters in use as types are defined in RFC 4566
+// RFC 4566 Section 5 Test 3 - Every line starts with a permitted type letter
 const test_50_3 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -136,22 +136,22 @@ const test_50_3 = (lines, params) => {
   return errors;
 };
 
-// Section 5 Test 4 - Check for mandatory types
+// RFC 4566 Section 5 Test 4 - Required lines are present
 const test_50_4 = (lines, params) => {
   let errors = [];
   let types = lines.map(x => x.slice(0, 1));
   for ( let x of mustHaves ) {
     if (types.indexOf(x) < 0) {
-      errors.push(new Error(`An SDP file must have at least one record of type ${x} as per RFC 4566 Section 5.1.`));
+      errors.push(new Error(`An SDP file must have at least one line of type '${x}', as per RFC 4566 Section 5.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: RFC 4566 Section 5 Test 4 - Mandatory types are present.');
+    console.log('Test Passed: RFC 4566 Section 5 Test 4 - Required lines are present.');
   }
   return errors;
 };
 
-// Section 5 Test 5 - Check the order of the parameters
+// RFC 4566 Section 5 Test 5 - Lines are in the required order
 const test_50_5 = (lines, params) => {
   let errors = [];
   let types = lines.map(x => x.slice(0, 1));
@@ -161,18 +161,18 @@ const test_50_5 = (lines, params) => {
     let movingOn = followedBy[state][types[x - 1]];
     nextState = movingOn ? movingOn : nextState;
     if (Object.keys(nextState).indexOf(types[x]) < 0) {
-      errors.push(new Error(`Line ${x + 1}: SDP type '${types[x - 1]}' cannot be followed by type '${types[x]}', as per the fixed order of RFC 4566 Section 5.`));
+      errors.push(new Error(`Line ${x + 1}: A line of type '${types[x - 1]}' cannot be followed by a line of type '${types[x]}', as per the required order of RFC 4566 Section 5.`));
     } else {
       state = nextState[types[x]];
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: RFC 4566 Section 5 Test 5 - Types are in the fixed order.');
+    console.log('Test Passed: RFC 4566 Section 5 Test 5 - Lines are in the required order.');
   }
   return errors;
 };
 
-// Section 5 Test 6 - check no values contain the Nul character
+// RFC 4566 Section 5 Test 6 - No values contain the Nul character
 const test_50_6 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -186,11 +186,11 @@ const test_50_6 = (lines, params) => {
   return errors;
 };
 
-// Section 5.1 Test 1 - first line must be v=0
+// RFC 4566 Section 5.1 Test 1 - First line is 'v=0'
 const test_51_1 = (lines, params) => {
   let errors = [];
   if (!lines[0].startsWith('v=0')) {
-    errors.push(new Error('Line 1: The first line must be \'v=0\' as per RFC 4566 Section 5.1.'));
+    errors.push(new Error('Line 1: The first line must be \'v=0\', as per RFC 4566 Section 5.1.'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5.1 Test 1 - First line is \'v=0\'.');
@@ -198,7 +198,7 @@ const test_51_1 = (lines, params) => {
   return errors;
 };
 
-// Section 5.2 Test 1 - Origin name matches acceptable patterns
+// RFC 4566 Section 5.2 Test 1 - Origin field matches an acceptable pattern
 const test_52_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -206,7 +206,7 @@ const test_52_1 = (sdp, params) => {
     if (lines[x].startsWith('o=')) {
       let oMatch = lines[x].match(oPattern);
       if (!oMatch) {
-        errors.push(new Error(`Line ${x + 1}: Origin field ("o=") is not an acceptable pattern, as per RFC 4566 Section 5.2.`));
+        errors.push(new Error(`Line ${x + 1}: Origin field ('o=') is not an acceptable pattern, as per RFC 4566 Section 5.2.`));
         continue;
       }
       if (params.useIP4 === true && oMatch[4] === 'IP6') {
@@ -216,7 +216,7 @@ const test_52_1 = (sdp, params) => {
         errors.push(new Error(`Line ${x + 1}: Origin field specified an address type of 'IP4' when 'IP6' is requested by configuration.`));
       }
       if (multiPattern.test(oMatch[5])) {
-        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine is a multicast address when it must be a unicast address.`));
+        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine is a multicast address when it must be a unicast address, as per RFC 4566 Section 5.2.`));
       }
     }
   }
@@ -226,7 +226,7 @@ const test_52_1 = (sdp, params) => {
   return errors;
 };
 
-// Section 5.2 Test 2 - Check that the unicast address meets test configuration
+// RFC 4566 Section 5.2 Test 2 - Origin address uses the IP version requested
 const test_52_2 = (sdp, params) => {
   if (!params.useIP4 && !params.useIP6) {
     if (params.verbose) {
@@ -243,10 +243,10 @@ const test_52_2 = (sdp, params) => {
         continue;
       }
       if (params.useIP4 && !ip4Pattern.test(oMatch[5])) {
-        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine should use IPv4 as requested by configuration.`));
+        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine must use IPv4 as requested by configuration.`));
       }
       if (params.useIP6 && !ip6Pattern.test(oMatch[5])) {
-        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine should use IPv6 as requested by configuration.`));
+        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine must use IPv6 as requested by configuration.`));
       }
     }
   }
@@ -256,7 +256,7 @@ const test_52_2 = (sdp, params) => {
   return errors;
 };
 
-// Section 5.7 Test 1 - Must have c either at session level or for each streams
+// RFC 4566 Section 5.7 Test 1 - Connection data is present at session level or for each stream
 const test_57_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -265,7 +265,7 @@ const test_57_1 = (sdp, params) => {
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('m=')) {
       if (cFound === false && streamCount > 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, no connection data ("c=") field was found, as per RFC 4566 Section 5.7.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
       }
       cFound = false;
       streamCount++;
@@ -279,7 +279,7 @@ const test_57_1 = (sdp, params) => {
     }
   }
   if (cFound === false) {
-    errors.push(new Error(`Line ${lines.length}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, no connection data ("c=") field was found, as per RFC 4566 Section 5.7.`));
+    errors.push(new Error(`Line ${lines.length}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5.7 Test 1 - Connection data is present at session level or for each stream.');
@@ -287,7 +287,7 @@ const test_57_1 = (sdp, params) => {
   return errors;
 };
 
-// Section 5.7 Test 2 - Must be IN IP4 or IN IP6, and if multicast must have valid TTL
+// RFC 4566 Section 5.7 Test 2 - Connection data fields are an acceptable pattern, with a TTL for IPv4 multicast
 const test_57_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -295,7 +295,7 @@ const test_57_2 = (sdp, params) => {
     if (lines[x].startsWith('c=')) {
       let cMatch = lines[x].match(cPattern);
       if (!cMatch) {
-        errors.push(new Error(`Line ${x + 1}: Connection data field ("c=") is not an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
+        errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') is not an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
         continue;
       }
       if (params.useIP4 === true && cMatch[1] !== 'IP4') {
@@ -327,7 +327,7 @@ const test_57_2 = (sdp, params) => {
   return errors;
 };
 
-// Section 5.7 Test 3 - Check is valid address type
+// RFC 4566 Section 5.7 Test 3 - Connection addresses are the type requested
 const test_57_3 = (sdp, params) => {
   if (!params.useIP4 && !params.useIP6 && !params.multicast && !params.unicast) {
     if (params.verbose) {
@@ -360,7 +360,7 @@ const test_57_3 = (sdp, params) => {
       }
       if (params.unicast === true) {
         if (multiPattern.test(addrMatch[2])) {
-          errors.push(new Error(`Line ${x + 1}: Unicast connections requested by configuration and connection data field address '${addrMatch[2]} is multicast.`));
+          errors.push(new Error(`Line ${x + 1}: Unicast connections requested by configuration and connection data field address '${addrMatch[2]}' is multicast.`));
         }
       }
     }
@@ -372,13 +372,13 @@ const test_57_3 = (sdp, params) => {
 };
 // TODO Future work - test ability to join multicast group or DNS lookup address
 
-// Section 5.8 Test 1 - Bandwidth matches acceptable pattern
+// RFC 4566 Section 5.8 Test 1 - Bandwidth fields match an acceptable pattern
 const test_58_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('b=') && !bPattern.test(lines[x])) {
-      errors.push(new Error(`Line ${x + 1}: Bandwidth field ("b=") is not an acceptable pattern, as per RFC 4566 Section 5.8.`));
+      errors.push(new Error(`Line ${x + 1}: Bandwidth field ('b=') is not an acceptable pattern, as per RFC 4566 Section 5.8.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -387,13 +387,13 @@ const test_58_1 = (sdp, params) => {
   return errors;
 };
 
-// Section 5.9 Test 1 - Timing matches acceptable pattern
+// RFC 4566 Section 5.9 Test 1 - Timing fields match an acceptable pattern
 const test_59_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('t=') && !tPattern.test(lines[x])) {
-      errors.push(new Error(`Line ${x + 1}: Timing field ("t=") is not an acceptable pattern, as per RFC 4566 Section 5.9.`));
+      errors.push(new Error(`Line ${x + 1}: Timing field ('t=') is not an acceptable pattern, as per RFC 4566 Section 5.9.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -444,7 +444,7 @@ const no_media = sdp => {
       break;
     }
   }
-  return hasMedia ? [] : [ new Error('SDP file does not include any "m=" media attributes.') ];
+  return hasMedia ? [] : [ new Error('SDP file does not include any media descriptions (\'m=\').') ];
 };
 
 const allSections = (sdp, params) => {
