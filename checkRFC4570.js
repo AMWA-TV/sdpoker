@@ -31,7 +31,7 @@ const canonicalAddress = address => {
 };
 
 // Section 3 Test 1 - Source-filter correctly formatted if present
-const test_30_1 = sdp => {
+const test_30_1 = (sdp, params) => {
   let lines = splitLines(sdp);
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -43,13 +43,16 @@ const test_30_1 = sdp => {
       }
     }
   }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4570 Section 3 Test 1 - Source filters match an acceptable pattern.');
+  }
   return errors;
 };
 
 // Section 3 Test 3 - Source-filters match addresses used in connection attributes
 // A media-level source filter can match the session-level connection address, and a session-level source filter
 // can match the session-level or any media-level connection address, as per RFC 4570 Section 3.
-const test_30_3 = sdp => {
+const test_30_3 = (sdp, params) => {
   let lines = splitLines(sdp);
   let errors = [];
   let globalAddr = null;
@@ -91,6 +94,9 @@ const test_30_3 = sdp => {
     if (destAddr != globalAddr && !mediaAddrs.includes(destAddr) && destAddr != '*') {
       errors.push(new Error(`Line ${line}: Source-filter destination addresses must match one or more connection address as per RFC 4570 Section 3.`));
     }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4570 Section 3 Test 3 - Source filter destination addresses match a connection address.');
   }
   return errors;
 };

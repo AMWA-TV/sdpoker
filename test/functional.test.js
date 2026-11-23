@@ -609,3 +609,38 @@ test('RFC 8331 Section 4 tests check VPID_Code is no more than 255', t => {
   t.ok(messages(256).includes(message), 'VPID_Code=256 is reported');
   t.end();
 });
+
+test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose mode', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const logged = (variant, params) => {
+    const lines = [];
+    const log = console.log;
+    console.log = line => lines.push(line);
+    try {
+      checkRFC4566(variant, { ...cliDefaults, ...params, verbose: true });
+      checkRFC4570(variant, { ...cliDefaults, ...params, verbose: true });
+    } finally {
+      console.log = log;
+    }
+    return lines;
+  };
+
+  const lines = logged(sdp, {});
+  t.equal(lines.length, 17, 'one line for each test');
+  t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
+    'Test Skipped: RFC 4566 Section 5 Test 1',
+    'Test Skipped: RFC 4566 Section 5.2 Test 2',
+    'Test Skipped: RFC 4566 Section 5.7 Test 3'
+  ], 'tests that need an option are skipped without it');
+  t.ok(lines.filter(line => !line.startsWith('Test Skipped')).every(line => line.startsWith('Test Passed: RFC 4')),
+    'the other tests pass');
+
+  const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
+  t.equal(withOptions.length, 17, 'one line for each test with the options set');
+  t.ok(withOptions.every(line => line.startsWith('Test Passed: RFC 4')), 'every test passes with the options set');
+
+  const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
+  t.notOk(lfLines.some(line => line.startsWith('Test Passed: RFC 4566 Section 5 Test 1 ')),
+    'a test that reports an error does not report that it passed');
+  t.end();
+});
