@@ -2558,6 +2558,32 @@ const no_copy_22 = (sdp, params) => {
   return no_copy(sdp, params, specExample22, 'VSF TR-08:2022 Appendix A Test 1', 'VSF TR-08:2022 Appendix A');
 };
 
+// ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description
+// RFC 4566 Section 5 allows an SDP file with no media descriptions, but ST 2110-10 Section 8.1 requires an SDP file for each RTP stream
+const no_media = (sdp, params) => {
+  if (params.noMedia === false) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.');
+    }
+    return [];
+  }
+  let lines = splitLines(sdp.trim());
+  let hasMedia = false;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      hasMedia = true;
+      break;
+    }
+  }
+  if (!hasMedia) {
+    return [new Error('An SDP file shall include at least one media description (\'m=\'), as per ST 2110-10 Section 8.1.')];
+  }
+  if (params.verbose) {
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.');
+  }
+  return [];
+};
+
 const st2110_10_sections = [
   section_10_62,
   section_10_74,
@@ -2567,6 +2593,7 @@ const st2110_10_sections = [
   section_10_86,
   section_10_2022_84,
   section_10_2022_87,
+  no_media,
 ];
 
 // SDPoker Test 1 - The SDP file describes a single essence

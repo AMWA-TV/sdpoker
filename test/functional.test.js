@@ -798,10 +798,9 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     return lines;
   };
 
-  // The RFC 4566 checks also run ST 2110-10 Section 8.1 Test 4, which checks there is a media description
-  const passed = line => line.startsWith('Test Passed: RFC 4') || line.startsWith('Test Passed: ST 2110-10 Section 8.1 Test 4 ');
+  const passed = line => line.startsWith('Test Passed: RFC 4');
   const lines = logged(sdp, {});
-  t.equal(lines.length, 18, 'one line for each test');
+  t.equal(lines.length, 17, 'one line for each test');
   t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
     'Test Skipped: RFC 4566 Section 5 Test 1',
     'Test Skipped: RFC 4566 Section 5.2 Test 2',
@@ -811,7 +810,7 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     'the other tests pass');
 
   const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
-  t.equal(withOptions.length, 18, 'one line for each test with the options set');
+  t.equal(withOptions.length, 17, 'one line for each test with the options set');
   t.ok(withOptions.every(passed), 'every test passes with the options set');
 
   const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
@@ -829,11 +828,19 @@ test('a repeated format parameter is reported once for every stream format', t =
   t.end();
 });
 
+test('the ST 2110 checks, not the RFC 4566 checks, report an SDP file with no media description', t => {
+  const sdp = readFixture('invalid/missing-media.sdp');
+  const message = 'shall include at least one media description';
+  t.notOk(checkRFC4566(sdp, cliDefaults).some(error => error.message.includes(message)), 'not reported by the RFC 4566 checks');
+  t.ok(checkST2110(sdp, cliDefaults).some(error => error.message.includes(message)), 'reported by the ST 2110 checks');
+  t.end();
+});
+
 test('library callers that do not set noCopy or noMedia get those checks', t => {
   const copy = readFixture('invalid/st2110-10-annex-b.sdp').replace(/source-filter: incl/g, 'source-filter:incl');
   t.ok(checkST2110(copy, {}).some(error => error.message.includes('must not be a copy of the example')),
     'a copy of the example is reported');
-  t.ok(checkRFC4566(readFixture('invalid/missing-media.sdp'), {}).some(error => error.message.includes('shall include at least one media description')),
+  t.ok(checkST2110(readFixture('invalid/missing-media.sdp'), {}).some(error => error.message.includes('shall include at least one media description')),
     'an SDP file with no media description is reported');
   t.same(checkST2110(copy, { noCopy: false }).filter(error => error.message.includes('must not be a copy')), [],
     'noCopy: false skips the copy check');
