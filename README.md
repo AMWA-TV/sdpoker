@@ -150,7 +150,7 @@ The parameters of the library are binary flags that match the command line optio
 * `unicast`: Connection addresses must be unicast.
 * `verbose`: Print out tests that pass to the console as well as failures.
 
-By default, all flags are `false`, except `shaping`, which is `true`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
+By default, all flags are `false`, except `noCopy`, `noMedia` and `shaping`, which are `true`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
 
 ```javascript
 let params = {

@@ -2475,7 +2475,7 @@ const section_43_2021_42 = (sdp, params) => {
 };
 
 const no_copy = (sdp, params, specSDP, test, example) => {
-  if (!params.noCopy) {
+  if (params.noCopy === false) {
     if (params.verbose) {
       console.log(`Test Skipped: ${test} - The SDP file is not a copy of the example. Use --noCopy to test.`);
     }

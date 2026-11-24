@@ -428,7 +428,7 @@ const section_59 = (sdp, params) => {
 // ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description
 // RFC 4566 Section 5 allows an SDP file with no media descriptions, but ST 2110-10 Section 8.1 requires an SDP file for each RTP stream
 const no_media = (sdp, params) => {
-  if (!params.noMedia) {
+  if (params.noMedia === false) {
     if (params.verbose) {
       console.log('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.');
     }

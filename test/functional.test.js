@@ -822,3 +822,14 @@ test('a repeated format parameter is reported once for every stream format', t =
   }
   t.end();
 });
+
+test('library callers that do not set noCopy or noMedia get those checks', t => {
+  const copy = readFixture('invalid/st2110-10-annex-b.sdp').replace(/source-filter: incl/g, 'source-filter:incl');
+  t.ok(checkST2110(copy, {}).some(error => error.message.includes('must not be a copy of the example')),
+    'a copy of the example is reported');
+  t.ok(checkRFC4566(readFixture('invalid/missing-media.sdp'), {}).some(error => error.message.includes('shall include at least one media description')),
+    'an SDP file with no media description is reported');
+  t.same(checkST2110(copy, { noCopy: false }).filter(error => error.message.includes('must not be a copy')), [],
+    'noCopy: false skips the copy check');
+  t.end();
+});
