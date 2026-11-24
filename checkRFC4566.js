@@ -423,8 +423,15 @@ const section_59 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
-// Test if SDP file is missing media descriptions
-const no_media = sdp => {
+// ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description
+// RFC 4566 Section 5 allows an SDP file with no media descriptions, but ST 2110-10 Section 8.1 requires an SDP file for each RTP stream
+const no_media = (sdp, params) => {
+  if (!params.noMedia) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.');
+    }
+    return [];
+  }
   let lines = splitLines(sdp.trim());
   let hasMedia = false;
   for ( let x = 0 ; x < lines.length ; x++ ) {
@@ -433,14 +440,17 @@ const no_media = sdp => {
       break;
     }
   }
-  return hasMedia ? [] : [ new Error('SDP file does not include any media descriptions (\'m=\').') ];
+  if (!hasMedia) {
+    return [ new Error('An SDP file shall include at least one media description (\'m=\'), as per ST 2110-10 Section 8.1.') ];
+  }
+  if (params.verbose) {
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.');
+  }
+  return [];
 };
 
 const allSections = (sdp, params) => {
-  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59 ];
-  if (params.noMedia) {
-    sections.push(no_media);
-  }
+  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, no_media ];
   return sections.flatMap(s => s(sdp, params));
 };
 

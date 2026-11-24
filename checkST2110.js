@@ -350,7 +350,10 @@ const test_10_83_1 = (sdp, params) => {
 
 // ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1
 const test_10_83_2 = (sdp, params) => {
-  if (!sdp.match(/a=ssrc-group/)) { // Detect whether this test applies
+  if (!sdp.match(/a=ssrc-group/)) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.');
+    }
     return [];
   }
   let lines = splitLines(sdp);
@@ -401,7 +404,7 @@ const test_10_83_2 = (sdp, params) => {
 const test_10_83_3 = (sdp, params) => {
   if (!sdp.match(/a=group/)) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' present.');
+      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.');
     }
     return [];
   }
@@ -2472,7 +2475,13 @@ const section_43_2021_42 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
-const no_copy = (sdp, specSDP) => {
+const no_copy = (sdp, params, specSDP, test, example) => {
+  if (!params.noCopy) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test} - The SDP file is not a copy of the example. Use --noCopy to test.`);
+    }
+    return [];
+  }
   let lines = splitLines(sdp.trim());
   let exlines = splitLines(specSDP);
   let length = lines.length < exlines.length ? lines.length : exlines.length;
@@ -2483,19 +2492,23 @@ const no_copy = (sdp, specSDP) => {
       break;
     }
   }
-  return matching ? [new Error(
-    'SDP file given is a fairly obvious copy of the example in the standard.')] :
-    [];
+  if (matching) {
+    return [new Error(`The SDP file must not be a copy of the example in ${example}, as requested by --noCopy.`)];
+  }
+  if (params.verbose) {
+    console.log(`Test Passed: ${test} - The SDP file is not a copy of the example.`);
+  }
+  return [];
 };
 
-// ST 2110-10 Appendix B Test 1 - The SDP file is not a straight copy of the example
-const no_copy_20 = sdp => {
-  return no_copy(sdp, specExample20);
+// ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example
+const no_copy_20 = (sdp, params) => {
+  return no_copy(sdp, params, specExample20, 'ST 2110-10 Annex B Test 1', 'ST 2110-10 Annex B');
 };
 
-// Test TR-08 Appendix 1 Test 1 - The SDP file is not a straight copy of the example
-const no_copy_22 = sdp => {
-  return no_copy(sdp, specExample22);
+// VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example
+const no_copy_22 = (sdp, params) => {
+  return no_copy(sdp, params, specExample22, 'VSF TR-08:2022 Appendix A Test 1', 'VSF TR-08:2022 Appendix A');
 };
 
 const st2110_10_sections = [
@@ -2559,18 +2572,12 @@ const allSections = (sdp, params) => {
         ...st2110_10_sections,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72,
-        section_9134_71];
-      if (params.noCopy) {
-        sections.push(no_copy_22);
-      }
+        section_9134_71, no_copy_22];
     } else if (mtParams[0]._encodingName == 'raw') {
       sections = [
         ...st2110_10_sections,
         section_20_71, section_20_72, section_20_73, section_20_74,
-        section_20_75, section_20_76, section_21_81, section_21_82];
-      if (params.noCopy) {
-        sections.push(no_copy_20);
-      }
+        section_20_75, section_20_76, section_21_81, section_21_82, no_copy_20];
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,

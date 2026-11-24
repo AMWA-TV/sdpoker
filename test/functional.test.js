@@ -141,7 +141,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/missing-media.sdp',
-    messageIncludes: 'does not include any media descriptions (\'m=\')'
+    messageIncludes: 'shall include at least one media description (\'m=\')'
   },
   {
     file: 'invalid/missing-ts-refclk.sdp',
@@ -748,6 +748,35 @@ test('RFC 4566 Section 5.7 tests check the TTL of IPv4 multicast connection data
   t.end();
 });
 
+test('tests that do not apply, or need an option, report that they are skipped in verbose mode', t => {
+  const logged = (sdp, params) => {
+    const lines = [];
+    const log = console.log;
+    console.log = line => lines.push(line);
+    try {
+      runAllChecks(sdp, { ...cliDefaults, ...params, verbose: true });
+    } finally {
+      console.log = log;
+    }
+    return lines;
+  };
+  const raw = readFixture('valid/st2110-20.sdp');
+  const jxsv = readFixture('valid/st2110-22.sdp');
+
+  const lines = logged(raw, {});
+  t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.'));
+  t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.'));
+  t.ok(lines.includes('Test Passed: ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example.'));
+  t.ok(lines.includes('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.'));
+  t.ok(logged(jxsv, {}).includes('Test Passed: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example.'));
+
+  const withoutOptions = logged(raw, { noCopy: false, noMedia: false });
+  t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
+  t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.'));
+  t.ok(logged(jxsv, { noCopy: false }).includes('Test Skipped: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
+  t.end();
+});
+
 test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose mode', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const logged = (variant, params) => {
@@ -763,19 +792,21 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     return lines;
   };
 
+  // The RFC 4566 checks also run ST 2110-10 Section 8.1 Test 4, which checks there is a media description
+  const passed = line => line.startsWith('Test Passed: RFC 4') || line.startsWith('Test Passed: ST 2110-10 Section 8.1 Test 4 ');
   const lines = logged(sdp, {});
-  t.equal(lines.length, 17, 'one line for each test');
+  t.equal(lines.length, 18, 'one line for each test');
   t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
     'Test Skipped: RFC 4566 Section 5 Test 1',
     'Test Skipped: RFC 4566 Section 5.2 Test 2',
     'Test Skipped: RFC 4566 Section 5.7 Test 3'
   ], 'tests that need an option are skipped without it');
-  t.ok(lines.filter(line => !line.startsWith('Test Skipped')).every(line => line.startsWith('Test Passed: RFC 4')),
+  t.ok(lines.filter(line => !line.startsWith('Test Skipped')).every(passed),
     'the other tests pass');
 
   const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
-  t.equal(withOptions.length, 17, 'one line for each test with the options set');
-  t.ok(withOptions.every(line => line.startsWith('Test Passed: RFC 4')), 'every test passes with the options set');
+  t.equal(withOptions.length, 18, 'one line for each test with the options set');
+  t.ok(withOptions.every(passed), 'every test passes with the options set');
 
   const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
   t.notOk(lfLines.some(line => line.startsWith('Test Passed: RFC 4566 Section 5 Test 1 ')),
