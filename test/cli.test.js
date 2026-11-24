@@ -114,3 +114,12 @@ test('CLI skip options skip each group of checks', t => {
   }
   t.end();
 });
+
+test('CLI runs the traffic shaping checks by default, and --no-shaping skips them', t => {
+  // The ST 2110-10 Annex B example fails only the traffic shaping checks, because it has no TP
+  const annexB = path.join(__dirname, 'fixtures', 'invalid', 'st2110-10-annex-b.sdp');
+
+  t.equal(runCli([annexB]).status, 1, 'sdpoker reports the missing TP parameters by default');
+  t.equal(runCli(['--no-shaping', annexB]).status, 0, 'sdpoker --no-shaping exits with code 0');
+  t.end();
+});

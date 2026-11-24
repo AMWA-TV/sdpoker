@@ -10,7 +10,7 @@ const cliDefaults = {
   duplicate: false,
   skipRFC4566: false, skipRFC4570: false, skipST2110: false,
   channelOrder: false, useIP4: false, useIP6: false,
-  multicast: false, unicast: false, shaping: false, verbose: false
+  multicast: false, unicast: false, shaping: true, verbose: false
 };
 const fixturesRoot = path.join(__dirname, 'fixtures');
 const validFixturesDir = path.join(fixturesRoot, 'valid');
@@ -156,13 +156,11 @@ const invalidCases = [
     messageIncludes: 'For stream 1, clock rate must be 27000000Hz, as per ST 2022-8 Section 5.3'
   },
   {
-    file: 'valid/st2022-6.sdp',
-    params: { shaping: true },
+    file: 'invalid/st2022-8-missing-tp.sdp',
     messageIncludes: 'For stream 1, parameter \'TP\' is not provided, as required by ST 2022-8 Section 6'
   },
   {
     file: 'invalid/st2022-8-tp.sdp',
-    params: { shaping: true },
     messageIncludes: 'For stream 1, format parameter \'TP\' is not one of \'2110TPNL\' or \'2110TPW\', as per ST 2022-8 Section 6'
   },
   {
@@ -378,6 +376,15 @@ test('invalid SDP fixtures are rejected', t => {
   }
 });
 
+test('the ST 2110-10 Annex B example is reported only for its missing TP parameters', t => {
+  const messages = runAllChecks(readFixture('invalid/st2110-10-annex-b.sdp')).map(error => error.message);
+  t.same(messages, [
+    'Line 12: For stream 1, parameter \'TP\' is not provided, as required by ST 2110-21 Section 8.1.',
+    'Line 20: For stream 2, parameter \'TP\' is not provided, as required by ST 2110-21 Section 8.1.'
+  ]);
+  t.end();
+});
+
 test('ts-refclk PTP grandmaster identities can use lower-case hex digits', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const variant = sdp.replace(/a=ts-refclk:[^\r\n]*/, 'a=ts-refclk:ptp=IEEE1588-2008:39-a7-94-ff-fe-07-cb-d0:37');
@@ -577,7 +584,7 @@ test('SMPTE channel orders must match the grouping symbols to the end of the val
 });
 
 test('ST 2022-8 Section 7.1 tests check TROFF only when shaping', t => {
-  t.same(section_2022_8_71(readFixture('invalid/st2022-8-troff.sdp'), cliDefaults), [], 'a negative TROFF is not reported');
+  t.same(section_2022_8_71(readFixture('invalid/st2022-8-troff.sdp'), { ...cliDefaults, shaping: false }), [], 'a negative TROFF is not reported');
   t.end();
 });
 
