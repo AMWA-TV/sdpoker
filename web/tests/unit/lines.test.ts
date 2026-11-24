@@ -21,7 +21,7 @@ describe('detectLineEndings', () => {
     expect(detectLineEndings('a\r\nb\r\n')).toBe('CRLF');
     expect(detectLineEndings('a\nb\n')).toBe('LF');
     expect(detectLineEndings('a\rb\r')).toBe('CR');
-    expect(detectLineEndings('a\r\nb\n')).toBe('Mixed');
-    expect(detectLineEndings('a')).toBe('None');
+    expect(detectLineEndings('a\r\nb\n')).toBe('mixed');
+    expect(detectLineEndings('a')).toBe('none');
   });
 });

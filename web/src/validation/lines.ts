@@ -13,15 +13,15 @@
   limitations under the License.
 */
 
-export type LineEndings = 'CRLF' | 'LF' | 'CR' | 'Mixed' | 'None';
+export type LineEndings = 'CRLF' | 'LF' | 'CR' | 'mixed' | 'none';
 
 export function detectLineEndings(text: string): LineEndings {
   const found = new Set(text.match(/\r\n|\r|\n/g) ?? []);
   if (found.size === 0) {
-    return 'None';
+    return 'none';
   }
   if (found.size > 1) {
-    return 'Mixed';
+    return 'mixed';
   }
   return found.has('\r\n') ? 'CRLF' : found.has('\n') ? 'LF' : 'CR';
 }

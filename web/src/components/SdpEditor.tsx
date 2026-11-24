@@ -18,6 +18,7 @@ import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 import CodeMirror from '@uiw/react-codemirror';
 import { useMemo } from 'react';
 import { diagnosticsExtension } from '../editor/diagnostics';
+import { sdpLanguage } from '../editor/sdpLanguage';
 
 interface Props {
   value: string;
@@ -25,12 +26,14 @@ interface Props {
   onDropFile: (file: File) => void;
   onValidate: () => void;
   onCreateEditor: (view: EditorView) => void;
+  dark: boolean;
 }
 
-export default function SdpEditor({ value, onEdit, onDropFile, onValidate, onCreateEditor }: Props) {
+export default function SdpEditor({ value, onEdit, onDropFile, onValidate, onCreateEditor, dark }: Props) {
   const extensions = useMemo(
     () => [
       diagnosticsExtension,
+      sdpLanguage,
       Prec.highest(keymap.of([{ key: 'Mod-Enter', run: () => (onValidate(), true) }])),
       EditorView.domEventHandlers({
         // Open a dropped file as a document, rather than inserting its text
@@ -70,6 +73,7 @@ export default function SdpEditor({ value, onEdit, onDropFile, onValidate, onCre
   return (
     <CodeMirror
       value={value}
+      theme={dark ? 'dark' : 'light'}
       height="100%"
       style={{ height: '100%', fontSize: 14 }}
       extensions={extensions}

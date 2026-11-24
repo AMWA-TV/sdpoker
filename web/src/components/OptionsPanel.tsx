@@ -21,10 +21,11 @@ interface Props {
   options: ValidationOptions;
   endingsAvailable: boolean;
   onChange: (options: ValidationOptions) => void;
+  canReset: boolean;
   onReset: () => void;
 }
 
-export default function OptionsPanel({ options, endingsAvailable, onChange, onReset }: Props) {
+export default function OptionsPanel({ options, endingsAvailable, onChange, canReset, onReset }: Props) {
   return (
     <Box sx={{ p: 2 }} component="section" aria-label="Validation options">
       {optionGroups.map(({ title, options: group }) => (
@@ -59,7 +60,7 @@ export default function OptionsPanel({ options, endingsAvailable, onChange, onRe
           </FormGroup>
         </Box>
       ))}
-      <Button size="small" onClick={onReset}>
+      <Button size="small" disabled={!canReset} onClick={onReset}>
         Reset options to defaults
       </Button>
     </Box>

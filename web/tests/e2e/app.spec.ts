@@ -37,7 +37,7 @@ test('an example is checked with its line endings, and its diagnostics lead to t
   const path = 'test/fixtures/invalid/missing-media.sdp';
   const lines = readSource(path).split('\r\n');
   await loadExample(page, 'missing-media.sdp');
-  await expect(page.getByTestId('line-endings')).toHaveText('CRLF · original file');
+  await expect(page.getByTestId('line-endings')).toHaveText('Original line endings (CRLF)');
   await expect(page.getByTestId('github-link')).toHaveAttribute(
     'href',
     `https://github.com/AMWA-TV/sdpoker/blob/master/${path}`,
@@ -60,7 +60,7 @@ test('an example is checked with its line endings, and its diagnostics lead to t
   expect(await selectedText(page)).toBe(lines[3]);
 });
 
-test('editing marks the results stale and skips the line-ending check until reset', async ({ page }) => {
+test('editing marks the results stale and skips the line-ending check until reverted', async ({ page }) => {
   await loadExample(page, 'missing-media.sdp');
   await page.getByRole('button', { name: 'Validate' }).click();
   await editor(page).click();
@@ -75,8 +75,9 @@ test('editing marks the results stale and skips the line-ending check until rese
   await expect(page.getByText('Out of date')).toHaveCount(0);
   await expect(page.getByTestId('endings-skipped')).toContainText('Line-ending validation skipped');
 
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
-  await expect(page.getByTestId('line-endings')).toHaveText('CRLF · original file');
+  await page.getByRole('button', { name: 'Revert to original' }).click();
+  await expect(page.getByTestId('line-endings')).toHaveText('Original line endings (CRLF)');
+  await expect(page.getByRole('button', { name: 'Revert to original' })).toHaveCount(0);
   await expect(page.getByLabel('Check line endings')).toBeEnabled();
   await expect(page.getByLabel('Check line endings')).toBeChecked();
 
@@ -106,7 +107,7 @@ test('an opened file keeps its line endings, and blank lines do not move the dia
     .getByTestId('file-input')
     .setInputFiles({ name: 'blank.sdp', mimeType: 'application/sdp', buffer: Buffer.from(text) });
   await expect(status(page)).toContainText('blank.sdp');
-  await expect(page.getByTestId('line-endings')).toHaveText('CRLF · original file');
+  await expect(page.getByTestId('line-endings')).toHaveText('Original line endings (CRLF)');
   await page.getByRole('button', { name: 'Validate' }).click();
   const diagnostic = page.getByTestId('diagnostic').filter({ hasText: "of the form '<type>=<value>'" });
   await expect(diagnostic).toHaveAttribute('data-line', `${badLine}`);
@@ -121,11 +122,13 @@ test('a dropped file is opened', async ({ page }) => {
     element.dispatchEvent(new DragEvent('drop', { dataTransfer, bubbles: true, cancelable: true }));
   }, readSource('examples/st2110-20.sdp'));
   await expect(status(page)).toContainText('dropped.sdp');
-  await expect(page.getByTestId('line-endings')).toHaveText('CRLF · original file');
+  await expect(page.getByTestId('line-endings')).toHaveText('Original line endings (CRLF)');
 });
 
 test('the options panel prevents rejected combinations and resets to the defaults', async ({ page }) => {
   await page.getByText('Validation options').click();
+  const resetOptions = page.getByRole('button', { name: 'Reset options to defaults' });
+  await expect(resetOptions).toBeDisabled();
   await page.getByLabel('IPv4 only').check();
   await expect(page.getByLabel('IPv6 only')).toBeDisabled();
   await page.getByLabel('Multicast only').check();
@@ -140,7 +143,10 @@ test('the options panel prevents rejected combinations and resets to the default
     page.getByRole('tooltip').filter({ hasText: 'Check adherence to traffic shaping specification' }),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Reset options to defaults' }).click();
+  await expect(page.getByTestId('changed-options')).toHaveText('· 4 changed from defaults');
+  await resetOptions.click();
+  await expect(page.getByTestId('changed-options')).toHaveCount(0);
+  await expect(resetOptions).toBeDisabled();
   await expect(page.getByLabel('IPv4 only')).not.toBeChecked();
   await expect(page.getByLabel('Skip RFC 4566 checks')).not.toBeChecked();
   await expect(page.getByLabel('Traffic shaping')).toBeChecked();
@@ -151,5 +157,55 @@ test('the page shows the version, the commit, and that SDP stays in the browser'
   await expect(page.getByTestId('version')).toHaveText(/^SDPoker \d+\.\d+\.\d+, built from [0-9a-f]{7}$/);
   await expect(page.getByTestId('privacy')).toHaveText(
     'SDP validation is performed entirely within your browser. Your SDP contents are not uploaded to a server.',
+  );
+});
+
+test('the separator resizes the editor and results panels', async ({ page }) => {
+  const panel = page.getByTestId('editor-panel');
+  const before = (await panel.boundingBox())!.height;
+  const separator = (await page.getByRole('separator', { name: 'Resize the editor and results' }).boundingBox())!;
+  await page.mouse.move(separator.x + separator.width / 2, separator.y + separator.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(separator.x + separator.width / 2, separator.y + separator.height / 2 + 100, { steps: 5 });
+  await page.mouse.up();
+  expect((await panel.boundingBox())!.height).toBeGreaterThan(before + 50);
+});
+
+test('dark mode changes the page and the editor, and is remembered', async ({ page }) => {
+  const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const editorBackground = () => page.locator('.cm-editor').evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(await background()).toBe('rgb(255, 255, 255)');
+  const lightEditor = await editorBackground();
+  await page.getByRole('button', { name: 'Use dark mode' }).click();
+  expect(await background()).not.toBe('rgb(255, 255, 255)');
+  expect(await editorBackground()).not.toBe(lightEditor);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Use light mode' })).toBeVisible();
+});
+
+test('SDP is highlighted', async ({ page }) => {
+  await loadExample(page, 'st2110-20.sdp');
+  const line = page
+    .locator('.cm-line')
+    .filter({ hasText: /^a=rtpmap:/ })
+    .first();
+  const color = (text: string) =>
+    line
+      .locator('span')
+      .filter({ hasText: new RegExp(`^${text}$`) })
+      .first()
+      .evaluate((e) => getComputedStyle(e).color);
+  const typeLetter = await color('a=');
+  const attribute = await color('rtpmap');
+  expect(typeLetter).not.toBe(attribute);
+  expect(attribute).not.toBe(await line.evaluate((e) => getComputedStyle(e).color));
+});
+
+test('citations in messages link to the cited document', async ({ page }) => {
+  await loadExample(page, 'missing-media.sdp');
+  await page.getByRole('button', { name: 'Validate' }).click();
+  await expect(page.getByRole('link', { name: 'RFC 4566 Section 5.7', exact: true })).toHaveAttribute(
+    'href',
+    'https://www.rfc-editor.org/rfc/rfc4566#section-5.7',
   );
 });

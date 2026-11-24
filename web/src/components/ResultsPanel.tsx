@@ -15,6 +15,7 @@
 
 import { Alert, Box, Chip, List, ListItemButton, ListItemText, Stack, Typography } from '@mui/material';
 import { validators } from '../validation/sdpoker';
+import MessageText from './MessageText';
 import type { Diagnostic, ValidationOptions, ValidationResult } from '../validation/types';
 
 interface Props {
@@ -81,7 +82,12 @@ export default function ResultsPanel({ result, options, stale, onShowLine }: Pro
 
 function DiagnosticItem({ diagnostic, onShowLine }: { diagnostic: Diagnostic; onShowLine: (line: number) => void }) {
   const { line, message } = diagnostic;
-  const text = <ListItemText primary={message} slotProps={{ primary: { sx: { fontFamily: 'monospace' } } }} />;
+  const text = (
+    <ListItemText
+      primary={<MessageText message={message} />}
+      slotProps={{ primary: { sx: { fontFamily: 'monospace' } } }}
+    />
+  );
   return line !== undefined ? (
     <ListItemButton onClick={() => onShowLine(line)} data-testid="diagnostic" data-line={line}>
       <Chip size="small" label={`Line ${line}`} sx={{ mr: 1 }} />
