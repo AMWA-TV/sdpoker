@@ -2,15 +2,11 @@
 
 [![CI Status](https://github.com/AMWA-TV/sdpoker/workflows/CI/badge.svg)](https://github.com/AMWA-TV/sdpoker/actions?query=workflow%3ACI)
 
-CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. The tool currently has 112 possible tests.
+CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. With `--verbose`, it also lists the tests that passed or were skipped.
 
 Just because an SDP file passes these tests does not mean it is 100% valid. However, if it fails one of the tests, the file is likely to need some work!
 
 This is an open source tool contributed for the benefit of anyone developing and deploying professional IP media systems. Please use pull requests and issues to help to enhance it. Please do report any false positives or false negatives found by these tests. A list of possible [enhancements](#enhancements) is provided below.
-
-SDPoker is part of the [zenmos](https://github.com/Streampunk/zenmos) project to develop an automatic testing tool for AMWAs [Network Media Open Specifications](https://nmos.tv/).
-
-# Important Note
 
 This is a fork of the original repository from [Streampunk/sdpoker](https://github.com/Streampunk/sdpoker) including additional features and bug fixes. It is intended to be used alongside the [NMOS Testing Tool](https://github.com/AMWA-TV/nmos-testing).
 
@@ -77,7 +73,7 @@ getSDP('http://localhost:3123/sdps/video_stream_1.sdp')
 
 The value of a fulfilled promise is the contents of an SDP file as a string. SDP files are assumed to be UTF8 character sets. Pass the result into the `checkRFC4566`, `checkRFC4570` and `checkST2110` methods.
 
-### Check RFC4566
+### Check RFC 4566
 
 The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. This is not an exhaustive SDP file tester.
 
@@ -95,7 +91,7 @@ The `params` parameter is an object that, when present, can be used to configure
 The return value of the method is an array of [Javascript Errors](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error). The array is empty if no errors occurred.
 An error found at a line of the SDP file has a `line` property with that line number, which also starts its message.
 
-### Check RFC4570
+### Check RFC 4570
 
 The `checkRFC4570(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs source-filter tests relevant to SMPTE ST 2110.
 
@@ -151,7 +147,7 @@ The parameters of the library are binary flags that match the command line optio
 * `useIP6`: All addresses expressed in IP v6 notation.
 * `multicast`: Connection addresses must be multicast.
 * `unicast`: Connection addresses must be unicast.
-* `verbose`: Print out tests that pass to the console as well as failures.
+* `verbose`: Print passed and skipped tests as well as failed.
 
 By default, all flags are `false`, except `noCopy`, `noMedia` and `shaping`, which are `true`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
 
@@ -164,11 +160,13 @@ let params = {
 
 # Tests
 
-For now, please see the comments in files `checkRFC4566.js`, `checkRFC4570.js` and `checkST2110.js` for a description of the tests. A more formal and separate list may be provided in the future.
+Running `sdpoker` with `--verbose` lists the tests that passed or were skipped, as well as any errors. Please see the comments in files `checkRFC4566.js`, `checkRFC4570.js` and `checkST2110.js` for a description of the tests.
 
 # Enhancements
 
-The following items are known deficiencies of SDPoker and may be added in the future:
+Contributions via issues and pull requests are welcomed.
+
+The following are some possible enhancements to SDPoker that may be added in the future:
 
 * Tests for attribute `a=recvonly`
 * Testing whether an advertised connection address can be resolved, joined or pinged.
@@ -178,8 +176,6 @@ The following items are known deficiencies of SDPoker and may be added in the fu
 * Ability to run the tests within a framework like [tape](https://www.npmjs.com/package/tape).
 * Retrieval of SDP files over HTTPS.
 
-Pull requests and issues will be resolved when the developers have sufficient time available. If you are interested in sponsoring the development of this software or supporting its ongoing maintenance, please contact [Streampunk Media](https://www.streampunk.media) (furnace@streampunk.media).
-
 # License
 
-This software is released under the Apache 2.0 license. Copyright 2018 Streampunk Media Ltd.
+This software is released under the Apache 2.0 license. Copyright 2018 Streampunk Media Ltd. Copyright (C) 2019 Advanced Media Workflow Association.
