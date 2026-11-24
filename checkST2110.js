@@ -493,7 +493,7 @@ const test_10_83_3 = (sdp, params) => {
 
 // ST 2110-10 Section 8.4 Test 1 - Format parameter 'MAXUDP' has an acceptable value
 // [also ST 2110-10:2022 Section 8.6]
-const test_10_86_1 = (sdp, params) => {
+const test_10_84_1 = (sdp, params) => {
   const [mtParams, errors] = extractMTParams(sdp, params);
   for (const stream of mtParams) {
     if ('MAXUDP' in stream) {
@@ -2375,7 +2375,7 @@ const section_10_83 = (sdp, params) => {
 };
 
 const section_10_86 = (sdp, params) => {
-  let tests = [test_10_86_1];
+  let tests = [test_10_84_1];
   return concat(tests.map(t => t(sdp, params)));
 };
 
