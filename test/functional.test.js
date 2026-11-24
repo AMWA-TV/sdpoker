@@ -376,11 +376,12 @@ test('invalid SDP fixtures are rejected', t => {
   }
 });
 
-test('the ST 2110-10 Annex B example is reported only for its missing TP parameters', t => {
+test('the ST 2110-10:2022 Annex B example is reported only as a copy and for its missing TP parameters', t => {
   const messages = runAllChecks(readFixture('invalid/st2110-10-annex-b.sdp')).map(error => error.message);
   t.same(messages, [
     'Line 12: For stream 1, format parameter \'TP\' shall be specified, as per ST 2110-21 Section 8.1.',
-    'Line 20: For stream 2, format parameter \'TP\' shall be specified, as per ST 2110-21 Section 8.1.'
+    'Line 20: For stream 2, format parameter \'TP\' shall be specified, as per ST 2110-21 Section 8.1.',
+    'The SDP file must not be a copy of the example in ST 2110-10:2022 Annex B, as requested by --noCopy.'
   ]);
   t.end();
 });
@@ -767,11 +768,13 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.'));
   t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.'));
   t.ok(lines.includes('Test Passed: ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example.'));
+  t.ok(lines.includes('Test Passed: ST 2110-10:2022 Annex B Test 1 - The SDP file is not a copy of the example.'));
   t.ok(lines.includes('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.'));
   t.ok(logged(jxsv, {}).includes('Test Passed: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example.'));
 
   const withoutOptions = logged(raw, { noCopy: false, noMedia: false });
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
+  t.ok(withoutOptions.includes('Test Skipped: ST 2110-10:2022 Annex B Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.'));
   t.ok(logged(jxsv, { noCopy: false }).includes('Test Skipped: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
   t.end();

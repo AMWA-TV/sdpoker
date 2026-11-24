@@ -66,6 +66,7 @@ const skipVideoTypes = ['vc2'];
 // extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
 const repeatableParams = ['DID_SDID'];
 
+// Example SDP data from ST 2110-10 Annex B
 const specExample20 = `v=0
 o=- 123456 11 IN IP4 192.168.100.2
 s=Example of a SMPTE ST2110-20 signal
@@ -86,6 +87,32 @@ c=IN IP4 239.101.9.10/32
 a=source-filter:incl IN IP4 239.101.9.10 192.168.101.2
 a=rtpmap:112 raw/90000
 a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; exactframerate=60000/1001; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017;
+a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
+a=mediaclk:direct=0
+a=mid:secondary
+`;
+
+// Example SDP data from ST 2110-10:2022 Annex B
+const specExample20_2022 = `v=0
+o=- 123456 11 IN IP4 192.168.100.2
+s=Example of a SMPTE ST2110-20 signal
+i=this example is for 720p video at 59.94
+t=0 0
+a=recvonly
+a=group:DUP primary secondary
+m=video 50000 RTP/AVP 112
+c=IN IP4 239.100.9.10/32
+a=source-filter: incl IN IP4 239.100.9.10 192.168.100.2
+a=rtpmap:112 raw/90000
+a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; exactframerate=60000/1001; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017; TSMODE=SAMP; TSDELAY=0
+a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
+a=mediaclk:direct=0
+a=mid:primary
+m=video 50020 RTP/AVP 112
+c=IN IP4 239.101.9.10/32
+a=source-filter: incl IN IP4 239.101.9.10 192.168.101.2
+a=rtpmap:112 raw/90000
+a=fmtp:112 sampling=YCbCr-4:2:2; width=1280; height=720; exactframerate=60000/1001; depth=10; TCS=SDR; colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017; TSMODE=SAMP; TSDELAY=0
 a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37
 a=mediaclk:direct=0
 a=mid:secondary
@@ -2509,6 +2536,11 @@ const no_copy_20 = (sdp, params) => {
   return no_copy(sdp, params, specExample20, 'ST 2110-10 Annex B Test 1', 'ST 2110-10 Annex B');
 };
 
+// ST 2110-10:2022 Annex B Test 1 - The SDP file is not a copy of the example
+const no_copy_20_2022 = (sdp, params) => {
+  return no_copy(sdp, params, specExample20_2022, 'ST 2110-10:2022 Annex B Test 1', 'ST 2110-10:2022 Annex B');
+};
+
 // VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example
 const no_copy_22 = (sdp, params) => {
   return no_copy(sdp, params, specExample22, 'VSF TR-08:2022 Appendix A Test 1', 'VSF TR-08:2022 Appendix A');
@@ -2580,7 +2612,7 @@ const allSections = (sdp, params) => {
       sections = [
         ...st2110_10_sections,
         section_20_71, section_20_72, section_20_73, section_20_74,
-        section_20_75, section_20_76, section_21_81, section_21_82, no_copy_20];
+        section_20_75, section_20_76, section_21_81, section_21_82, no_copy_20, no_copy_20_2022];
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,
