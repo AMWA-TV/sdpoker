@@ -22,6 +22,9 @@ const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
 const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
 const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
+const ptpVersions = ['IEEE1588-2002', 'IEEE1588-2008', 'IEEE802.1AS-2011'];
+// The 'ts-refclk' forms of RFC 7273 Section 4.8 other than 'ptp', for devices not referenced to IEEE 1588-2008
+const otherRefclkPattern = /^a=ts-refclk:(?:ntp=(?:\/traceable\/|[^\s/]+)|gps|gal|glonass|local|private(?::traceable)?)$/;
 const macPattern = /^(([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2})$/;
 const dupPattern = /[\r\n]m=[\s\S]+a=ssrc-group:DUP|[\r\n]a=group:DUP[\s\S]+m=/;
 const ssrcGroupPattern = /a=ssrc-group:DUP\s+(\d+)\s+(\d+)/;
@@ -226,7 +229,7 @@ const test_10_82_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 8.2 Test 2 - Reference clocks are 'ptp' or 'localmac'
+// ST 2110-10 Section 8.2 Test 2 - Reference clocks are a form specified in RFC 7273 or the 'localmac' form
 const test_10_82_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -240,14 +243,15 @@ const test_10_82_2 = (sdp, params) => {
     }
     if (lines[x].startsWith('a=ts-refclk')) {
       if (!lines[x].startsWith('a=ts-refclk:ptp=') &&
-        !lines[x].startsWith('a=ts-refclk:localmac')) {
+        !lines[x].startsWith('a=ts-refclk:localmac') &&
+        !otherRefclkPattern.test(lines[x])) {
         errors.push(
-          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be the PTP form or the localmac form, as per ST 2110-10 Section 8.2.`));
+          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be a form specified in RFC 7273 Section 4.8 or the 'localmac' form, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.2 Test 2 - Reference clocks are \'ptp\' or \'localmac\'.');
+    console.log('Test Passed: ST 2110-10 Section 8.2 Test 2 - Reference clocks are a form specified in RFC 7273 or the \'localmac\' form.');
   }
   return errors;
 };
@@ -270,22 +274,27 @@ const test_10_82_3 = (sdp, params) => {
         errors.push(new Error(`Line ${x + 1}: An example in the first published version of ST 2110 suggested 'traceable' was acceptable without preceding it with 'IEEE1588-2008'. This is not a permitted form in RFC 7273 Section 4.8 and has been corrected in later versions of ST 2110-10.`));
         continue; // no longer acceptable form
       }
-      if (!ptpDetails.startsWith('IEEE1588-2008:')) {
-        errors.push(new Error(`Line ${x + 1}: The only supported PTP version is 'IEEE1588-2008', as per ST 2110-10 Section 8.2.`));
+      let ptpVersion = ptpDetails.split(':')[0];
+      if (!ptpVersions.includes(ptpVersion)) {
+        errors.push(new Error(`Line ${x + 1}: The PTP version '${ptpVersion}' in attribute 'ts-refclk' must be 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', as per RFC 7273 Section 4.8.`));
         continue;
       }
-      if (!ptpPattern.test(ptpDetails.slice(14))) {
+      if (params.should && ptpVersion !== 'IEEE1588-2008') {
+        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' should specify 'IEEE1588-2008', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.`));
+      }
+      let ptpServer = ptpDetails.slice(ptpVersion.length + 1);
+      if (!ptpPattern.test(ptpServer)) {
         errors.push(new Error(`Line ${x + 1}: RFC 7273 PTP reference clock attribute parameters for 'ptp-server' do not match acceptable patterns, as per RFC 7273 Section 4.8.`));
         continue;
       }
-      let ptpMatch = ptpDetails.slice(14).match(ptpPattern);
+      let ptpMatch = ptpServer.match(ptpPattern);
       if (ptpMatch[5]) {
         let domainNmbr = +ptpMatch[5];
         if (domainNmbr < 0 || domainNmbr > 127) {
           errors.push(new Error(`Line ${x + 1}: PTP domain number must be a value between 0 and 127 inclusive, as per RFC 7273 Section 4.8.`));
         }
-      } else if (ptpMatch[2]) {
-        // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not
+      } else if (ptpMatch[2] && ptpVersion === 'IEEE1588-2008') {
+        // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not for IEEE 1588-2008
         errors.push(new Error(`Line ${x + 1}: PTP domain number shall be specified, as per ST 2110-10 Section 8.2.`));
       }
     }

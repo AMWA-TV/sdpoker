@@ -398,6 +398,43 @@ test('ts-refclk PTP grandmaster identities can use lower-case hex digits', t => 
   t.end();
 });
 
+test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced to IEEE 1588-2008', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = refclk => checkST2110(sdp.replace(/a=ts-refclk:[^\r\n]*/, refclk), cliDefaults).map(error => error.message);
+  for (const refclk of [
+    'a=ts-refclk:ntp=203.0.113.10',
+    'a=ts-refclk:ntp=/traceable/',
+    'a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0',
+    'a=ts-refclk:ptp=IEEE802.1AS-2011:39-A7-94-FF-FE-07-CB-D0',
+    'a=ts-refclk:ptp=IEEE802.1AS-2011:traceable',
+    'a=ts-refclk:gps',
+    'a=ts-refclk:gal',
+    'a=ts-refclk:glonass',
+    'a=ts-refclk:local',
+    'a=ts-refclk:private',
+    'a=ts-refclk:private:traceable'
+  ]) {
+    t.same(messages(refclk), [], `${refclk} is accepted`);
+  }
+  for (const refclk of [
+    'a=ts-refclk:ntp',
+    'a=ts-refclk:gpsx',
+    'a=ts-refclk:private:untraceable',
+    'a=ts-refclk:sundial=noon',
+    'a=ts-refclk:ptp=IEEE1588-2019:39-A7-94-FF-FE-07-CB-D0:37'
+  ]) {
+    t.equal(messages(refclk).length, 1, `${refclk} is reported`);
+  }
+
+  const should = 'should specify \'IEEE1588-2008\'';
+  const shouldMessages = refclk => checkST2110(sdp.replace(/a=ts-refclk:[^\r\n]*/, refclk), { ...cliDefaults, should: true })
+    .map(error => error.message).join(' ');
+  t.ok(shouldMessages('a=ts-refclk:ptp=IEEE802.1AS-2011:39-A7-94-FF-FE-07-CB-D0').includes(should), 'IEEE802.1AS-2011 is reported with --should');
+  t.ok(shouldMessages('a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0').includes(should), 'IEEE1588-2002 is reported with --should');
+  t.notOk(shouldMessages('a=ts-refclk:ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37').includes(should), 'IEEE1588-2008 is not reported with --should');
+  t.end();
+});
+
 test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const cases = [
