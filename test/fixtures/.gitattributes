@@ -1,0 +1,2 @@
+# Keep the line endings of the test fixtures exactly as committed, as some have invalid line endings
+*.sdp -text

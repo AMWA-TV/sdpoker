@@ -13,9 +13,9 @@
   limitations under the License.
 */
 
-const badEndings = /[^\r]\n|\r[^\n]/;
+const badEndings = /^\n|[^\r]\n|\r[^\n]|\r$/;
 const hasNoNewlineAtEnd = /[^\r\n]$/;
-const blankLines = /\r\n?\r|\n\r?\n/;
+const blankLines = /^[\r\n]|\r\n?\r|\n\r?\n/;
 const linePattern = /^([a-z]=\S.*|s= )$/;
 const letterCheck = /^[vosiuepcbzkatrm].*$/;
 // const spaceCheck = /\s\s/;

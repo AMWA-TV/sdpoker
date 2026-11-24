@@ -51,6 +51,38 @@ const invalidCases = [
     messageIncludes: 'mediaclk'
   },
   {
+    file: 'invalid/line-endings-lf.sdp',
+    params: { checkEndings: true },
+    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/line-endings-cr.sdp',
+    params: { checkEndings: true },
+    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/line-endings-mixed.sdp',
+    params: { checkEndings: true },
+    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/line-endings-final-cr.sdp',
+    params: { checkEndings: true },
+    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/no-final-line-ending.sdp',
+    messageIncludes: 'does not contain a newline character at the end of the last record, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/blank-line.sdp',
+    messageIncludes: 'Blank lines are not permitted, as per RFC 4566 Section 5'
+  },
+  {
+    file: 'invalid/blank-first-line.sdp',
+    messageIncludes: 'Blank lines are not permitted, as per RFC 4566 Section 5'
+  },
+  {
     file: 'invalid/missing-v0.sdp',
     messageIncludes: 'first line must be \'v=0\''
   },
@@ -236,17 +268,17 @@ const invalidCases = [
   }
 ];
 
-test('valid SDP fixtures pass default checks', t => {
+test('valid SDP fixtures pass default checks and have CRLF line endings', t => {
   t.plan(validFixtures.length);
 
   for (const fileName of validFixtures) {
     const sdp = fs.readFileSync(path.join(validFixturesDir, fileName), 'utf8');
-    const errors = runAllChecks(sdp);
+    const errors = runAllChecks(sdp, { ...cliDefaults, checkEndings: true });
 
     t.same(
       errors,
       [],
-      `${fileName} passes default checks`
+      `${fileName} passes default checks and has CRLF line endings`
     );
   }
 });
@@ -256,7 +288,7 @@ test('invalid SDP fixtures are rejected', t => {
 
   for (const invalidCase of invalidCases) {
     const sdp = readFixture(invalidCase.file);
-    const errors = runAllChecks(sdp);
+    const errors = runAllChecks(sdp, { ...cliDefaults, ...invalidCase.params });
     const messages = errors.map(error => error.message).join(' ');
 
     t.ok(errors.length > 0, `${invalidCase.file} should fail validation`);
