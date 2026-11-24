@@ -257,9 +257,11 @@ const test_10_82_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 8.2 Test 2 - Reference clocks are a form specified in RFC 7273 or the 'localmac' form
-// [also ST 2110-10:2022 Section 8.2, which allows the RFC 7273 forms other than 'ptp']
-const test_10_82_2 = (sdp, params) => {
+// ST 2110-10 Section 8.2 Test 2 is now ST 2110-10:2022 Section 8.2 Test 1
+
+// ST 2110-10:2022 Section 8.2 Test 1 - Reference clocks are a form specified in RFC 7273 or the 'localmac' form
+// ST 2110-10:2022 Section 8.2 allows any form specified in RFC 7273
+const test_10_2022_82_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let mediaLevel = false;
@@ -280,7 +282,7 @@ const test_10_82_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.2 [also ST 2110-10:2022 Section 8.2] Test 2 - Reference clocks are a form specified in RFC 7273 or the \'localmac\' form.');
+    console.log('Test Passed: ST 2110-10:2022 Section 8.2 Test 1 - Reference clocks are a form specified in RFC 7273 or the \'localmac\' form.');
   }
   return errors;
 };
@@ -503,7 +505,7 @@ const test_10_84_1 = (sdp, params) => {
       } else if (MAXUDP > 8960) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall not exceed the Extended UDP Size Limit of 8960 octets, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.4 [also ST 2110-10:2022 Sections 6.4 and 8.6].`));
       } else if (MAXUDP < 20) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${MAXUDP}', which is less than the 20 octets of the UDP and RTP headers.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${MAXUDP}', which is less than the 20 octets of the UDP and RTP headers, so SDPoker does not accept it.`));
       }
     }
   }
@@ -2365,7 +2367,7 @@ const section_10_81 = (sdp, params) => {
 };
 
 const section_10_82 = (sdp, params) => {
-  let tests = [test_10_82_1, test_10_82_2, test_10_82_3, test_10_82_4];
+  let tests = [test_10_82_1, test_10_2022_82_1, test_10_82_3, test_10_82_4];
   return concat(tests.map(t => t(sdp, params)));
 };
 
