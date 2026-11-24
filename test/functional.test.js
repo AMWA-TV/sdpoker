@@ -427,6 +427,25 @@ test('an origin or connection data address that is not of its address type is re
   t.end();
 });
 
+test('a source filter address that is not of its address type is reported', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = filter => checkRFC4570(sdp.replace(/a=source-filter:[^\r\n]*/, filter), cliDefaults).map(error => error.message);
+
+  t.same(messages('a=source-filter: incl IN IP6 232.80.177.113 172.29.80.65'), [
+    'Line 7: Attribute \'source-filter\' address \'232.80.177.113\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.',
+    'Line 7: Attribute \'source-filter\' address \'172.29.80.65\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.'
+  ]);
+  t.same(messages('a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65 2001:db8::1'),
+    ['Line 7: Attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4570 Section 3.'],
+    'each source address is checked');
+  t.same(messages('a=source-filter: incl IN * 232.80.177.113 172.29.80.65'),
+    ['Line 7: Attribute \'source-filter\' destination address \'232.80.177.113\' must be a domain name or \'*\' when the address type is \'*\', as per RFC 4570 Section 3.1.']);
+
+  t.same(messages('a=source-filter: incl IN IP4 232.80.177.113 src-1.example.com'), [], 'a domain name source address is accepted');
+  t.same(messages('a=source-filter: incl IN IP4 * 172.29.80.65'), [], 'a \'*\' destination address is accepted');
+  t.end();
+});
+
 test('a multicast connection address is reported in quotes when unicast is requested', t => {
   const messages = runAllChecks(readFixture('valid/st2110-20.sdp'), { ...cliDefaults, unicast: true }).map(error => error.message);
   t.ok(messages.includes('Line 6: Connection data field (\'c=\') address \'232.80.177.113\' must be a unicast address, as requested by --unicast.'));

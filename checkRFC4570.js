@@ -17,6 +17,16 @@ const { splitLines, LineError } = require('./lines.js');
 
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
+const ip4Pattern = /^([1-9]\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)$/;
+// IP6-address = hexpart [ ":" IP4-address ], as per RFC 4566 Section 9
+const ip6Pattern = /^([0-9a-f]{1,4}(:[0-9a-f]{1,4})*|([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?::([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?)(:\d{1,3}(\.\d{1,3}){3})?$/i;
+
+// An IP address must be of the address type before it. A domain name is
+// accepted with either address type, and cannot contain ':'.
+const addressTypeMismatch = (addrtype, address) => addrtype === 'IP4' ?
+  address.includes(':') :
+  ip4Pattern.test(address) || (address.includes(':') && !ip6Pattern.test(address));
+const addressTypeName = { IP4: 'an IPv4 address', IP6: 'an IPv6 address' };
 
 // Connection and source filter addresses can be written in more than one form. IPv6 addresses can use upper or lower case
 // hexadecimal digits, as per RFC 4566 Section 9, and can omit leading zeros and compress zeros, as per RFC 4291 Section 2.2,
@@ -39,6 +49,20 @@ const test_30_1 = (sdp, params) => {
       if (!sourceFilterMatch) {
         errors.push(new LineError(x + 1, 'Attribute \'source-filter\' is not an acceptable pattern, which must be of the form \'a=source-filter: <filter-mode> <filter-spec>\', as per RFC 4570 Section 3.'));
         continue;
+      }
+      let addrtype = sourceFilterMatch[2];
+      let destAddr = sourceFilterMatch[3];
+      if (addrtype === '*') {
+        if (ip4Pattern.test(destAddr) || destAddr.includes(':')) {
+          errors.push(new LineError(x + 1, `Attribute 'source-filter' destination address '${destAddr}' must be a domain name or '*' when the address type is '*', as per RFC 4570 Section 3.1.`));
+        }
+        continue;
+      }
+      // The destination address is followed by the source addresses
+      for (let address of lines[x].split(/\s/).slice(4)) {
+        if (addressTypeMismatch(addrtype, address)) {
+          errors.push(new LineError(x + 1, `Attribute 'source-filter' address '${address}' must be ${addressTypeName[addrtype]} to match address type '${addrtype}', as per RFC 4570 Section 3.`));
+        }
       }
     }
   }
