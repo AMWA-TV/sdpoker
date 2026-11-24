@@ -15,20 +15,31 @@
 
 export type MessagePart = { text: string; href?: string };
 
-// The SMPTE editions that are publicly available, by citation
+// The publicly available SMPTE editions, by citation. A citation without a
+// year is to the first edition.
 const smptePublic: Record<string, string> = {
+  'ST 2022-7': 'https://pub.smpte.org/doc/st2022-7/20131011-pub/st2022-7-2013.pdf',
+  'ST 2022-8': 'https://pub.smpte.org/doc/st2022-8/20190222-pub/st2022-8-2019.pdf',
+  'ST 2110-10': 'https://pub.smpte.org/doc/st2110-10/20170918-pub/st2110-10-2017.pdf',
   'ST 2110-10:2022': 'https://pub.smpte.org/pub/st2110-10/st2110-10-2022.pdf',
+  'ST 2110-20': 'https://pub.smpte.org/doc/st2110-20/20170918-pub/st2110-20-2017.pdf',
   'ST 2110-20:2022': 'https://pub.smpte.org/pub/st2110-20/st2110-20-2022.pdf',
+  'ST 2110-21': 'https://pub.smpte.org/doc/st2110-21/20171122-pub/st2110-21-2017.pdf',
   'ST 2110-21:2022': 'https://pub.smpte.org/pub/st2110-21/st2110-21-2022.pdf',
+  'ST 2110-22': 'https://pub.smpte.org/doc/st2110-22/20190711-pub/st2110-22-2019.pdf',
   'ST 2110-22:2022': 'https://pub.smpte.org/pub/st2110-22/st2110-22-2022.pdf',
+  'ST 2110-30': 'https://pub.smpte.org/doc/st2110-30/20170918-pub/st2110-30-2017.pdf',
   'ST 2110-30:2025': 'https://pub.smpte.org/pub/st2110-30/st2110-30-2025.pdf',
+  'ST 2110-31': 'https://pub.smpte.org/doc/st2110-31/20180727-pub/st2110-31-2018.pdf',
+  'ST 2110-40:2018': 'https://pub.smpte.org/doc/st2110-40/20180412-pub/st2110-40-2018.pdf',
   'ST 2110-40:2023': 'https://pub.smpte.org/pub/st2110-40/st2110-40-2023.pdf',
+  'ST 2110-43:2021': 'https://pub.smpte.org/doc/st2110-43/20210514-pub/st2110-43-2021.pdf',
 };
 
 // A section number such as 5, 5.2 or 6.4.1, without a sentence's full stop
 const section = String.raw`\d+(?:\.\d+)*`;
 const citation = new RegExp(
-  String.raw`(RFC (\d+))(?: (Sections?) (${section}(?:(?:, | and )${section})*))?|(ST 2110-\d+:\d{4})`,
+  String.raw`(RFC (\d+))(?: (Sections?) (${section}(?:(?:, | and )${section})*))?|(ST 2(?:022|110)-\d+(?::\d{4})?)`,
   'g',
 );
 
