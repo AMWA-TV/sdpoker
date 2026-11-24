@@ -996,10 +996,11 @@ test('a direct-referenced media clock must match the RFC 7273 grammar', t => {
   t.end();
 });
 
-test('a media clock identifier is not taken as the media clock reference', t => {
+test('a media clock identifier is reported once, and is not taken as the media clock reference', t => {
   const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:id=src1 direct=0');
-  t.same(checkST2110(sdp, { ...cliDefaults, should: true }).filter(error => error.message.includes('\'mediaclk\'')), [],
-    'a=mediaclk:id=src1 direct=0 is not reported');
+  t.same(checkST2110(sdp, { ...cliDefaults, should: true }).map(error => error.message).filter(m => m.includes('\'mediaclk\'')),
+    ['Line 11: For stream 1, attribute \'mediaclk\' has a media clock identifier (\'id=\'), which RFC 7273 Section 5.4 allows but SDPoker does not accept, because receivers might not support it.'],
+    'a=mediaclk:id=src1 direct=0 is reported only for its identifier');
   t.end();
 });
 

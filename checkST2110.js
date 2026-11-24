@@ -221,6 +221,7 @@ const test_10_81_2 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.1 Test 3 - Every 'mediaclk' attribute matches an acceptable pattern
+// RFC 7273 allows a media clock identifier, but SDPoker reports one, because receivers might not support it
 const test_10_81_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -229,6 +230,9 @@ const test_10_81_3 = (sdp, params) => {
     if (lines[x].startsWith('m=')) {
       streamCount++;
       continue;
+    }
+    if (lines[x].startsWith('a=mediaclk:id=')) {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' has a media clock identifier ('id='), which RFC 7273 Section 5.4 allows but SDPoker does not accept, because receivers might not support it.`));
     }
     if (mediaclkDirectTypePattern.test(lines[x])) {
       if (!mediaclkDirectFormPattern.test(lines[x])) {
