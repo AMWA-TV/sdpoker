@@ -112,7 +112,7 @@ The return value of the method is an array of [Javascript Errors](https://develo
 
 ### Check ST 2110
 
-The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-40/-43 documents, and referenced standards such as AES-67, RFC 8331, RFC 9134 and ST 2022-7, applying appropriate tests.
+The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-40/-43 and ST 2022-8 documents, and referenced standards such as AES-67, RFC 8331, RFC 9134 and ST 2022-7, applying appropriate tests.
 
 The SDP file must describe a single essence, as an ST 2110 sender's SDP file does. It may contain more than one media description only for ST 2022-7 redundant streams, and every media description must have the same media type and encoding name. Otherwise, `checkST2110` reports that and runs no other tests.
 

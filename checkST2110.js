@@ -49,7 +49,7 @@ const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
-const skipVideoTypes = ['vc2', 'SMPTE2022-6'];
+const skipVideoTypes = ['vc2'];
 // Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
 // extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
 const repeatableParams = ['DID_SDID'];
@@ -1938,6 +1938,64 @@ const test_8331_4_2 = (sdp, params) => {
   return errors;
 };
 
+// ST 2022-8 Section 5.3 Test 1 - Must have subtype SMPTE2022-6 and clockrate 27000000
+const test_2022_8_53_1 = (sdp, params) => {
+  let errors = checkStreamsRtpMap(sdp, params, 'SMPTE2022-6', '27000000', 'ST 2022-8 Section 5.3');
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2022-8 Section 5.3 Test 1 - All video streams have rtpmap entry SMPTE2022-6/27000000');
+  }
+  return errors;
+};
+
+const typesPermitted2022_8 = ['2110TPNL', '2110TPW'];
+
+// ST 2022-8 Section 6 Test 1 - When traffic shaping, TP parameter is specified and is an acceptable value
+/* ST 2022-8 Section 6 says:
+Senders shall comply with either the "Narrow Linear Senders (Type NL)" requirements, or the "Wide Senders (Type W)"
+requirements. [...] Senders shall signal Media Type Parameters TP and TROFF as specified in ST 2110-21.
+*/
+const test_2022_8_60_1 = (sdp, params) => {
+  if (params.shaping === false) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2022-8 Section 6 Test 1 - TP parameter is specified and is an acceptable value. Use --shaping to test.');
+    }
+    return [];
+  }
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  errors = errors.concat(checkStreamsFmtp(sdp, 'ST 2022-8 Section 6'));
+  for (let stream of mtParams) {
+    if (typeof stream.TP === 'undefined') {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, parameter 'TP' is not provided, as required by ST 2022-8 Section 6.`));
+    } else if (typesPermitted2022_8.indexOf(stream.TP) < 0) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' is not one of '2110TPNL' or '2110TPW', as per ST 2022-8 Section 6.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2022-8 Section 6 Test 1 - TP parameter is specified and is an acceptable value.');
+  }
+  return errors;
+};
+
+// ST 2022-8 Section 7.1 Test 1 - When TROFF parameter specified it is an acceptable value
+const test_2022_8_71_1 = (sdp, params) => {
+  if (params.shaping === false) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2022-8 Section 7.1 Test 1 - When TROFF parameter specified it is an acceptable value. Use --shaping to test.');
+    }
+    return [];
+  }
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.TROFF !== 'undefined') {
+      errors = errors.concat(checkTroff(stream));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2022-8 Section 7.1 Test 1 - When TROFF parameter specified it is an acceptable value.');
+  }
+  return errors;
+};
+
 // Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
 // and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
@@ -2139,6 +2197,21 @@ const section_40_2023_53 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_2022_8_53 = (sdp, params) => {
+  let tests = [test_2022_8_53_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_2022_8_60 = (sdp, params) => {
+  let tests = [test_2022_8_60_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_2022_8_71 = (sdp, params) => {
+  let tests = [test_2022_8_71_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_8331_4 = (sdp, params) => {
   let tests = [test_8331_4_1, test_8331_4_2];
   return concat(tests.map(t => t(sdp, params)));
@@ -2256,6 +2329,10 @@ const allSections = (sdp, params) => {
       sections = [
         ...st2110_10_sections,
         section_40_2023_53, section_40_2023_7, section_8331_4];
+    } else if (mtParams[0]._encodingName == 'SMPTE2022-6') {
+      sections = [
+        ...st2110_10_sections,
+        section_2022_8_53, section_2022_8_60, section_2022_8_71];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
@@ -2300,6 +2377,9 @@ module.exports = {
   section_40_2023_53,
   section_40_2023_7,
   section_8331_4,
+  section_2022_8_53,
+  section_2022_8_60,
+  section_2022_8_71,
   section_43_2021_41,
   section_43_2021_42
 };
