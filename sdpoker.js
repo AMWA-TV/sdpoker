@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright 2018 Streampunk Media Ltd.
+   Copyright (C) 2019 Advanced Media Workflow Association
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
