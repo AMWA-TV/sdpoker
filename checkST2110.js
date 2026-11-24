@@ -486,7 +486,7 @@ const test_10_62_1 = (sdp, params) => {
 
     let mediaMatch = lines[x].match(mediaPattern);
     if (!mediaMatch) {
-      errors.push(new Error(`Line ${x + 1}: Found a media description with a pattern that is not acceptable.`));
+      errors.push(new Error(`Line ${x + 1}: Media description field ('m=') is not an acceptable pattern, which must be of the form 'm=mediaType udpPort RTP/AVP payloadType', as per RFC 4566 Section 5.14.`));
       continue;
     }
     // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
@@ -1925,9 +1925,6 @@ const test_22_73_1 = (sdp, params) => {
         }
         if (bandwidthMatch[1] != 'AS') {
           errors.push(new Error(`Line ${sdpLineNumb}: In 'b=<bwtype>:<bandwidth>' bwtype shall be 'AS', as per ST 2110-22 Section 7.3.`));
-        }
-        if (Number.isInteger(+bandwidthMatch[2]) == false) {
-          errors.push(new Error(`Line ${sdpLineNumb}: In 'b=<bwtype>:<bandwidth>' bandwidth shall be specified as an integer, as per ST 2110-22 Section 7.3.`));
         }
         bandwidthPresent = true;
       }
