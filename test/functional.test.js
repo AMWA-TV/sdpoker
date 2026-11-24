@@ -435,6 +435,21 @@ test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced
   t.end();
 });
 
+test('ST 2110-10:2022 Section 8.7 tests check TSDELAY is an integer number of microseconds', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = tsdelay => checkST2110(sdp.replace('SSN=ST2110-20:2017;', `SSN=ST2110-20:2017; TSMODE=SAMP; ${tsdelay};`), cliDefaults)
+    .map(error => error.message).join(' ');
+  const message = 'format parameter \'TSDELAY\'';
+
+  t.notOk(messages('TSDELAY=250').includes(message), 'TSDELAY=250 is accepted');
+  // ST 2110-10:2022 Annex B uses TSDELAY=0
+  t.notOk(messages('TSDELAY=0').includes(message), 'TSDELAY=0 is accepted');
+  t.ok(messages('TSDELAY=-3').includes(message), 'a negative TSDELAY is reported');
+  t.ok(messages('TSDELAY=1.5').includes(message), 'a fractional TSDELAY is reported');
+  t.ok(messages('TSDELAY').includes(message), 'a TSDELAY with no value is reported');
+  t.end();
+});
+
 test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const cases = [

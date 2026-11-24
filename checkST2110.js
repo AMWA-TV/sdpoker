@@ -670,8 +670,9 @@ const test_10_2022_87_1 = (sdp, params) => {
       }
     }
     if (keys.indexOf('TSDELAY') >= 0) {
-      if (isNaN(stream.TSDELAY)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSDELAY' is not set to the required value, as per ST 2110-10:2022 Section 8.7.`));
+      // ST 2110-10:2022 Section 8.7 says a positive integer, but its Annex B example uses 'TSDELAY=0'
+      if (!/^\d+$/.test(stream.TSDELAY)) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSDELAY' shall be an integer number of microseconds, as per ST 2110-10:2022 Section 8.7.`));
       }
     }
   }
