@@ -50,6 +50,9 @@ const smpteChannelPattern =
   /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2', 'SMPTE2022-6'];
+// Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
+// extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
+const repeatableParams = ['DID_SDID'];
 
 const specExample20 = `v=0
 o=- 123456 11 IN IP4 192.168.100.2
@@ -746,7 +749,7 @@ const extractMTParams = (sdp, params = {}) => {
         let keys = splitParams.map(p => p[0]);
         let reported = [];
         for (let y = 0; y < keys.length; y++) {
-          if (keys.filter(k => keys[y] === k).length >= 2) {
+          if (!repeatableParams.includes(keys[y]) && keys.filter(k => keys[y] === k).length >= 2) {
             if (reported.indexOf(keys[y]) < 0) {
               errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, parameter '${keys[y]}' appears more than once.`));
               reported.push(keys[y]);
@@ -755,7 +758,7 @@ const extractMTParams = (sdp, params = {}) => {
         }
       }
       let paramsObject = splitParams.reduce((x, y) => {
-        x[y[0]] = y[1];
+        x[y[0]] = repeatableParams.includes(y[0]) ? [...(x[y[0]] ?? []), y[1]] : y[1];
         return x;
       }, {});
       paramsObject._payloadType = fmtpPayloadType;
@@ -1785,17 +1788,17 @@ const test_22_74_2 = (sdp, params) => {
   return errors;
 };
 
-const ssnPermitted40 = ['ST2110-40:2018', 'ST2110-40:2021'];
+const ssnPermitted40 = ['ST2110-40:2018', 'ST2110-40:2021', 'ST2110-40:2023'];
 
 // ST 2110-40:2023 Section 7 Test 1 - Check SSN if present is the required fixed value
 /* Tests for conformance with ST 2110-40:2023:
-Senders implementing this standard shall signal a Format Specific Parameter SSN with the value ST2110-40:2018 unless they are signaling Format Specific Parameter TM, in which case they shall signal the value ST2110-40:2021.
+Senders implementing this standard shall signal a Format Specific Parameter SSN with the value ST2110-40:2018 unless they are signaling Format Specific Parameter TM, in which case they shall signal the value ST2110-40:2023. Receivers shall consider a Format Specific Parameter SSN value of ST2110-40:2021 as equivalent to a value of ST2110-40:2023.
 */
 const test_40_2023_7_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     let detect2023tm = typeof stream.TM !== 'undefined';
-    // SSN required in ST 2110-40:2023 but not required in ST 2110-40:2018
+    // SSN is not required by ST 2110-40:2018, which does not define TM
     if (typeof stream.SSN === 'undefined' && detect2023tm) {
       errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to a required value as per ST 2110-40:2023 Section 7.`));
     }
@@ -1804,10 +1807,13 @@ const test_40_2023_7_1 = (sdp, params) => {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' is not set to a required value as per ST 2110-40:2023 Section 7.`));
       } else {
         if (detect2023tm && stream.SSN === 'ST2110-40:2018') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' should be set to ST2110-40:2021 when TM is present as per ST 2110-40:2023 Section 7.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' must be set to ST2110-40:2023 when TM is present as per ST 2110-40:2023 Section 7.`));
         }
         if (!detect2023tm && stream.SSN !== 'ST2110-40:2018') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' must be  set ST2110-40:2018 when TM is not present as per ST 2110-40:2023 Section 7.`));
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' must be set to ST2110-40:2018 when TM is not present as per ST 2110-40:2023 Section 7.`));
+        }
+        if (params.should && stream.SSN === 'ST2110-40:2021') {
+          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' should be set to ST2110-40:2023 rather than the equivalent ST2110-40:2021 as per ST 2110-40:2023 Section 7.`));
         }
       }
     }
@@ -1864,6 +1870,70 @@ const test_40_2023_7_4 = (sdp, params) => {
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-40:2023 Section 7 Test 4 - When TROFF parameter specified it is an acceptable value.');
+  }
+  return errors;
+};
+
+// ST 2110-40:2023 Section 5.3 Test 1 - Check the RTP clock rate is 90 kHz
+const test_40_2023_53_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let rtpmapMatch = lines[x].match(rtpmapPattern);
+    if (rtpmapMatch && rtpmapMatch[2].toLowerCase() === 'smpte291' && rtpmapMatch[3] !== '90000') {
+      errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate must be 90000Hz, as per ST 2110-40:2023 Section 5.3.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-40:2023 Section 5.3 Test 1 - RTP clock rate is 90 kHz.');
+  }
+  return errors;
+};
+
+const didSdidPattern = /^\{0x[0-9a-f]{1,2},0x[0-9a-f]{1,2}\}$/i;
+
+// RFC 8331 Section 4 Test 1 - When DID_SDID parameters are specified they are acceptable values
+/* RFC 8331 Section 4 says:
+The ABNF as per RFC 5234 [RFC5234] of the DID_SDID optional parameter SHALL be:
+        TwoHex = "0x" 1*2(HEXDIG)
+        DidSdid = "DID_SDID={" TwoHex "," TwoHex "}"
+*/
+const test_8331_4_1 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    for (let didSdid of stream.DID_SDID ?? []) {
+      if (!didSdidPattern.test(didSdid)) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'DID_SDID' value '${didSdid}' is not of the form '{0xNN,0xNN}', as per RFC 8331 Section 4.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 8331 Section 4 Test 1 - When DID_SDID parameters are specified they are acceptable values.');
+  }
+  return errors;
+};
+
+// RFC 8331 Section 4 Test 2 - When VPID_Code parameter is specified it is an acceptable value
+/* RFC 8331 Section 3.1 says the VPID_Code integer is the value of byte 1 of the VPID as defined in SMPTE ST 352,
+and Section 4 says it SHALL be present only once, taking a single integer value.
+*/
+const test_8331_4_2 = (sdp, params) => {
+  let [mtParams, errors] = extractMTParams(sdp, params);
+  for (let stream of mtParams) {
+    if (typeof stream.VPID_Code === 'undefined') {
+      continue;
+    }
+    if (!/^\d+$/.test(stream.VPID_Code) || +stream.VPID_Code > 255) {
+      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'VPID_Code' is not an integer from 0 to 255, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 8331 Section 4 Test 2 - When VPID_Code parameter is specified it is an acceptable value.');
   }
   return errors;
 };
@@ -2064,6 +2134,16 @@ const section_40_2023_7 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_40_2023_53 = (sdp, params) => {
+  let tests = [test_40_2023_53_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_8331_4 = (sdp, params) => {
+  let tests = [test_8331_4_1, test_8331_4_2];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_43_2021_41 = (sdp, params) => {
   let tests = [test_43_2021_41_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -2175,7 +2255,7 @@ const allSections = (sdp, params) => {
     } else if (mtParams[0]._encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,
-        section_40_2023_7];
+        section_40_2023_53, section_40_2023_7, section_8331_4];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
     sections = [
@@ -2217,7 +2297,9 @@ module.exports = {
   section_21_81,
   section_21_82,
   section_9134_71,
+  section_40_2023_53,
   section_40_2023_7,
+  section_8331_4,
   section_43_2021_41,
   section_43_2021_42
 };
