@@ -25,7 +25,7 @@ const args = yargs(hideBin(process.argv))
   .options({
     checkEndings: { type: 'boolean', default: false, describe: 'Check line endings are CRLF, no other CR/LF' },
     should: { type: 'boolean', default: false, describe: 'As well as shall, also check all should clauses' },
-    noCopy: { type: 'boolean', default: true, describe: 'Fail obvious copies of the ST 2110-10 SDP example' },
+    noCopy: { type: 'boolean', default: true, describe: 'Fail obvious copies of the SDP examples in ST 2110-10, ST 2110-10:2022 and VSF TR-08:2022' },
     noMedia: { type: 'boolean', default: true, describe: 'Fail SDP files which do not include any media descriptions' },
     duplicate: { type: 'boolean', default: false, describe: 'Expect duplicate streams aka ST 2022-7' },
     skipRFC4566: { type: 'boolean', default: false, describe: 'Skips RFC 4566 checks' },

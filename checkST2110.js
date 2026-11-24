@@ -198,7 +198,7 @@ const test_10_81_1 = (sdp, params) => {
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct or sender reference. Use --should to test.');
+      console.log('Test Skipped: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 2 - Attribute \'mediaclk\' uses the direct or sender reference. Use --should to test.');
     }
     return [];
   }
@@ -216,7 +216,7 @@ const test_10_81_2 = (sdp, params) => {
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct or sender reference.');
+    console.log('Test Passed: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 2 - Attribute \'mediaclk\' uses the direct or sender reference.');
   }
   return errors;
 };
@@ -258,6 +258,7 @@ const test_10_82_1 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.2 Test 2 - Reference clocks are a form specified in RFC 7273 or the 'localmac' form
+// [also ST 2110-10:2022 Section 8.2, which allows the RFC 7273 forms other than 'ptp']
 const test_10_82_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -274,12 +275,12 @@ const test_10_82_2 = (sdp, params) => {
         !lines[x].startsWith('a=ts-refclk:localmac') &&
         !otherRefclkPattern.test(lines[x])) {
         errors.push(
-          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be a form specified in RFC 7273 Section 4.8 or the 'localmac' form, as per ST 2110-10 Section 8.2.`));
+          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be a form specified in RFC 7273 Section 4.8 or the 'localmac' form, as per ST 2110-10:2022 Section 8.2.`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.2 Test 2 - Reference clocks are a form specified in RFC 7273 or the \'localmac\' form.');
+    console.log('Test Passed: ST 2110-10 Section 8.2 [also ST 2110-10:2022 Section 8.2] Test 2 - Reference clocks are a form specified in RFC 7273 or the \'localmac\' form.');
   }
   return errors;
 };
@@ -299,12 +300,12 @@ const test_10_82_3 = (sdp, params) => {
     if (lines[x].startsWith('a=ts-refclk:ptp=')) {
       let ptpDetails = lines[x].slice(16);
       if (ptpDetails.startsWith('traceable')) {
-        errors.push(new Error(`Line ${x + 1}: In attribute 'ts-refclk', 'traceable' must be preceded by a PTP version such as 'IEEE1588-2008:', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.`));
+        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' must give a PTP version, such as 'IEEE1588-2008:', before 'traceable', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.`));
         continue; // no longer acceptable form
       }
       let ptpVersion = ptpDetails.split(':')[0];
       if (!ptpVersions.includes(ptpVersion)) {
-        errors.push(new Error(`Line ${x + 1}: The PTP version '${ptpVersion}' in attribute 'ts-refclk' must be 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', as per RFC 7273 Section 4.8.`));
+        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' must specify PTP version 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', but specifies '${ptpVersion}', as per RFC 7273 Section 4.8.`));
         continue;
       }
       if (params.should && ptpVersion !== 'IEEE1588-2008') {
@@ -319,11 +320,11 @@ const test_10_82_3 = (sdp, params) => {
       if (ptpMatch[5]) {
         let domainNmbr = +ptpMatch[5];
         if (domainNmbr < 0 || domainNmbr > 127) {
-          errors.push(new Error(`Line ${x + 1}: PTP domain number must be in the range 0 to 127 inclusive, as per RFC 7273 Section 4.8.`));
+          errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[5]}', as per RFC 7273 Section 4.8.`));
         }
       } else if (ptpMatch[2] && ptpVersion === 'IEEE1588-2008') {
         // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not for IEEE 1588-2008
-        errors.push(new Error(`Line ${x + 1}: PTP domain number shall be specified, as per ST 2110-10 Section 8.2.`));
+        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' shall specify a PTP domain number, as per ST 2110-10 Section 8.2.`));
       }
     }
   }
@@ -373,7 +374,7 @@ const test_10_83_1 = (sdp, params) => {
     }
     return [];
   } else {
-    return [new Error('Duplicate RTP streams must be signalled, as requested by --duplicate, with a session-level \'group:DUP\' attribute as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5], or with a media-level \'ssrc-group:DUP\' attribute.')];
+    return [new Error('Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level \'group:DUP\' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].')];
   }
 };
 
@@ -499,8 +500,10 @@ const test_10_86_1 = (sdp, params) => {
       const MAXUDP = +stream.MAXUDP;
       if (isNaN(MAXUDP) || integerPattern.test(stream.MAXUDP) === false) {
         errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be a decimal value, as per ST 2110-10 Section 8.4 [also ST 2110-10:2022 Section 8.6].`));
-      } else if (MAXUDP < 20 || MAXUDP > 8960) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be in the range 20 to 8960 inclusive, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.4 [also ST 2110-10:2022 Sections 6.4 and 8.6].`));
+      } else if (MAXUDP > 8960) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall not exceed the Extended UDP Size Limit of 8960 octets, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.4 [also ST 2110-10:2022 Sections 6.4 and 8.6].`));
+      } else if (MAXUDP < 20) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${MAXUDP}', which is less than the 20 octets of the UDP and RTP headers.`));
       }
     }
   }
@@ -1032,7 +1035,7 @@ const test_20_72_4 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.PM !== 'undefined') {
       if (packingModes.indexOf(stream.PM) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'PM' (packing mode) shall be one of '2110GPM' or '2110BPM', but is '${stream.PM}', as per ST 2110-20 Sections 7.2 and 6.3.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'PM' (packing mode) shall be '2110GPM' or '2110BPM', but is '${stream.PM}', as per ST 2110-20 Sections 7.2 and 6.3.`));
       }
     }
   }
@@ -1212,7 +1215,7 @@ const test_20_74_2 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.depth !== 'undefined') {
       if (depthPermitted.indexOf(stream.depth) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'depth' shall be one of '8', '10', '12', '16' or '16f', but is '${stream.depth}', as per ST 2110-20 Section 7.4.2.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'depth' shall be '8', '10', '12', '16' or '16f', but is '${stream.depth}', as per ST 2110-20 Section 7.4.2.`));
       }
     }
   }
@@ -1575,14 +1578,14 @@ const test_31_61_3 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-31 Section 6.2 Test 1 - Format parameter 'channel-order', if present, has an acceptable format, including the AES3 grouping symbol
+// ST 2110-31 Section 6.2 Test 1 - Format parameter 'channel-order', if present, has an acceptable format
 const test_31_62_1 = (sdp, params) => {
   let errors = checkStreamsChannelOrder(sdp, params, order =>
     order.startsWith('SMPTE2110') && !smpteChannelPattern31.test(order) ?
       ['format parameter \'channel-order\' is not an acceptable pattern, as per ST 2110-31 Section 6.2.'] :
       []);
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-31 Section 6.2 Test 1 - Format parameter \'channel-order\', if present, has an acceptable format, including the AES3 grouping symbol.');
+    console.log('Test Passed: ST 2110-31 Section 6.2 Test 1 - Format parameter \'channel-order\', if present, has an acceptable format.');
   }
   return errors;
 };
@@ -1631,13 +1634,16 @@ const test_21_81_2 = (sdp, params) => {
   return errors;
 };
 
-/* When 'TROFF' (transmit offset) is present it shall be a non-negative integer, as per ST 2110-21 Section 8.2.
+/* When 'TROFF' (transmit offset) is present it shall be an integer number of microseconds, as per ST 2110-21 Section 8.2.
+ST 2110-21 gives no sign constraint, but a negative offset is also reported.
 */
 const checkTroff = (stream = {}, specification = 'ST 2110-21 Section 8.2') => {
   let errors = [];
   let troff = +stream.TROFF;
-  if (isNaN(troff) || Number.isInteger(troff) === false || troff < 0) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TROFF' shall be a non-negative integer, but is '${stream.TROFF}', as per ${specification}.`));
+  if (isNaN(troff) || Number.isInteger(troff) === false) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TROFF' shall be an integer number of microseconds, but is '${stream.TROFF}', as per ${specification}.`));
+  } else if (troff < 0) {
+    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TROFF' is '${stream.TROFF}', a negative transmit offset, which SDPoker does not accept.`));
   }
   return errors;
 };
@@ -1674,8 +1680,10 @@ const test_21_82_2 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.CMAX !== 'undefined') {
       let cmax = +stream.CMAX;
-      if (isNaN(cmax) || Number.isInteger(cmax) === false || cmax < 1) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'CMAX' shall be a positive integer, but is '${stream.CMAX}', as per ST 2110-21 Section 8.2.`));
+      if (isNaN(cmax) || Number.isInteger(cmax) === false) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'CMAX' shall be an integer, but is '${stream.CMAX}', as per ST 2110-21 Section 8.2.`));
+      } else if (cmax < 1) {
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'CMAX' is '${stream.CMAX}', which is less than 1, so SDPoker does not accept it.`));
       }
     }
   }
@@ -2009,7 +2017,7 @@ const test_22_74_1 = (sdp, params) => {
         if (lines[x].startsWith('a=framerate')) {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
           if (framerateMatch == null) {
-            errors.push(new Error(`Line ${sdpLineNumb}: For stream ${s}, attribute 'framerate' shall be an integer or a decimal '<integer>.<fraction>', as per ST 2110-22 Section 7.4.`));
+            errors.push(new Error(`Line ${sdpLineNumb}: For stream ${s}, attribute 'framerate' is not an acceptable pattern, which must be a non-zero integer or a decimal with no trailing zeros, as per RFC 8866 Section 6.13.`));
           }
           framerateAttributePresent = true;
         }

@@ -171,7 +171,7 @@ const invalidCases = [
   {
     file: 'invalid/st2022-8-troff.sdp',
     params: { shaping: true },
-    messageIncludes: 'For stream 1, format parameter \'TROFF\' shall be a non-negative integer'
+    messageIncludes: 'For stream 1, format parameter \'TROFF\' is \'-37\', a negative transmit offset'
   },
   {
     file: 'invalid/st2110-40-ssn.sdp',

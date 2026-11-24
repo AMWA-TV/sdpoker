@@ -137,12 +137,11 @@ The return value of the method is an array of [Javascript Errors](https://develo
 The parameters of the library are binary flags that match the command line options:
 
 * `checkEndings`: Check line endings are CRLF, no other CR/LF.
-* `whitespace`: Strict check of adherence to whitespace rules.
 * `should`: As well as shall, also check all should clauses.
-* `noCopy`: Fail obvious copies of the ST 2110-10 SDP example.
+* `noCopy`: Fail obvious copies of the SDP examples in ST 2110-10, ST 2110-10:2022 and VSF TR-08:2022.
 * `noMedia`: Fail SDP files which do not include any media descriptions.
 * `duplicate`: Expect duplicate streams aka ST 2022-7.
-* `channelOrder`: Expect audio with ST2110-30 channel-order.
+* `channelOrder`: Expect audio with ST 2110-30 channel-order.
 * `shaping`: Check adherence to traffic shaping specification.
 * `useIP4`: All addresses expressed in IP v4 notation.
 * `useIP6`: All addresses expressed in IP v6 notation.
