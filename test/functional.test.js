@@ -771,6 +771,9 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.ok(lines.includes('Test Passed: ST 2110-10:2022 Annex B Test 1 - The SDP file is not a copy of the example.'));
   t.ok(lines.includes('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.'));
   t.ok(logged(jxsv, {}).includes('Test Passed: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example.'));
+  t.ok(lines.includes('Test Passed: SDPoker Test 1 - The SDP file describes a single essence.'));
+  t.ok(logged(raw.replace('depth=10', 'depth=10; depth=10'), {}).includes('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.'),
+    'a repeated format parameter other than TSMODE or TSDELAY does not remove the TSMODE and TSDELAY pass line');
 
   const withoutOptions = logged(raw, { noCopy: false, noMedia: false });
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));

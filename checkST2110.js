@@ -702,7 +702,8 @@ const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 // ST 2110-10:2022 Section 8.7 Test 1 - Format parameters 'TSMODE' and 'TSDELAY' are acceptable values
 const test_10_2022_87_1 = (sdp, params) => {
   // This test runs for every stream format, so it also reports any repeated format parameter
-  let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
+  let [mtParams, dupErrors] = extractMTParams(sdp, { checkDups: true });
+  let errors = [];
   for (let stream of mtParams) {
     let keys = Object.keys(stream);
     if (keys.indexOf('TSMODE') >= 0) {
@@ -720,7 +721,7 @@ const test_10_2022_87_1 = (sdp, params) => {
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.');
   }
-  return errors;
+  return dupErrors.concat(errors);
 };
 
 // Function to check that rtpmap has passed in type and clockRate.
@@ -2568,9 +2569,10 @@ const st2110_10_sections = [
   section_10_2022_87,
 ];
 
+// SDPoker Test 1 - The SDP file describes a single essence
 // The tests for each essence are chosen from the first media description, so further
 // media descriptions are only supported as ST 2022-7 redundant streams of the same essence
-const checkSingleEssence = sdp => {
+const checkSingleEssence = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
   let streams = [];
@@ -2595,6 +2597,9 @@ const checkSingleEssence = sdp => {
       errors.push(new Error(`Line ${streams[s].line}: For stream ${s + 1}, the essence '${essence(streams[s])}' differs from the essence '${essence(streams[0])}' of stream 1. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
     }
   }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: SDPoker Test 1 - The SDP file describes a single essence.');
+  }
   return errors;
 };
 
@@ -2606,7 +2611,7 @@ const allSections = (sdp, params) => {
   if (errors.length != 0) {
     return errors;
   }
-  errors = checkSingleEssence(sdp);
+  errors = checkSingleEssence(sdp, params);
   if (errors.length != 0) {
     return errors;
   }
