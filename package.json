@@ -3,6 +3,15 @@
   "version": "0.5.0",
   "description": "CLI tool and library for testing SMPTE ST2110 SDP files.",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "sdpoker.js",
+    "checkRFC4566.js",
+    "checkRFC4570.js",
+    "checkST2110.js",
+    "lines.js",
+    "examples/*.sdp"
+  ],
   "scripts": {
     "test": "tape test/*.test.js",
     "lint": "eslint .",
