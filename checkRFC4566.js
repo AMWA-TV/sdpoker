@@ -67,9 +67,9 @@ const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 const bPattern = /^b=[^\s:]+:\d+$/;
 const tPattern = /^t=(0|[1-9]\d{9,})\s+(0|[1-9]\d{9,})$/;
 const ip4Pattern = /^([1-9]\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)$/;
-// Tne following is a very basic test of IPv6 addresses
-const ip6Pattern = /^[0-9a-f]*:[0-9a-f]*(:[0-9a-f]+)*:[0-9a-f]+$/;
-const multiPattern = /^((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]::[^\s]+)$/;
+// IP6-address = hexpart [ ":" IP4-address ], as per RFC 4566 Section 9
+const ip6Pattern = /^([0-9a-f]{1,4}(:[0-9a-f]{1,4})*|([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?::([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?)(:\d{1,3}(\.\d{1,3}){3})?$/i;
+const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[0-9a-f:.]*))$/i;
 
 // Section 5 Test 1 - check if line endings are all CRLF
 const test50_1 = (sdp, params) => {

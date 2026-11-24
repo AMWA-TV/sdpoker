@@ -41,6 +41,11 @@ const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
 const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24)\/([1-9]\d*)\/([1-9]\d*)/;
 const rtpmapAM824 = /^a=rtpmap:(\d+)\s+(AM824)\/([1-9]\d*)\/([1-9]\d*)$/;
+const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
+const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[0-9a-f:.]*))$/i;
+// Source-specific multicast addresses are 232/8 and FF3x::/32, as per RFC 4607 Section 1
+const ssmPattern = /^((232(\.(\d\d?\d?)){3})|(ff3[0-9a-f]:(0{1,4})?:[0-9a-f:.]*))$/i;
+const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
 const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
@@ -556,6 +561,86 @@ const test_10_62_3 = (sdp, params) => {
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10 Section 6.2 Test 3 - \'rtpmap\' attributes match an acceptable pattern.');
+  }
+  return errors;
+};
+
+// Connection and source filter addresses can be written in more than one form. IPv6 addresses can use upper or lower case
+// hexadecimal digits, as per RFC 4566 Section 9, and can omit leading zeros and compress zeros, as per RFC 4291 Section 2.2,
+// so compare their canonical form, as per RFC 5952 Section 4. Domain names are case-insensitive, as per RFC 4343.
+const canonicalAddress = address => {
+  try {
+    return address.includes(':') ? new URL(`http://[${address}]`).hostname.slice(1, -1) : address.toLowerCase();
+  } catch {
+    return address.toLowerCase();
+  }
+};
+
+// Find the streams with a multicast destination address that no inclusive 'source-filter' attribute covers.
+// A media-level source filter completely overrides a session-level source filter, as per RFC 4570 Section 3.
+const streamsWithoutSourceFilter = sdp => {
+  let lines = splitLines(sdp);
+  let session = { filters: [] };
+  let streams = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streams.push({ line: x + 1, address: session.address, filters: [] });
+      continue;
+    }
+    let scope = streams.length > 0 ? streams[streams.length - 1] : session;
+    if (lines[x].startsWith('c=')) {
+      let cMatch = lines[x].match(cPattern);
+      if (cMatch) {
+        scope.address = cMatch[2];
+      }
+    } else if (lines[x].startsWith('a=source-filter:')) {
+      let sourceFilterMatch = lines[x].match(sourceFilterPattern);
+      if (sourceFilterMatch) {
+        scope.filters.push({ mode: sourceFilterMatch[1], address: sourceFilterMatch[3] });
+      }
+    }
+  }
+  return streams
+    .map((stream, s) => ({ ...stream, streamNumber: s + 1 }))
+    .filter(stream => {
+      if (!stream.address || !multiPattern.test(stream.address)) {
+        return false;
+      }
+      let filters = stream.filters.length > 0 ? stream.filters : session.filters;
+      return !filters.some(filter => filter.mode === 'incl' &&
+        (canonicalAddress(filter.address) === canonicalAddress(stream.address) || filter.address === '*'));
+    });
+};
+
+// ST 2110-10:2022 Section 8.4 Test 1 - Streams with a source-specific multicast destination address have an inclusive source filter
+/* ST 2110-10:2022 Section 8.4 says:
+Senders should indicate the source address information for streams within the SDP in order to support source-specific multicast sessions by use of an inclusive source filter line as defined in IETF RFC 4570
+This is a requirement for source-specific multicast destination addresses because routers do not forward a stream in that range
+to a Receiver that does not specify the source, as per RFC 4607 Section 5.2.
+*/
+const test_10_2022_84_1 = (sdp, params) => {
+  let errors = streamsWithoutSourceFilter(sdp)
+    .filter(stream => ssmPattern.test(stream.address))
+    .map(stream => new Error(`Line ${stream.line}: For stream ${stream.streamNumber}, destination address '${stream.address}' is in the source-specific multicast range, so an inclusive 'source-filter' attribute is required for Receivers to join the stream, as per RFC 4607 Sections 1 and 5.2 and ST 2110-10:2022 Section 8.4.`));
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10:2022 Section 8.4 Test 1 - Streams with a source-specific multicast destination address have an inclusive source filter.');
+  }
+  return errors;
+};
+
+// ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address should have an inclusive source filter
+const test_10_2022_84_2 = (sdp, params) => {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10:2022 Section 8.4 Test 2 - Use --should to check that streams with another multicast destination address have an inclusive source filter.');
+    }
+    return [];
+  }
+  let errors = streamsWithoutSourceFilter(sdp)
+    .filter(stream => !ssmPattern.test(stream.address))
+    .map(stream => new Error(`Line ${stream.line}: For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute should be included to support source-specific multicast, as per ST 2110-10:2022 Section 8.4.`));
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address have an inclusive source filter.');
   }
   return errors;
 };
@@ -2223,6 +2308,11 @@ const section_10_86 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_10_2022_84 = (sdp, params) => {
+  let tests = [test_10_2022_84_1, test_10_2022_84_2];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_10_2022_87 = (sdp, params) => {
   let tests = [test_10_2022_87_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -2389,6 +2479,7 @@ const st2110_10_sections = [
   section_10_82,
   section_10_83,
   section_10_86,
+  section_10_2022_84,
   section_10_2022_87,
 ];
 
@@ -2494,6 +2585,7 @@ module.exports = {
   section_10_82,
   section_10_83,
   section_10_86,
+  section_10_2022_84,
   section_10_2022_87,
   section_20_71,
   section_20_72,

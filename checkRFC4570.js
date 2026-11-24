@@ -18,7 +18,17 @@ const concat = arrays => Array.prototype.concat.apply([], arrays);
 
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
-const multiPattern = /^((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]::[^\s]+)$/;
+
+// Connection and source filter addresses can be written in more than one form. IPv6 addresses can use upper or lower case
+// hexadecimal digits, as per RFC 4566 Section 9, and can omit leading zeros and compress zeros, as per RFC 4291 Section 2.2,
+// so compare their canonical form, as per RFC 5952 Section 4. Domain names are case-insensitive, as per RFC 4343.
+const canonicalAddress = address => {
+  try {
+    return address.includes(':') ? new URL(`http://[${address}]`).hostname.slice(1, -1) : address.toLowerCase();
+  } catch {
+    return address.toLowerCase();
+  }
+};
 
 // Section 3 Test 1 - Source-filter correctly formatted if present
 const test_30_1 = sdp => {
@@ -36,39 +46,16 @@ const test_30_1 = sdp => {
   return errors;
 };
 
-// Section 3 Test 2 - Source-filters are present when multicast addresses are used
-const test_30_2 = sdp => {
-  let lines = splitLines(sdp);
-  let errors = [];
-  let isMulticast = false;
-  let seenSourceFilter = false;
-  for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines[x].startsWith('c=')) {
-      let addrMatch = lines[x].match(cPattern);
-      if (!addrMatch) {
-        continue;
-      }
-      if (multiPattern.test(addrMatch[2])) {
-        isMulticast = true;
-      }
-    }
-    if (lines[x].startsWith('a=source-filter:')) {
-      seenSourceFilter = true;
-    }
-  }
-  if (isMulticast && !seenSourceFilter) {
-    // A basic check that at least one source-filter is included when using a multicast destination
-    errors.push(new Error('SDP file includes one or more multicast destinations but does not include any a=source-filter lines as per RFC 4570 Section 3.'));
-  }
-  return errors;
-};
-
 // Section 3 Test 3 - Source-filters match addresses used in connection attributes
+// A media-level source filter can match the session-level connection address, and a session-level source filter
+// can match the session-level or any media-level connection address, as per RFC 4570 Section 3.
 const test_30_3 = sdp => {
   let lines = splitLines(sdp);
   let errors = [];
   let globalAddr = null;
   let mediaAddr = null;
+  let mediaAddrs = [];
+  let globalFilters = [];
   let inMedia = false;
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('c=')) {
@@ -77,9 +64,10 @@ const test_30_3 = sdp => {
         continue;
       }
       if (!inMedia) {
-        globalAddr = addrMatch[2];
+        globalAddr = canonicalAddress(addrMatch[2]);
       } else {
-        mediaAddr = addrMatch[2];
+        mediaAddr = canonicalAddress(addrMatch[2]);
+        mediaAddrs.push(mediaAddr);
       }
     }
     if (lines[x].startsWith('m=')) {
@@ -91,16 +79,24 @@ const test_30_3 = sdp => {
       if (!sourceFilterMatch) {
         continue;
       }
-      if (sourceFilterMatch[3] != globalAddr && sourceFilterMatch[3] != mediaAddr && sourceFilterMatch[3] != '*') {
+      let destAddr = canonicalAddress(sourceFilterMatch[3]);
+      if (!inMedia) {
+        globalFilters.push({ line: x + 1, destAddr });
+      } else if (destAddr != globalAddr && destAddr != mediaAddr && destAddr != '*') {
         errors.push(new Error(`Line ${x + 1}: Source-filter destination addresses must match one or more connection address as per RFC 4570 Section 3.`));
       }
+    }
+  }
+  for (let { line, destAddr } of globalFilters) {
+    if (destAddr != globalAddr && !mediaAddrs.includes(destAddr) && destAddr != '*') {
+      errors.push(new Error(`Line ${line}: Source-filter destination addresses must match one or more connection address as per RFC 4570 Section 3.`));
     }
   }
   return errors;
 };
 
 const section_30 = (sdp, params) => {
-  let tests = [ test_30_1, test_30_2, test_30_3 ];
+  let tests = [ test_30_1, test_30_3 ];
   return concat(tests.map(t => t(sdp, params)));
 };
 

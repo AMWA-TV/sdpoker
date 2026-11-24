@@ -44,7 +44,8 @@ const validFixtures = fs.readdirSync(validFixturesDir)
 const invalidCases = [
   {
     file: 'invalid/aes67-mcast.sdp',
-    messageIncludes: 'source-filter'
+    params: { should: true },
+    messageIncludes: 'For stream 1, destination address \'239.0.0.1\' is multicast, so an inclusive \'source-filter\' attribute should be included'
   },
   {
     file: 'invalid/st2022-6.sdp',
@@ -399,6 +400,142 @@ test('ts-refclk and source-filter attributes must match a pattern to the end of 
     const messages = runAllChecks(variant).map(error => error.message).join(' ');
     t.ok(messages.includes(message), `'${attribute}' is reported`);
   }
+  t.end();
+});
+
+test('RFC 4566 Section 5.7 tests recognise multicast addresses in IPv4 and IPv6 notation', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const cases = [
+    ['232.130.55.188/32', true],
+    ['ff3e::8000:1', true],
+    ['FF3E::8000:1', true],
+    ['ff3e:0:0:0:0:0:8000:1', true],
+    ['ff05:1::1', true],
+    ['192.0.2.1', false],
+    ['2001:db8::1', false],
+    ['2001:db8:0:ff05::1', false]
+  ];
+
+  for (const [address, isMulticast] of cases) {
+    const addressType = address.includes(':') ? 'IP6' : 'IP4';
+    const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN ${addressType} ${address}`), { ...cliDefaults, multicast: true });
+    t.equal(
+      errors.some(error => error.message.includes('is unicast')),
+      !isMulticast,
+      `${address} is recognised as ${isMulticast ? 'multicast' : 'unicast'}`
+    );
+  }
+
+  t.end();
+});
+
+test('RFC 4566 Section 5.7 tests recognise IPv6 addresses', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const cases = [
+    ['ff3e::8000:1', true],
+    ['FF3E::8000:1', true],
+    ['ff3e:0:0:0:0:0:8000:1', true],
+    ['ff05:1::1', true],
+    ['2001:db8:0:ff05::1', true],
+    ['::ffff:192.0.2.1', true],
+    ['192.0.2.1', false],
+    ['ff3e::8000::1', false],
+    ['ff3e:::1', false],
+    ['ff3e:12345::1', false],
+    ['ff3g::1', false]
+  ];
+
+  for (const [address, isIP6] of cases) {
+    const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN IP6 ${address}`), { ...cliDefaults, useIP6: true });
+    t.equal(
+      errors.some(error => error.message.includes(`connection data field address '${address}' is not`)),
+      !isIP6,
+      `${address} is ${isIP6 ? '' : 'not '}recognised as IPv6`
+    );
+  }
+  t.end();
+});
+
+test('ST 2110-10:2022 Section 8.4 tests check each multicast stream has an inclusive source filter', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const sourceFilter = 'a=source-filter: incl IN IP4 232.130.55.188 172.29.80.65\r\n';
+  const noSourceFilter = sdp.replace(sourceFilter, '');
+  const ssmMessage = 'For stream 1, destination address \'232.130.55.188\' is in the source-specific multicast range';
+  const messages = (variant, params = {}) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message).join(' ');
+
+  t.ok(messages(noSourceFilter).includes(ssmMessage), 'a source-specific multicast stream without a source filter is reported');
+  t.ok(
+    messages(noSourceFilter.replace(/(c=[^\r\n]*\r\n)/, '$1a=source-filter: excl IN IP4 232.130.55.188 172.29.80.65\r\n')).includes(ssmMessage),
+    'an exclusive source filter is not enough'
+  );
+  const connection = 'c=IN IP4 232.130.55.188/32\r\n';
+  t.same(
+    messages(noSourceFilter.replace(connection, '').replace('t=0 0\r\n', connection + 't=0 0\r\n' + sourceFilter)),
+    '',
+    'a session-level source filter applies to the stream'
+  );
+  t.ok(
+    messages(noSourceFilter.replace(connection, connection + 'a=source-filter: excl IN IP4 232.130.55.188 172.29.80.65\r\n').replace('t=0 0\r\n', 't=0 0\r\n' + sourceFilter)).includes(ssmMessage),
+    'a media-level source filter replaces the session-level source filter'
+  );
+
+  const ipv6 = sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 ff3e::8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1');
+  t.same(messages(ipv6), '', 'an IPv6 source-specific multicast stream with a source filter passes');
+  t.ok(
+    messages(ipv6.replace(/a=source-filter:[^\r\n]*\r\n/, '')).includes('For stream 1, destination address \'ff3e::8000:1\' is in the source-specific multicast range'),
+    'an IPv6 source-specific multicast stream without a source filter is reported'
+  );
+  t.notOk(
+    messages(ipv6.replace('c=IN IP6 ff3e::8000:1', 'c=IN IP6 FF3E::8000:1')).includes('is in the source-specific multicast range'),
+    'a source filter matches a destination address in a different case'
+  );
+  t.notOk(
+    messages(ipv6.replace('c=IN IP6 ff3e::8000:1', 'c=IN IP6 ff3e:0:0:0:0:0:8000:1')).includes('is in the source-specific multicast range'),
+    'a source filter matches a destination address written in another form'
+  );
+
+  const asm = noSourceFilter.replace('c=IN IP4 232.', 'c=IN IP4 239.');
+  t.same(messages(asm), '', 'another multicast stream without a source filter passes by default');
+  t.ok(
+    messages(asm, { should: true }).includes('For stream 1, destination address \'239.130.55.188\' is multicast, so an inclusive \'source-filter\' attribute should be included'),
+    'another multicast stream without a source filter is reported with --should'
+  );
+
+  const secondStreamFilter = 'a=source-filter: incl IN IP4 233.252.0.2 198.51.100.1\r\n';
+  const duplicate = readFixture('valid/rfc7104_sep_dest.sdp').replace(secondStreamFilter, '');
+  const duplicateMessages = messages(duplicate, { should: true });
+  t.ok(duplicateMessages.includes('For stream 2, destination address \'233.252.0.2\''), 'a second stream without a source filter is reported');
+  t.notOk(duplicateMessages.includes('For stream 1,'), 'the first stream with a source filter passes');
+  t.end();
+});
+
+test('RFC 4570 Section 3 tests check source filters match a connection address', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const sourceFilter = 'a=source-filter: incl IN IP4 232.130.55.188 172.29.80.65\r\n';
+  const sessionLevel = sdp.replace(sourceFilter, '').replace('t=0 0\r\n', 't=0 0\r\n' + sourceFilter);
+  const message = 'Source-filter destination addresses must match one or more connection address';
+  const messages = variant => checkRFC4570(variant, cliDefaults).map(error => error.message).join(' ');
+
+  t.same(messages(sessionLevel), '', 'a session-level source filter can match a media-level connection address');
+  t.ok(
+    messages(sessionLevel.replace('232.130.55.188 172', '232.130.55.189 172')).includes(message),
+    'a session-level source filter that matches no connection address is reported'
+  );
+  t.same(
+    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 FF3E::8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
+    '',
+    'a source filter matches a connection address in a different case'
+  );
+  t.same(
+    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 ff3e:0:0:0:0:0:8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
+    '',
+    'a source filter matches a connection address written in another form'
+  );
+  t.same(
+    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP4 Example.com').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP4 example.com 172.29.80.65')),
+    '',
+    'a source filter matches a connection address domain name in a different case'
+  );
   t.end();
 });
 
