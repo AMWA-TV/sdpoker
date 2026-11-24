@@ -216,7 +216,7 @@ const test_10_82_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   let mediaLines = splitLines(sdp).flatMap((line, x) => line.startsWith('m=') ? [x + 1] : []);
   for (let s = 0; s < streams.length; s++) {
-    if (!tsrefclkPattern.test(sdp)) {
+    if (!tsrefclkPattern.test(streams[s])) {
       errors.push(new Error(`Line ${mediaLines[s]}: For stream ${s + 1}, the media description shall have a 'ts-refclk' attribute, as per ST 2110-10 Section 8.2.`));
     }
   }

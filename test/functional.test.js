@@ -616,6 +616,26 @@ test('RFC 8331 Section 4 tests check VPID_Code is no more than 255', t => {
   t.end();
 });
 
+test('ST 2110-10 Section 8.2 tests check each media description has a ts-refclk attribute', t => {
+  const message = 'the media description shall have a \'ts-refclk\' attribute';
+  const messages = sdp => checkST2110(sdp, cliDefaults).map(error => error.message).join(' ');
+
+  const refclk = 'a=ts-refclk:localmac=40-a3-6b-a0-2b-d2\r\n';
+  const pair = readFixture('valid/st2110-22.sdp');
+  const secondStreamMessages = messages(pair.slice(0, pair.lastIndexOf(refclk)) + pair.slice(pair.lastIndexOf(refclk) + refclk.length));
+  t.ok(secondStreamMessages.includes(`Line 15: For stream 2, ${message}`), 'a second stream without a ts-refclk is reported');
+  t.notOk(secondStreamMessages.includes(`For stream 1, ${message}`), 'the first stream with a ts-refclk passes');
+
+  const single = readFixture('valid/st2110-20.sdp');
+  const mediaRefclk = 'a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0\r\n';
+  // RFC 7273 allows a session-level ts-refclk, but ST 2110-10 Section 8.2 requires one in every stream description
+  t.ok(
+    messages(single.replace(mediaRefclk, '').replace('t=0 0\r\n', 't=0 0\r\n' + mediaRefclk)).includes(`Line 6: For stream 1, ${message}`),
+    'a session-level ts-refclk is not enough'
+  );
+  t.end();
+});
+
 test('RFC 4566 Section 5.7 tests check the TTL of IPv4 multicast connection data fields', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const messages = ttl => checkRFC4566(sdp.replace('c=IN IP4 232.80.177.113/32', `c=IN IP4 232.80.177.113${ttl}`), cliDefaults).map(error => error.message).join(' ');
