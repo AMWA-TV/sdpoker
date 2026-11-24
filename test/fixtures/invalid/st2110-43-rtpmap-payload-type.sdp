@@ -9,4 +9,4 @@ a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0
 a=rtpmap:112 ttml+xml/90000
 a=fmtp:112 charset=utf-8;codecs=im3t
 a=rtpmap:113 ttml+xml/1000
-a=mediaclk:direct=0 rate=90000
+a=mediaclk:direct=0

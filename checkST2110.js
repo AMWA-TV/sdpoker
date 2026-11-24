@@ -20,6 +20,8 @@ const mediaclkTypePattern = /^a=mediaclk:([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
 const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:direct(\s|$)/;
 const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
+const mediaclkDirectTypePattern = /^a=mediaclk:(id=\S+\s+)?direct([=\s]|$)/;
+const mediaclkDirectFormPattern = /^a=mediaclk:(id=\S+\s+)?direct(=\d+)?( rate=[1-9]\d*\/[1-9]\d*)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
 const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
 const ptpVersions = ['IEEE1588-2002', 'IEEE1588-2008', 'IEEE802.1AS-2011'];
@@ -234,7 +236,11 @@ const test_10_81_3 = (sdp, params) => {
       streamCount++;
       continue;
     }
-    if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
+    if (mediaclkDirectTypePattern.test(lines[x])) {
+      if (!mediaclkDirectFormPattern.test(lines[x])) {
+        errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, which must be of the form 'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]', as per RFC 7273 Section 5.4.`));
+      }
+    } else if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
       errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
     }
   }

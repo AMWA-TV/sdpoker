@@ -8,4 +8,4 @@ a=source-filter: incl IN IP4 232.0.16.1 172.29.80.65
 a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0
 a=rtpmap:98 SMPTE2022-6/27000000
 a=fmtp:98 TP=2110TPW; TROFF=-37
-a=mediaclk:direct=0 rate=27000000
+a=mediaclk:direct=0

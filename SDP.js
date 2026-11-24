@@ -425,7 +425,7 @@ SDP.makeSDP = function (connection, mediaType, exts, tsOffset) {
   c=IN IP4 ${connection.address}${ttl}
   a=source-filter: incl IN IP4 ${connection.address} ${netif}
   a=rtpmap:${connection.payloadType} ${mediaType.encodingName}/${mediaType.clockRate}${channels}
-  ${fmtp}a=mediaclk:direct=${tsOffset} rate=${mediaType.clockRate}
+  ${fmtp}a=mediaclk:direct=${tsOffset}
   a=extmap:${exts.origin_timestamp_id} urn:x-nmos:rtp-hdrext:origin-timestamp
   a=extmap:${exts.smpte_tc_id} urn:ietf:params:rtp-hdrext:smpte-tc ${exts.smpte_tc_param}
   a=extmap:${exts.flow_id_id} urn:x-nmos:rtp-hdrext:flow-id

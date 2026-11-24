@@ -132,6 +132,10 @@ const invalidCases = [
     messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/mediaclk-direct-rate.sdp',
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern, which must be of the form \'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]\''
+  },
+  {
     file: 'invalid/source-filter-pattern.sdp',
     messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
   },
@@ -965,5 +969,18 @@ test('a direct-referenced media clock with no offset is reported when PTP is in 
   const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:direct');
   t.ok(checkST2110(sdp, cliDefaults).some(error => error.message.includes('the \'mediaclk\' attribute shall include a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3]')),
     'a=mediaclk:direct with no offset is reported');
+  t.end();
+});
+
+test('a direct-referenced media clock must match the RFC 7273 grammar', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const reported = value => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), cliDefaults)
+    .some(error => error.message.includes('attribute \'mediaclk\' is not an acceptable pattern'));
+  for (const value of ['direct=0', 'direct', 'direct=0 rate=1000/1001']) {
+    t.notOk(reported(value), `'${value}' is accepted`);
+  }
+  for (const value of ['direct=0 rate=90000', 'direct=0 rate=abc', 'direct=0 rate=0/1001', 'direct=0 rate=01/1', 'direct=abc', 'direct=0rate=1/1']) {
+    t.ok(reported(value), `'${value}' is reported`);
+  }
   t.end();
 });
