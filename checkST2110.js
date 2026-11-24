@@ -198,12 +198,11 @@ const test_10_81_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct or sender reference
-// [also ST 2110-10:2022 Section 8.3, which requires the direct or sender reference]
+// ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct reference
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 2 - Attribute \'mediaclk\' uses the direct or sender reference. Use --should to test.');
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference. Use --should to test.');
     }
     return [];
   }
@@ -216,12 +215,12 @@ const test_10_81_2 = (sdp, params) => {
       continue;
     }
     let typeMatch = lines[x].match(mediaclkTypePattern);
-    if (typeMatch && typeMatch[1] !== 'direct' && typeMatch[1] !== 'sender') {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' or 'sender' reference, not '${typeMatch[1]}', as per ST 2110-10 Section 8.1.`));
+    if (typeMatch && typeMatch[1] !== 'direct') {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not '${typeMatch[1]}', as per ST 2110-10 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 2 - Attribute \'mediaclk\' uses the direct or sender reference.');
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference.');
   }
   return errors;
 };
@@ -712,6 +711,27 @@ const streamsWithoutSourceFilter = sdp => {
       return !filters.some(filter => filter.mode === 'incl' &&
         (canonicalAddress(filter.address) === canonicalAddress(stream.address) || filter.address === '*'));
     });
+};
+
+// ST 2110-10:2022 Section 8.3 Test 1 - Attribute 'mediaclk' uses the direct or sender reference
+const test_10_2022_83_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let typeMatch = lines[x].match(mediaclkTypePattern);
+    if (typeMatch && typeMatch[1] !== 'direct' && typeMatch[1] !== 'sender') {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' shall use the 'direct' or 'sender' reference, not '${typeMatch[1]}', as per ST 2110-10:2022 Section 8.3.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10:2022 Section 8.3 Test 1 - Attribute \'mediaclk\' uses the direct or sender reference.');
+  }
+  return errors;
 };
 
 // ST 2110-10:2022 Section 8.4 Test 1 - Streams with a source-specific multicast destination address have an inclusive source filter
@@ -2435,6 +2455,11 @@ const section_10_86 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_10_2022_83 = (sdp, params) => {
+  let tests = [test_10_2022_83_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const section_10_2022_84 = (sdp, params) => {
   let tests = [test_10_2022_84_1, test_10_2022_84_2];
   return tests.flatMap(t => t(sdp, params));
@@ -2647,6 +2672,7 @@ const st2110_10_sections = [
   section_10_82,
   section_10_83,
   section_10_86,
+  section_10_2022_83,
   section_10_2022_84,
   section_10_2022_87,
   section_23_53,
@@ -2753,6 +2779,7 @@ module.exports = {
   section_10_82,
   section_10_83,
   section_10_86,
+  section_10_2022_83,
   section_10_2022_84,
   section_10_2022_87,
   section_20_71,

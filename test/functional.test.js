@@ -991,3 +991,18 @@ test('a media clock identifier is not taken as the media clock reference', t => 
     'a=mediaclk:id=src1 direct=0 is not reported');
   t.end();
 });
+
+test('a media clock reference other than direct is reported', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = (value, params) => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), { ...cliDefaults, ...params })
+    .map(error => error.message).filter(m => m.includes('reference'));
+  const stream = 'IEEE1722=38-D6-6D-8E-D2-78-13-2F';
+  t.same(messages('sender', {}), [], 'the sender reference is accepted');
+  t.same(messages('sender', { should: true }),
+    ['Line 11: For stream 1, attribute \'mediaclk\' should use the \'direct\' reference, not \'sender\', as per ST 2110-10 Section 8.1.'],
+    'with --should, the sender reference is reported');
+  t.same(messages(stream, {}),
+    ['Line 11: For stream 1, attribute \'mediaclk\' shall use the \'direct\' or \'sender\' reference, not \'IEEE1722\', as per ST 2110-10:2022 Section 8.3.'],
+    'a stream reference is reported');
+  t.end();
+});
