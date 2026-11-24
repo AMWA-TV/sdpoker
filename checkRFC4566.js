@@ -262,13 +262,15 @@ const test_57_1 = (sdp, params) => {
   let lines = splitLines(sdp);
   let streamCount = 0;
   let cFound = false;
+  let mediaLine = 0;
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('m=')) {
       if (cFound === false && streamCount > 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
+        errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
       }
       cFound = false;
       streamCount++;
+      mediaLine = x + 1;
       continue;
     }
     if (lines[x].startsWith('c=')) {
@@ -279,7 +281,7 @@ const test_57_1 = (sdp, params) => {
     }
   }
   if (cFound === false) {
-    errors.push(new Error(`Line ${lines.length}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
+    errors.push(new Error(`Line ${mediaLine || lines.length}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5.7 Test 1 - Connection data is present at session level or for each stream.');

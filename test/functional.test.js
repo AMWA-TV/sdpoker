@@ -636,6 +636,27 @@ test('ST 2110-10 Section 8.2 tests check each media description has a ts-refclk 
   t.end();
 });
 
+test('a missing attribute, field or format parameter is reported at the media description of its stream', t => {
+  const messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message).join(' ');
+  const pair = readFixture('valid/st2110-22.sdp');
+
+  t.ok(messages(readFixture('invalid/st2110-22-missing-fmtp.sdp')).includes('Line 6: Stream 1 requires an \'fmtp\' attribute'),
+    'a missing fmtp in the first of two streams');
+  t.ok(messages(readFixture('invalid/bad-line-format.sdp')).includes('Line 6: Stream 1 requires an \'fmtp\' attribute'),
+    'a missing fmtp in the last stream');
+  t.ok(messages(readFixture('invalid/bad-line-format.sdp')).includes('Line 6: For stream 1, format parameter \'TP\' shall be specified'),
+    'a missing format parameter of a stream with no fmtp');
+  t.ok(messages(pair.replace('c=IN IP4 224.1.1.1/64\r\n', '')).includes('Line 6: For stream 1, a connection data field (\'c=\') must be present'),
+    'a missing connection data field in the first of two streams');
+  t.ok(messages(pair.replace('c=IN IP4 224.101.1.1/64\r\n', '')).includes('Line 15: For stream 2, a connection data field (\'c=\') must be present'),
+    'a missing connection data field in the last stream');
+  t.ok(messages(readFixture('invalid/st2110-31-missing-ptime.sdp')).includes('Line 5: For stream 1, attribute \'ptime\' shall be specified'),
+    'a missing ptime');
+  t.ok(messages(readFixture('valid/st2110-30.sdp'), { channelOrder: true }).includes('Line 5: For stream 1, channel order for an audio stream is required'),
+    'a missing channel-order');
+  t.end();
+});
+
 test('RFC 4566 Section 5.7 tests check the TTL of IPv4 multicast connection data fields', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const messages = ttl => checkRFC4566(sdp.replace('c=IN IP4 232.80.177.113/32', `c=IN IP4 232.80.177.113${ttl}`), cliDefaults).map(error => error.message).join(' ');

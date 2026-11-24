@@ -734,15 +734,17 @@ const checkStreamsFmtp = (sdp, specification) => {
   let fmtpInStream = true;
   let payloadType = -1;
   let streamCount = 0;
+  let mediaLine = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!fmtpInStream && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: Stream ${streamCount} requires an 'fmtp' attribute, as per ${specification}.`));
+        errors.push(new Error(`Line ${mediaLine}: Stream ${streamCount} requires an 'fmtp' attribute, as per ${specification}.`));
       }
       let mediaMatch = lines[x].match(mediaPattern);
       payloadType = mediaMatch ? +mediaMatch[5] : -1;
       fmtpInStream = false;
       streamCount++;
+      mediaLine = x + 1;
       continue;
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
@@ -762,7 +764,7 @@ const checkStreamsFmtp = (sdp, specification) => {
     }
   }
   if (!fmtpInStream && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: Stream ${streamCount} requires an 'fmtp' attribute, as per ${specification}.`));
+    errors.push(new Error(`Line ${mediaLine}: Stream ${streamCount} requires an 'fmtp' attribute, as per ${specification}.`));
   }
   return errors;
 };
@@ -786,6 +788,7 @@ const extractMTParams = (sdp, params = {}) => {
   let payloadTypes = [];
   let mediaType = -1;
   let encodingName = -1;
+  let mediaLine = 0;
 
   // Encoding names by payload type for each media description, as 'rtpmap' and 'fmtp' may be in either order
   let encodingNames = [];
@@ -817,6 +820,7 @@ const extractMTParams = (sdp, params = {}) => {
         continue;
       }
       streamCount++;
+      mediaLine = x + 1;
       continue;
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
@@ -865,7 +869,7 @@ const extractMTParams = (sdp, params = {}) => {
   if (mtParams.length == 0) {
     let paramsObject = [];
     paramsObject._payloadType = payloadType;
-    paramsObject._line = lines.length;
+    paramsObject._line = mediaLine || lines.length;
     paramsObject._streamNumber = streamCount;
     paramsObject._mediaType = mediaType;
     paramsObject._encodingName = encodingName;
@@ -1330,13 +1334,15 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
   let streamCount = 0;
   let hasPTime = true;
   let payloadType = -1;
+  let mediaLine = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!hasPTime && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
+        errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
       }
       let audioMatch = lines[x].match(audioPattern);
       streamCount++;
+      mediaLine = x + 1;
       payloadType = audioMatch ? +audioMatch[4] : -1;
       hasPTime = false;
       continue;
@@ -1361,7 +1367,7 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
     }
   }
   if (!hasPTime && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
+    errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
   }
   return errors;
 };
@@ -1384,14 +1390,16 @@ const checkStreamsChannelOrder = (sdp, params, checkOrder) => {
   let streamCount = 0;
   let hasFmtp = true;
   let payloadType = -1;
+  let mediaLine = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (params.channelOrder === true && hasFmtp === false && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
+        errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
       }
       let audioMatch = lines[x].match(audioPattern);
       payloadType = audioMatch ? +audioMatch[4] : -1;
       streamCount++;
+      mediaLine = x + 1;
       hasFmtp = false;
       continue;
     }
@@ -1417,7 +1425,7 @@ const checkStreamsChannelOrder = (sdp, params, checkOrder) => {
     }
   }
   if (params.channelOrder === true && hasFmtp === false && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
+    errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
   }
   return errors;
 };
