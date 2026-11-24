@@ -960,3 +960,10 @@ test('every error that starts with a line number has that line as its line prope
   t.same(mismatches, [], 'the line property matches the message');
   t.end();
 });
+
+test('a direct-referenced media clock with no offset is reported when PTP is in use', t => {
+  const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:direct');
+  t.ok(checkST2110(sdp, cliDefaults).some(error => error.message.includes('the \'mediaclk\' attribute shall include a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3]')),
+    'a=mediaclk:direct with no offset is reported');
+  t.end();
+});

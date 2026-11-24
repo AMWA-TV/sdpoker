@@ -18,6 +18,7 @@ const { splitLines, LineError } = require('./lines.js');
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
+const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:direct(\s|$)/;
 const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
 const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
@@ -158,6 +159,9 @@ const test_10_74_1 = (sdp, params) => {
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   let mediaLines = splitLines(sdp).flatMap((line, x) => line.startsWith('m=') ? [x + 1] : []);
   for (let s = 0; s < streams.length; s++) {
+    if (mediaclkNoOffsetPattern.test(streams[s]) && streams[s].indexOf('IEEE1588-2008') > 0) {
+      errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall include a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
+    }
     let zeroCheck = streams[s].match(mediaclkDirectPattern);
     if (Array.isArray(zeroCheck) && zeroCheck.length > 0 &&
       streams[s].indexOf('IEEE1588-2008') > 0) { // Zero check only PTP clocks
