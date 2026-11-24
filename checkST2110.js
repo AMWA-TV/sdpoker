@@ -16,7 +16,7 @@
 const { splitLines, LineError } = require('./lines.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
-const mediaclkTypePattern = /^a=mediaclk:([^\s=]+)/;
+const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
 const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:direct(\s|$)/;
 const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;

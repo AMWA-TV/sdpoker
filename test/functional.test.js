@@ -984,3 +984,10 @@ test('a direct-referenced media clock must match the RFC 7273 grammar', t => {
   }
   t.end();
 });
+
+test('a media clock identifier is not taken as the media clock reference', t => {
+  const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:id=src1 direct=0');
+  t.same(checkST2110(sdp, { ...cliDefaults, should: true }).filter(error => error.message.includes('\'mediaclk\'')), [],
+    'a=mediaclk:id=src1 direct=0 is not reported');
+  t.end();
+});
