@@ -39,15 +39,19 @@ const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
-// TODO: Move AM824 into a separate set of tests specific to ST.2110-31
-const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24|AM824)\/([1-9]\d*)\/([1-9]\d*)/;
+const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24)\/([1-9]\d*)\/([1-9]\d*)/;
+const rtpmapAM824 = /^a=rtpmap:(\d+)\s+(AM824)\/([1-9]\d*)\/([1-9]\d*)$/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
 const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const mediaPattern = /(audio|video|application)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
+const smpteChannelSymbols30 = 'M|DM|ST|LtRt|51|71|222|SGRP|U\\d\\d';
+const smpteChannelSymbols31 = smpteChannelSymbols30 + '|AES3';
 const smpteChannelPattern =
-  /SMPTE2110\.\((M|DM|ST|LtRt|51|71|222|SGRP|U\d\d)(,(M|DM|ST|LtRt|51|71|222|SGRP|U\d\d))*\)/;
+  new RegExp('^SMPTE2110\\.\\((' + smpteChannelSymbols30 + ')(,(' + smpteChannelSymbols30 + '))*\\)$');
+const smpteChannelPattern31 =
+  new RegExp('^SMPTE2110\\.\\((' + smpteChannelSymbols31 + ')(,(' + smpteChannelSymbols31 + '))*\\)$');
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2'];
 // Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
@@ -1160,10 +1164,8 @@ const test_20_76_1 = (sdp, params) => {
 
 const sampleRatePermitted = ['44100', '48000', '96000'];
 
-// Note: Sample rate provisions of 6.1 are repeated by 6.2.1 reference to AES-67 7.1
-
-// ST 2110-30 Section 6.2.1 Test 1 - Compliance with AES-67 Section 7.1
-const test_30_62_1 = (sdp, params) => {
+// The checkRtpmap function returns the messages for any further errors in an 'rtpmap' attribute that matches rtpmapPattern
+const checkStreamsAudioRtpmap = (sdp, rtpmapPattern, patternMessage, sampleRateSpecification, checkRtpmap) => {
   let errors = [];
   let lines = splitLines(sdp);
   let payloadType = -1;
@@ -1178,9 +1180,9 @@ const test_30_62_1 = (sdp, params) => {
       continue;
     }
     if (payloadType >= 0 && lines[x].startsWith('a=rtpmap')) {
-      let soundMatch = lines[x].match(rtpmapSound);
+      let soundMatch = lines[x].match(rtpmapPattern);
       if (!soundMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' does not match the acceptable audio pattern, e.g. L16 or L24 audio as per AES-67.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, ${patternMessage}`));
         continue;
       }
       if (hasRtpmap) {
@@ -1191,34 +1193,50 @@ const test_30_62_1 = (sdp, params) => {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' has payload type '${soundMatch[1]}' that is different from stream payload type '${payloadType}'.`));
       }
       if (sampleRatePermitted.indexOf(soundMatch[3]) < 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' specifies an unacceptable sampling rate '${soundMatch[3]}', as per ST 2110-30 Section 6.1 and AES-67 Section 7.1.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' specifies an unacceptable sampling rate '${soundMatch[3]}', as per ${sampleRateSpecification}.`));
       }
+      for (let message of checkRtpmap(soundMatch)) {
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, ${message}`));
+      }
+    }
+  }
+  return errors;
+};
+
+// Note: Sample rate provisions of 6.1 are repeated by 6.2.1 reference to AES-67 7.1
+
+// ST 2110-30 Section 6.2.1 Test 1 - Compliance with AES-67 Section 7.1
+const test_30_62_1 = (sdp, params) => {
+  let errors = checkStreamsAudioRtpmap(sdp, rtpmapSound,
+    'attribute \'rtpmap\' does not match the acceptable audio pattern, e.g. L16 or L24 audio as per AES-67.',
+    'ST 2110-30 Section 6.1 and AES-67 Section 7.1',
+    soundMatch => {
+      let messages = [];
       switch (+soundMatch[3]) {
       case 48000:
         break; // L16 and L24 are supported
       case 96000:
         if (soundMatch[2] === 'L16') {
-          errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' describes an out-of-scope combination of 'L16/96000', as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 7.1.`));
+          messages.push('attribute \'rtpmap\' describes an out-of-scope combination of \'L16/96000\', as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 7.1.');
         }
         break;
       case 44100:
         if (soundMatch[2] === 'L24') {
-          errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' describes an out-of-scope combination of 'L24/44100', as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 7.1.`));
+          messages.push('attribute \'rtpmap\' describes an out-of-scope combination of \'L24/44100\', as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 7.1.');
         }
         break;
       default:
         break;
       }
-    }
-  }
+      return messages;
+    });
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 1 - Compliant with AES-67 Section 7.1');
   }
   return errors;
 };
 
-// ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling
-const test_30_62_3 = (sdp, params) => {
+const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
   let errors = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
@@ -1227,7 +1245,7 @@ const test_30_62_3 = (sdp, params) => {
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!hasPTime && payloadType >= 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, required attribute 'ptime' is missing, as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, required attribute 'ptime' is missing, as per ${ptimeSpecification}.`));
       }
       let audioMatch = lines[x].match(audioPattern);
       streamCount++;
@@ -1238,11 +1256,11 @@ const test_30_62_3 = (sdp, params) => {
     if (lines[x].startsWith('a=ptime') && payloadType >= 0) {
       let ptimeMatch = lines[x].match(ptimePattern);
       if (!ptimeMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' is not an acceptable pattern, as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' is not an acceptable pattern, as per ${ptimeSpecification}.`));
         continue;
       }
       if (hasPTime) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' is unexpectedly duplicated, which is ambiguous for AES-67 in context of ST 2110-30.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' is unexpectedly duplicated.`));
         continue;
       }
       hasPTime = true;
@@ -1250,21 +1268,29 @@ const test_30_62_3 = (sdp, params) => {
     }
     if (lines[x].startsWith('a=maxptime')) {
       if (!maxptimePattern.test(lines[x])) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'maxptime' is not an acceptable pattern, as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1.`));
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'maxptime' is not an acceptable pattern, as per ${maxptimeSpecification}.`));
       }
     }
   }
   if (!hasPTime && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, required attribute 'ptime' is missing, as per ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1.`));
+    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, required attribute 'ptime' is missing, as per ${ptimeSpecification}.`));
   }
+  return errors;
+};
+
+// ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling
+const test_30_62_3 = (sdp, params) => {
+  let errors = checkStreamsPtime(sdp,
+    'ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1',
+    'ST 2110-30 Section 6.2.1 requiring AES-67 Section 8.1');
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 3 - SDP conformance - packet time signalling');
   }
   return errors;
 };
 
-// ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present
-const test_30_62_4 = (sdp, params) => {
+// The checkOrder function returns the messages for any errors in the value of format parameter 'channel-order'
+const checkStreamsChannelOrder = (sdp, params, checkOrder) => {
   let errors = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
@@ -1297,20 +1323,113 @@ const test_30_62_4 = (sdp, params) => {
       if (payloadType !== +fmtpMatch[1]) {
         errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type of 'fmtp' attribute '${fmtpMatch[1]}' does not match that of the stream '${payloadType}'.`));
       }
-      let order = fmtpMatch[2];
-      if (params.should && !order.startsWith('SMPTE2110')) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' should be specified by the 'SMPTE2110' convention, not '${order.split('.')[0]}', as per ST 2110-30 Section 6.2.2.`));
-      }
-      if (order.startsWith('SMPTE2110') && !smpteChannelPattern.test(order)) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' is not acceptable, as per ST 2110-30 Section 6.2.2.`));
+      for (let message of checkOrder(fmtpMatch[2])) {
+        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, ${message}`));
       }
     }
   }
   if (params.channelOrder === true && hasFmtp === false && payloadType >= 0) {
-    errors.push(new Error(`Line ${lines.lengths}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
+    errors.push(new Error(`Line ${lines.length}: For stream ${streamCount}, channel order for an audio stream is required by test parameters but is not present.`));
   }
+  return errors;
+};
+
+// ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present
+const test_30_62_4 = (sdp, params) => {
+  let errors = checkStreamsChannelOrder(sdp, params, order => {
+    let messages = [];
+    if (params.should && !order.startsWith('SMPTE2110')) {
+      messages.push(`format parameter 'channel-order' should be specified by the 'SMPTE2110' convention, not '${order.split('.')[0]}', as per ST 2110-30 Section 6.2.2.`);
+    }
+    if (order.startsWith('SMPTE2110') && !smpteChannelPattern.test(order)) {
+      messages.push('format parameter \'channel-order\' is not acceptable, as per ST 2110-30 Section 6.2.2.');
+    }
+    return messages;
+  });
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-30 Section 6.2.2 Test 4 - Channel order format - where present');
+  }
+  return errors;
+};
+
+// Permitted packet times (ms) for each RTP clock rate, as per ST 2110-31 Section 6.1 Table 1
+const ptimePermitted31 = {
+  48000: [1, 0.12, 0.08],
+  96000: [1, 0.12, 0.08],
+  44100: [1.09, 0.14, 0.09]
+};
+
+// ST 2110-31 Section 6.1 Test 1 - Clock rate is permitted and number of AES3 subframe sequences is even
+const test_31_61_1 = (sdp, params) => {
+  let errors = checkStreamsAudioRtpmap(sdp, rtpmapAM824,
+    'attribute \'rtpmap\' does not match the pattern \'AM824/<clock-rate>/<nchan>\', as per ST 2110-31 Section 6.1.',
+    'ST 2110-31 Section 6.1',
+    rtpmapMatch => +rtpmapMatch[4] % 2 !== 0 ?
+      [`attribute 'rtpmap' specifies an odd number '${rtpmapMatch[4]}' of AES3 subframe sequences, as per ST 2110-31 Section 6.1.`] :
+      []);
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-31 Section 6.1 Test 1 - Clock rate is permitted and number of AES3 subframe sequences is even');
+  }
+  return errors;
+};
+
+// ST 2110-31 Section 6.1 Test 2 - Packet time is signalled
+const test_31_61_2 = (sdp, params) => {
+  let errors = checkStreamsPtime(sdp, 'ST 2110-31 Section 6.1', 'RFC 4566 Section 6');
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-31 Section 6.1 Test 2 - Packet time is signalled');
+  }
+  return errors;
+};
+
+// ST 2110-31 Section 6.1 Test 3 - Packet time is permitted for the clock rate
+const test_31_61_3 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streams = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streams.push({ ptimes: [] });
+      continue;
+    }
+    if (streams.length === 0) {
+      continue;
+    }
+    let stream = streams[streams.length - 1];
+    let rtpmapMatch = lines[x].match(rtpmapAM824);
+    if (rtpmapMatch) {
+      stream.clockRate = rtpmapMatch[3];
+    }
+    let ptimeMatch = lines[x].match(ptimePattern);
+    if (ptimeMatch) {
+      stream.ptimes.push({ line: x + 1, ptime: ptimeMatch[1] });
+    }
+  }
+  streams.forEach((stream, s) => {
+    let permitted = ptimePermitted31[stream.clockRate];
+    if (!permitted) {
+      return;
+    }
+    for (let { line, ptime } of stream.ptimes) {
+      if (!permitted.includes(+ptime)) {
+        errors.push(new Error(`Line ${line}: For stream ${s + 1}, attribute 'ptime' value '${ptime}' is not permitted for clock rate '${stream.clockRate}', as per ST 2110-31 Section 6.1.`));
+      }
+    }
+  });
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-31 Section 6.1 Test 3 - Packet time is permitted for the clock rate');
+  }
+  return errors;
+};
+
+// ST 2110-31 Section 6.2 Test 1 - Channel order format, including the AES3 grouping symbol - where present
+const test_31_62_1 = (sdp, params) => {
+  let errors = checkStreamsChannelOrder(sdp, params, order =>
+    order.startsWith('SMPTE2110') && !smpteChannelPattern31.test(order) ?
+      ['format parameter \'channel-order\' is not acceptable, as per ST 2110-31 Section 6.2.'] :
+      []);
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-31 Section 6.2 Test 1 - Channel order format - where present');
   }
   return errors;
 };
@@ -2145,6 +2264,16 @@ const section_30_62 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_31_61 = (sdp, params) => {
+  let tests = [test_31_61_1, test_31_61_2, test_31_61_3];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
+const section_31_62 = (sdp, params) => {
+  let tests = [test_31_62_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_21_81 = (sdp, params) => {
   let tests = [test_21_81_1, test_21_81_2];
   return concat(tests.map(t => t(sdp, params)));
@@ -2335,9 +2464,15 @@ const allSections = (sdp, params) => {
         section_2022_8_53, section_2022_8_60, section_2022_8_71];
     }
   } else if (mtParams[0]._mediaType == 'audio') {
-    sections = [
-      ...st2110_10_sections,
-      section_30_62];
+    if (mtParams[0]._encodingName == 'AM824') {
+      sections = [
+        ...st2110_10_sections,
+        section_31_61, section_31_62];
+    } else {
+      sections = [
+        ...st2110_10_sections,
+        section_30_62];
+    }
   } else if (mtParams[0]._mediaType == 'application') {
     // Encoding names are case-insensitive, as per RFC 4855 Section 3
     let encodingName = mtParams[0]._encodingName;
@@ -2373,6 +2508,8 @@ module.exports = {
   section_22_2022_72,
   section_21_81,
   section_21_82,
+  section_31_61,
+  section_31_62,
   section_9134_71,
   section_40_2023_53,
   section_40_2023_7,

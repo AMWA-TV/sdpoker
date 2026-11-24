@@ -230,6 +230,30 @@ const invalidCases = [
     messageExcludes: 'required attribute \'rtpmap\' is missing'
   },
   {
+    file: 'invalid/st2110-31-clock-rate.sdp',
+    messageIncludes: 'For stream 1, attribute \'rtpmap\' specifies an unacceptable sampling rate \'32000\', as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-channels.sdp',
+    messageIncludes: 'For stream 1, attribute \'rtpmap\' specifies an odd number \'3\' of AES3 subframe sequences, as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-missing-ptime.sdp',
+    messageIncludes: 'For stream 1, required attribute \'ptime\' is missing, as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-ptime.sdp',
+    messageIncludes: 'For stream 1, attribute \'ptime\' value \'0.125\' is not permitted for clock rate \'48000\', as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-44100-ptime.sdp',
+    messageIncludes: 'For stream 1, attribute \'ptime\' value \'1\' is not permitted for clock rate \'44100\', as per ST 2110-31 Section 6.1'
+  },
+  {
+    file: 'invalid/st2110-31-channel-order.sdp',
+    messageIncludes: 'For stream 1, format parameter \'channel-order\' is not acceptable, as per ST 2110-31 Section 6.2'
+  },
+  {
     file: 'invalid/st2110-43-missing-fmtp.sdp',
     messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
   },
@@ -398,6 +422,19 @@ test('BT.2100 signals without RANGE are reported only with --should', t => {
     t.same(checkST2110(sdp, cliDefaults), [], `${specification} is skipped by default`);
     const messages = checkST2110(sdp, { ...cliDefaults, should: true }).map(error => error.message);
     t.ok(messages.some(m => m.includes(`${message} ${specification}.`)), `${specification} is reported with --should`);
+  }
+  t.end();
+});
+
+test('SMPTE channel orders must match the grouping symbols to the end of the value', t => {
+  const cases = [
+    [readFixture('valid/st2110-30.sdp').replace('a=rtpmap:102 L24/48000/2', '$&\r\na=fmtp:102 channel-order=SMPTE2110.(ST)'), 'SMPTE2110.(ST)'],
+    [readFixture('valid/st2110-31-aes3.sdp'), 'SMPTE2110.(AES3,ST)']
+  ];
+  for (const [sdp, order] of cases) {
+    t.same(runAllChecks(sdp), [], `'${order}' is accepted`);
+    const messages = runAllChecks(sdp.replace(order, `${order}junk`)).map(error => error.message).join(' ');
+    t.ok(messages.includes('format parameter \'channel-order\' is not acceptable'), `'${order}junk' is reported`);
   }
   t.end();
 });
