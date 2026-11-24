@@ -158,6 +158,24 @@ let params = {
 };
 ```
 
+# Web Application
+
+The `web` directory is a browser application that runs the same checks as the command line tool. SDP can be pasted, typed, opened from a local file, or loaded from the SDP files in `examples` and `test/fixtures`. The checks run in the browser, and the SDP is not uploaded. The GitHub Actions workflow `.github/workflows/pages.yml` publishes the application with GitHub Pages when the `master` branch changes, and when the workflow is run manually, from any branch that the repository's `github-pages` environment allows.
+
+The line-ending check is available only for an unmodified file or example, because pasted, typed or edited SDP does not keep its original line endings.
+
+To develop the application, install Node.js and run:
+
+```
+cd web
+npm install
+npm run dev
+```
+
+`npm test` runs the unit tests. `npm run build` builds the static site in `web/dist`. After that, `npm run preview` serves the built site at `http://localhost:4173/`, and `npm run test:e2e` runs the browser tests in Chromium, after `npx playwright install chromium`.
+
+For either `npm run dev` or `npm run preview`, add `-- --port <port>` to use another port, and/or `-- --host` to make the server reachable from other machines.
+
 # Tests
 
 Running `sdpoker` with `--verbose` lists the tests that passed or were skipped, as well as any errors. Please see the comments in files `checkRFC4566.js`, `checkRFC4570.js` and `checkST2110.js` for a description of the tests.
