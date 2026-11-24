@@ -2273,10 +2273,12 @@ const extractTTMLStreams = sdp => {
   let streams = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
+  let mediaLine = 0;
   let payloadTypes = [];
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       streamCount++;
+      mediaLine = x + 1;
       payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
       continue;
     }
@@ -2286,6 +2288,7 @@ const extractTTMLStreams = sdp => {
       if (rtpmapMatch && payloadTypes.includes(+rtpmapMatch[1]) && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
         streams.push({
           streamNumber: streamCount,
+          mediaLine,
           payloadType: +rtpmapMatch[1],
           rtpmapLine: x + 1,
           clockRate: rtpmapMatch[3],
@@ -2320,7 +2323,7 @@ const test_43_2021_41_1 = (sdp, params) => {
   let errors = [];
   for (let stream of extractTTMLStreams(sdp)) {
     if (stream.fmtpLine === null) {
-      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, an 'fmtp' attribute with format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+      errors.push(new Error(`Line ${stream.mediaLine}: For stream ${stream.streamNumber}, an 'fmtp' attribute with format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
     } else if (stream.codecs === null) {
       errors.push(new Error(`Line ${stream.fmtpLine}: For stream ${stream.streamNumber}, format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
     }

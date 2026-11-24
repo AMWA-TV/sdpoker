@@ -254,7 +254,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2110-43-missing-fmtp.sdp',
-    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' shall be specified'
+    messageIncludes: 'Line 5: For stream 1, an \'fmtp\' attribute with format parameter \'codecs\' shall be specified'
   },
   {
     file: 'invalid/st2110-43-missing-codecs.sdp',
@@ -262,7 +262,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2110-43-fmtp-payload-type.sdp',
-    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' shall be specified'
+    messageIncludes: 'Line 5: For stream 1, an \'fmtp\' attribute with format parameter \'codecs\' shall be specified'
   },
   {
     file: 'invalid/st2110-43-rtpmap-payload-type.sdp',
