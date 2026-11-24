@@ -493,6 +493,38 @@ const test_10_83_3 = (sdp, params) => {
   return errors;
 };
 
+// SMPTE RP 2110-23 Section 5.3 Test 1 - Each media description ends with its 'a=mid' attribute
+const test_23_53_1 = (sdp, params) => {
+  if (!params.midLast) {
+    if (params.verbose) {
+      console.log('Test Skipped: SMPTE RP 2110-23 Section 5.3 Test 1 - Each media description ends with its \'a=mid\' attribute. Use --midLast to test.');
+    }
+    return [];
+  }
+  if (!sdp.match(/a=mid:/)) {
+    if (params.verbose) {
+      console.log('Test Skipped: SMPTE RP 2110-23 Section 5.3 Test 1 - Each media description ends with its \'a=mid\' attribute. No \'a=mid\' present.');
+    }
+    return [];
+  }
+  let lines = splitLines(sdp);
+  let errors = [];
+  let streamCounter = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCounter++;
+    }
+    let isLastLineOfMediaDescription = x + 1 === lines.length || lines[x + 1].startsWith('m=');
+    if (streamCounter > 0 && isLastLineOfMediaDescription && !lines[x].startsWith('a=mid:')) {
+      errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, the media description does not end with its 'a=mid' attribute. RFC 8866 does not require this, but receivers that follow SMPTE RP 2110-23 Section 5.3 may expect it.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: SMPTE RP 2110-23 Section 5.3 Test 1 - Each media description ends with its \'a=mid\' attribute.');
+  }
+  return errors;
+};
+
 // ST 2110-10 Section 8.4 Test 1 - Format parameter 'MAXUDP' has an acceptable value
 // [also ST 2110-10:2022 Section 8.6]
 const test_10_84_1 = (sdp, params) => {
@@ -2376,6 +2408,11 @@ const section_10_83 = (sdp, params) => {
   return concat(tests.map(t => t(sdp, params)));
 };
 
+const section_23_53 = (sdp, params) => {
+  let tests = [test_23_53_1];
+  return concat(tests.map(t => t(sdp, params)));
+};
+
 const section_10_86 = (sdp, params) => {
   let tests = [test_10_84_1];
   return concat(tests.map(t => t(sdp, params)));
@@ -2595,6 +2632,7 @@ const st2110_10_sections = [
   section_10_86,
   section_10_2022_84,
   section_10_2022_87,
+  section_23_53,
   no_media,
 ];
 
@@ -2723,5 +2761,6 @@ module.exports = {
   section_2022_8_60,
   section_2022_8_71,
   section_43_2021_41,
-  section_43_2021_42
+  section_43_2021_42,
+  section_23_53
 };
