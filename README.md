@@ -2,7 +2,7 @@
 
 [![CI Status](https://github.com/AMWA-TV/sdpoker/workflows/CI/badge.svg)](https://github.com/AMWA-TV/sdpoker/actions?query=workflow%3ACI)
 
-CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES-67. The tool currently has 112 possible tests.
+CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. The tool currently has 112 possible tests.
 
 Just because an SDP file passes these tests does not mean it is 100% valid. However, if it fails one of the tests, the file is likely to need some work!
 
@@ -18,7 +18,7 @@ This is a fork of the original repository from [Streampunk/sdpoker](https://gith
 
 Recent activity on the project (newest first):
 
-- The traffic shaping checks of ST 2110-21 and ST 2022-8 run by default, and `--no-shaping` skips them
+- The traffic shaping checks of ST 2110-21, ST 2022-8 and ST 2110-40 run by default, and `--no-shaping` skips them
 - Added checks of the ST 2110-40 and RFC 8331 format parameters of ANC data streams
 - Added checks of the RFC 9134 format parameters of JPEG XS streams
 - Removed the `--videoOnly` and `--audioOnly` options, because SDPoker now reports any SDP file that describes more than one essence
@@ -113,7 +113,7 @@ The return value of the method is an array of [Javascript Errors](https://develo
 
 ### Check ST 2110
 
-The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-31/-40/-43 and ST 2022-8 documents, and referenced standards such as AES-67, RFC 8331, RFC 9134 and ST 2022-7, applying appropriate tests.
+The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-31/-40/-43 and ST 2022-8 documents, and referenced standards such as AES67, RFC 8331, RFC 9134 and ST 2022-7, applying appropriate tests.
 
 The SDP file must describe a single essence, as an ST 2110 sender's SDP file does. It may contain more than one media description only for ST 2022-7 redundant streams, and every media description must have the same media type and encoding name. Otherwise, `checkST2110` reports that and runs no other tests.
 
@@ -137,12 +137,11 @@ The return value of the method is an array of [Javascript Errors](https://develo
 The parameters of the library are binary flags that match the command line options:
 
 * `checkEndings`: Check line endings are CRLF, no other CR/LF.
-* `whitespace`: Strict check of adherence to whitespace rules.
 * `should`: As well as shall, also check all should clauses.
-* `noCopy`: Fail obvious copies of the ST 2110-10 SDP example.
+* `noCopy`: Fail obvious copies of the SDP examples in ST 2110-10, ST 2110-10:2022 and VSF TR-08:2022.
 * `noMedia`: Fail SDP files which do not include any media descriptions.
 * `duplicate`: Expect duplicate streams aka ST 2022-7.
-* `channelOrder`: Expect audio with ST2110-30 channel-order.
+* `channelOrder`: Expect audio with ST 2110-30 channel-order.
 * `shaping`: Check adherence to traffic shaping specification.
 * `useIP4`: All addresses expressed in IP v4 notation.
 * `useIP6`: All addresses expressed in IP v6 notation.
@@ -150,7 +149,7 @@ The parameters of the library are binary flags that match the command line optio
 * `unicast`: Connection addresses must be unicast.
 * `verbose`: Print out tests that pass to the console as well as failures.
 
-By default, all flags are `false`, except `shaping`, which is `true`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
+By default, all flags are `false`, except `noCopy`, `noMedia` and `shaping`, which are `true`. To pass the parameters to the _check_ methods, use a Javascript object as follows:
 
 ```javascript
 let params = {
@@ -170,7 +169,7 @@ The following items are known deficiencies of SDPoker and may be added in the fu
 * Tests for attribute `a=recvonly`
 * Testing whether an advertised connection address can be resolved, joined or pinged.
 * Testing whether advertised clocks are available.
-* Testing that, for AES-67 audio streams, the `ptime` attribute matches the sample rate and number of channels.
+* Testing that, for AES67 audio streams, the `ptime` attribute matches the sample rate and number of channels.
 * Testing ST 2110-30 audio streams against conformance level.
 * Ability to run the tests within a framework like [tape](https://www.npmjs.com/package/tape).
 * Retrieval of SDP files over HTTPS.

@@ -75,7 +75,7 @@ test('getSDP rejects responses that are not application/sdp', async t => {
     t.fail('expected getSDP to reject a non-SDP Content-Type');
   } catch (error) {
     t.ok(
-      /Media type \(MIME type\/Content-Type\)/.test(error.message),
+      /The Content-Type of the SDP file must be 'application\/sdp'/.test(error.message),
       'rejects with a Content-Type / media type error'
     );
   } finally {
