@@ -764,8 +764,8 @@ test('tests that do not apply, or need an option, report that they are skipped i
   const jxsv = readFixture('valid/st2110-22.sdp');
 
   const lines = logged(raw, {});
-  t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.'));
-  t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.'));
+  t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.'));
+  t.ok(lines.includes('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.'));
   t.ok(lines.includes('Test Passed: ST 2110-10 Annex B Test 1 - The SDP file is not a copy of the example.'));
   t.ok(lines.includes('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.'));
   t.ok(logged(jxsv, {}).includes('Test Passed: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example.'));

@@ -126,7 +126,7 @@ a=mid:SECONDARY
 // NOTE: all ST 2110 references are for the originally published specifications unless a later revision is indicated
 
 // ST 2110-10 Section 7.4 Test 1 - Where 'mediaclk:direct' is used with PTP, offset value is zero
-// [also ST 2110-10:2022 Section 8.3]
+// [also ST 2110-10:2022 Sections 7.3 and 8.3]
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
@@ -138,13 +138,13 @@ const test_10_74_1 = (sdp, params) => {
       zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
       for (let x = 0; x < zeroCheck.length; x++) {
         if (zeroCheck[x] !== 0) {
-          errors.push(new Error(`Line ${mediaLines[s]}: For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Section 8.3].`));
+          errors.push(new Error(`Line ${mediaLines[s]}: For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
         }
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Section 8.3] Test 1 - Where \'mediaclk:direct\' is used with PTP, offset value is zero.');
+    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3] Test 1 - Where \'mediaclk:direct\' is used with PTP, offset value is zero.');
   }
   return errors;
 };
@@ -332,28 +332,30 @@ const test_10_82_4 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.3 Test 1 - Duplicate streams are signalled
+// [also ST 2110-10:2022 Section 8.5]
 const test_10_83_1 = (sdp, params) => {
   if (!params.duplicate) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 1 - Duplicate streams are signalled. Use --duplicate to test.');
+      console.log('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 1 - Duplicate streams are signalled. Use --duplicate to test.');
     }
     return [];
   }
   if (dupPattern.test(sdp)) {
     if (params.verbose) {
-      console.log('Test Passed: ST 2110-10 Section 8.3 Test 1 - Duplicate streams are signalled.');
+      console.log('Test Passed: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 1 - Duplicate streams are signalled.');
     }
     return [];
   } else {
-    return [new Error('Duplicate RTP streams shall be signalled with a media-level \'ssrc-group:DUP\' or session-level \'group:DUP\' attribute, as requested by --duplicate, as per ST 2110-10 Section 8.3.')];
+    return [new Error('Duplicate RTP streams must be signalled, as requested by --duplicate, with a session-level \'group:DUP\' attribute as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5], or with a media-level \'ssrc-group:DUP\' attribute.')];
   }
 };
 
 // ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1
+// [also ST 2110-10:2022 Section 8.5]
 const test_10_83_2 = (sdp, params) => {
   if (!sdp.match(/a=ssrc-group/)) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.');
+      console.log('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1. No \'a=ssrc-group\' attribute is present.');
     }
     return [];
   }
@@ -396,16 +398,17 @@ const test_10_83_2 = (sdp, params) => {
   }
   // TODO check the source-filter lines have one Mcast address and 2 IP addresses
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.3 Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1.');
+    console.log('Test Passed: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 2 - Duplicate streams with separate source addresses are grouped, as per RFC 7104 Section 4.1.');
   }
   return errors;
 };
 
 // ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2
+// [also ST 2110-10:2022 Section 8.5]
 const test_10_83_3 = (sdp, params) => {
   if (!sdp.match(/a=group/)) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.');
+      console.log('Test Skipped: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2. No \'a=group\' attribute is present.');
     }
     return [];
   }
@@ -455,26 +458,27 @@ const test_10_83_3 = (sdp, params) => {
   }
   // TODO check the source-filter lines have one Mcast address and 2 IP addresses
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.3 Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2.');
+    console.log('Test Passed: ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5] Test 3 - Duplicate streams with separate destination addresses are grouped, as per RFC 7104 Section 4.2.');
   }
   return errors;
 };
 
-// ST 2110-10 Section 8.6 Test 1 - 'MAXUDP' has an acceptable value
+// ST 2110-10 Section 8.4 Test 1 - 'MAXUDP' has an acceptable value
+// [also ST 2110-10:2022 Section 8.6]
 const test_10_86_1 = (sdp, params) => {
   const [mtParams, errors] = extractMTParams(sdp, params);
   for (const stream of mtParams) {
     if ('MAXUDP' in stream) {
       const MAXUDP = +stream.MAXUDP;
       if (isNaN(MAXUDP) || integerPattern.test(stream.MAXUDP) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be a decimal value, as per ST 2110-10 Section 8.6.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be a decimal value, as per ST 2110-10 Section 8.4 [also ST 2110-10:2022 Section 8.6].`));
       } else if (MAXUDP < 20 || MAXUDP > 8960) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be in the range 20 to 8960 inclusive, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.6.`));
+        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be in the range 20 to 8960 inclusive, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.4 [also ST 2110-10:2022 Sections 6.4 and 8.6].`));
       }
     }
   }
   if (params.verbose && errors.length === 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.6 Test 1 - \'MAXUDP\' has an acceptable value.');
+    console.log('Test Passed: ST 2110-10 Section 8.4 [also ST 2110-10:2022 Section 8.6] Test 1 - \'MAXUDP\' has an acceptable value.');
   }
   return errors;
 };

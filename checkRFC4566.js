@@ -293,7 +293,7 @@ const test_57_2 = (sdp, params) => {
     if (lines[x].startsWith('c=')) {
       let cMatch = lines[x].match(cPattern);
       if (!cMatch) {
-        errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') is not an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
+        errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') is not an acceptable pattern, as per RFC 4566 Section 5.7.`));
         continue;
       }
       let addrMatch = cMatch[2].match(ip4Pattern);
