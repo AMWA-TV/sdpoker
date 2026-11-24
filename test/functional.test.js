@@ -385,6 +385,22 @@ test('the ST 2110-10 Annex B example is reported only for its missing TP paramet
   t.end();
 });
 
+test('an origin or connection data field that is not the IP version requested is reported once', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = (variant, params) => checkRFC4566(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  const origin = sdp.replace(/IN IP4 172\.29\.80\.65/, 'IN IP6 2001:db8::1');
+  const connection = sdp.replace('c=IN IP4 232.80.177.113/32', 'c=IN IP6 ff3e::8000:1');
+
+  t.same(messages(origin, { useIP4: true }), ['Line 2: Origin field (\'o=\') address \'2001:db8::1\' must be an IPv4 address, as requested by --useIP4.']);
+  t.same(messages(sdp, { useIP6: true }).filter(message => message.startsWith('Line 2:')),
+    ['Line 2: Origin field (\'o=\') address \'172.29.80.65\' must be an IPv6 address, as requested by --useIP6.']);
+  t.same(messages(connection, { useIP4: true }), ['Line 6: Connection data field (\'c=\') address \'ff3e::8000:1\' must be an IPv4 address, as requested by --useIP4.']);
+  t.same(messages(sdp, { useIP6: true }).filter(message => message.startsWith('Line 6:')),
+    ['Line 6: Connection data field (\'c=\') address \'232.80.177.113\' must be an IPv6 address, as requested by --useIP6.']);
+  t.same(messages(origin, {}), [], 'an IPv6 origin passes when no IP version is requested');
+  t.end();
+});
+
 test('a multicast connection address is reported in quotes when unicast is requested', t => {
   const messages = runAllChecks(readFixture('valid/st2110-20.sdp'), { ...cliDefaults, unicast: true }).map(error => error.message);
   t.ok(messages.includes('Line 6: Unicast connections requested by configuration and connection data field address \'232.80.177.113\' is multicast.'));
@@ -513,7 +529,7 @@ test('RFC 4566 Section 5.7 tests recognise IPv6 addresses', t => {
   for (const [address, isIP6] of cases) {
     const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN IP6 ${address}`), { ...cliDefaults, useIP6: true });
     t.equal(
-      errors.some(error => error.message.includes(`connection data field address '${address}' is not`)),
+      errors.some(error => error.message.includes(`address '${address}' must be an IPv6 address`)),
       !isIP6,
       `${address} is ${isIP6 ? '' : 'not '}recognised as IPv6`
     );

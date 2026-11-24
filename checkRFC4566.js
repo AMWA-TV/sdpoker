@@ -209,12 +209,6 @@ const test_52_1 = (sdp, params) => {
         errors.push(new Error(`Line ${x + 1}: Origin field ('o=') is not an acceptable pattern, as per RFC 4566 Section 5.2.`));
         continue;
       }
-      if (params.useIP4 === true && oMatch[4] === 'IP6') {
-        errors.push(new Error(`Line ${x + 1}: Origin field specified an address type of 'IP6' when 'IP4' is requested by configuration.`));
-      }
-      if (params.useIP6 === true && oMatch[4] === 'IP4') {
-        errors.push(new Error(`Line ${x + 1}: Origin field specified an address type of 'IP4' when 'IP6' is requested by configuration.`));
-      }
       if (multiPattern.test(oMatch[5])) {
         errors.push(new Error(`Line ${x + 1}: Origin field address of the machine is a multicast address when it must be a unicast address, as per RFC 4566 Section 5.2.`));
       }
@@ -242,11 +236,11 @@ const test_52_2 = (sdp, params) => {
       if (!oMatch) {
         continue;
       }
-      if (params.useIP4 && !ip4Pattern.test(oMatch[5])) {
-        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine must use IPv4 as requested by configuration.`));
+      if (params.useIP4 && (oMatch[4] !== 'IP4' || !ip4Pattern.test(oMatch[5]))) {
+        errors.push(new Error(`Line ${x + 1}: Origin field ('o=') address '${oMatch[5]}' must be an IPv4 address, as requested by --useIP4.`));
       }
-      if (params.useIP6 && !ip6Pattern.test(oMatch[5])) {
-        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine must use IPv6 as requested by configuration.`));
+      if (params.useIP6 && (oMatch[4] !== 'IP6' || !ip6Pattern.test(oMatch[5]))) {
+        errors.push(new Error(`Line ${x + 1}: Origin field ('o=') address '${oMatch[5]}' must be an IPv6 address, as requested by --useIP6.`));
       }
     }
   }
@@ -300,12 +294,6 @@ const test_57_2 = (sdp, params) => {
         errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') is not an acceptable pattern, as per RFC 4566 Section 5.7 and ST 2110-10 Section 6.1.`));
         continue;
       }
-      if (params.useIP4 === true && cMatch[1] !== 'IP4') {
-        errors.push(new Error(`Line ${x + 1}: Configuration requests IPv4 but connection data field address type is '${cMatch[1]}'.`));
-      }
-      if (params.useIP6 === true && cMatch[1] !== 'IP6') {
-        errors.push(new Error(`Line ${x + 1}: Configuration requests IPv6 but connection data field address type is '${cMatch[1]}'.`));
-      }
       let addrMatch = cMatch[2].match(ip4Pattern);
       if (addrMatch) {
         let ip0 = +addrMatch[1];
@@ -345,13 +333,13 @@ const test_57_3 = (sdp, params) => {
         continue;
       }
       if (params.useIP4 === true) {
-        if (!ip4Pattern.test(addrMatch[2])) {
-          errors.push(new Error(`Line ${x + 1}: IPv4 addresses requested by configuration and connection data field address '${addrMatch[2]}' is not.`));
+        if (addrMatch[1] !== 'IP4' || !ip4Pattern.test(addrMatch[2])) {
+          errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') address '${addrMatch[2]}' must be an IPv4 address, as requested by --useIP4.`));
         }
       }
       if (params.useIP6 === true) {
-        if (!ip6Pattern.test(addrMatch[2])) {
-          errors.push(new Error(`Line ${x + 1}: IPv6 addresses requested by configuration and connection data field address '${addrMatch[2]}' is not.`));
+        if (addrMatch[1] !== 'IP6' || !ip6Pattern.test(addrMatch[2])) {
+          errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') address '${addrMatch[2]}' must be an IPv6 address, as requested by --useIP6.`));
         }
       }
       if (params.multicast === true) {
