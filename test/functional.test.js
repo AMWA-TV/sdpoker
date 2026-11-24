@@ -616,6 +616,20 @@ test('RFC 8331 Section 4 tests check VPID_Code is no more than 255', t => {
   t.end();
 });
 
+test('RFC 4566 Section 5.7 tests check the TTL of IPv4 multicast connection data fields', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = ttl => checkRFC4566(sdp.replace('c=IN IP4 232.80.177.113/32', `c=IN IP4 232.80.177.113${ttl}`), cliDefaults).map(error => error.message).join(' ');
+  const missing = 'Connection data fields using multicast addresses must have a TTL field';
+  const range = 'Multicast TTL value must be in the range 0-255';
+
+  t.ok(messages('').includes(missing), 'a missing TTL is reported');
+  t.ok(messages('/256').includes(range), 'a TTL of 256 is reported');
+  t.ok(messages('/064').includes(range), 'a TTL with a leading zero is reported');
+  t.same(messages('/255'), '', 'a TTL of 255 is accepted');
+  t.same(messages('/0'), '', 'a TTL of 0 is accepted');
+  t.end();
+});
+
 test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose mode', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const logged = (variant, params) => {

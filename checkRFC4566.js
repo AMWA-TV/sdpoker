@@ -308,14 +308,13 @@ const test_57_2 = (sdp, params) => {
       if (addrMatch) {
         let ip0 = +addrMatch[1];
         if (ip0 >= 224 && ip0 <= 239) { // Entering IPv4 Multicast land
-          if (typeof addrMatch[2] === 'undefined') {
+          if (typeof cMatch[3] === 'undefined') {
             errors.push(new Error(`Line ${x + 1}: Connection data fields using multicast addresses must have a TTL field, as per RFC 4566 Section 5.7.`));
           } else {
-            let ttl = +addrMatch[2];
-            if (ttl < 0 || ttl > 255) {
-              errors.push(new Error(`Line ${x + 1}: Multicast TTL value must be in the range 0-255 and '${ttl}' provided, as per RFC 4566 Section 5.7.`));
+            let ttl = cMatch[3].slice(1);
+            if (!/^(0|[1-9]\d{0,2})$/.test(ttl) || +ttl > 255) {
+              errors.push(new Error(`Line ${x + 1}: Multicast TTL value must be in the range 0-255 without leading zeros and '${ttl}' provided, as per RFC 4566 Section 5.7.`));
             }
-            // TODO check length of TTL string ... 0001 should not be acceptable
           }
         }
       }
