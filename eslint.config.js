@@ -17,6 +17,8 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
+  // The web application has its own lint configuration
+  { ignores: ['web/'] },
   js.configs.recommended,
   {
     languageOptions: {

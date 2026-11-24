@@ -1,0 +1,5 @@
+node_modules/
+dist/
+public/sdp/
+playwright-report/
+test-results/

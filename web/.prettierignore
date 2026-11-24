@@ -1,0 +1,5 @@
+dist/
+public/sdp/
+playwright-report/
+test-results/
+package-lock.json
