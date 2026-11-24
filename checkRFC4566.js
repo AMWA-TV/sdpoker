@@ -81,7 +81,7 @@ const test50_1 = (sdp, params) => {
   }
   let errors = [];
   if (badEndings.test(sdp)) {
-    errors.push(new Error('SDP file contains record ending characters CR (0x0d) and/or LF (0x0a) separately from the expected CRLF pattern, as per RFC 4566 Section 5.'));
+    errors.push(new Error('Every record of an SDP file must end with CRLF (0x0d0a), and CR and LF must not appear separately, as per RFC 4566 Section 5.'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5 Test 1 - Line endings are all CRLF.');
@@ -96,7 +96,7 @@ const test50_1_1 = (sdp, params) => {
     errors.push(new Error('The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.'));
   }
   if (blankLines.test(sdp)) {
-    errors.push(new Error('Blank lines are not permitted, as per RFC 4566 Section 5.'));
+    errors.push(new Error('An SDP file must not contain blank lines, as per RFC 4566 Section 5.'));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5 Test 1.1 - Last record ends with a newline and there are no blank lines.');
@@ -127,7 +127,7 @@ const test_50_3 = (lines, params) => {
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (!letterCheck.test(lines[x])) {
       errors.push(new Error(
-        `Line ${x + 1}: Every line of an SDP file must start with a permitted type letter or the line must be ignored, as per RFC 4566 Section 5.`));
+        `Line ${x + 1}: Every line of an SDP file must start with a permitted type letter, as per RFC 4566 Section 5.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -161,7 +161,7 @@ const test_50_5 = (lines, params) => {
     let movingOn = followedBy[state][types[x - 1]];
     nextState = movingOn ? movingOn : nextState;
     if (Object.keys(nextState).indexOf(types[x]) < 0) {
-      errors.push(new Error(`Line ${x + 1}: A line of type '${types[x - 1]}' cannot be followed by a line of type '${types[x]}', as per the required order of RFC 4566 Section 5.`));
+      errors.push(new Error(`Line ${x + 1}: A line of type '${types[x - 1]}' must not be followed by a line of type '${types[x]}', as per RFC 4566 Section 5.`));
     } else {
       state = nextState[types[x]];
     }
@@ -177,7 +177,7 @@ const test_50_6 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].slice(2).indexOf('\u0000') >= 0) {
-      errors.push(new Error(`Line ${x + 1}: Value contains illegal Nul (0x00) character not permitted by RFC 4566 Section 5.`));
+      errors.push(new Error(`Line ${x + 1}: A value must not contain the Nul (0x00) character, as per RFC 4566 Section 5.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -210,7 +210,7 @@ const test_52_1 = (sdp, params) => {
         continue;
       }
       if (multiPattern.test(oMatch[5])) {
-        errors.push(new Error(`Line ${x + 1}: Origin field address of the machine is a multicast address when it must be a unicast address, as per RFC 4566 Section 5.2.`));
+        errors.push(new Error(`Line ${x + 1}: Origin field ('o=') address '${oMatch[5]}' must be a unicast address, as per RFC 4566 Section 5.2.`));
       }
     }
   }
@@ -275,7 +275,9 @@ const test_57_1 = (sdp, params) => {
     }
   }
   if (cFound === false) {
-    errors.push(new Error(`Line ${mediaLine || lines.length}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.`));
+    errors.push(new Error(streamCount ?
+      `Line ${mediaLine}: For stream ${streamCount}, a connection data field ('c=') must be present, as per RFC 4566 Section 5.7.` :
+      `Line ${lines.length}: A connection data field ('c=') must be present at session level, as per RFC 4566 Section 5.7.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5.7 Test 1 - Connection data is present at session level or for each stream.');
@@ -299,11 +301,11 @@ const test_57_2 = (sdp, params) => {
         let ip0 = +addrMatch[1];
         if (ip0 >= 224 && ip0 <= 239) { // Entering IPv4 Multicast land
           if (typeof cMatch[3] === 'undefined') {
-            errors.push(new Error(`Line ${x + 1}: Connection data fields using multicast addresses must have a TTL field, as per RFC 4566 Section 5.7.`));
+            errors.push(new Error(`Line ${x + 1}: A connection data field ('c=') with an IPv4 multicast address must have a TTL value, as per RFC 4566 Section 5.7.`));
           } else {
             let ttl = cMatch[3].slice(1);
             if (!/^(0|[1-9]\d{0,2})$/.test(ttl) || +ttl > 255) {
-              errors.push(new Error(`Line ${x + 1}: Multicast TTL value must be in the range 0-255 without leading zeros and '${ttl}' provided, as per RFC 4566 Section 5.7.`));
+              errors.push(new Error(`Line ${x + 1}: Multicast TTL value must be an integer in the range 0 to 255 inclusive without leading zeros, but is '${ttl}', as per RFC 4566 Section 5.7.`));
             }
           }
         }
@@ -344,12 +346,12 @@ const test_57_3 = (sdp, params) => {
       }
       if (params.multicast === true) {
         if (!multiPattern.test(addrMatch[2])) {
-          errors.push(new Error(`Line ${x + 1}: Multicast connections requested by configuration and connection data field address '${addrMatch[2]}' is unicast.`));
+          errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') address '${addrMatch[2]}' must be a multicast address, as requested by --multicast.`));
         }
       }
       if (params.unicast === true) {
         if (multiPattern.test(addrMatch[2])) {
-          errors.push(new Error(`Line ${x + 1}: Unicast connections requested by configuration and connection data field address '${addrMatch[2]}' is multicast.`));
+          errors.push(new Error(`Line ${x + 1}: Connection data field ('c=') address '${addrMatch[2]}' must be a unicast address, as requested by --unicast.`));
         }
       }
     }

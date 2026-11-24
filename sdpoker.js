@@ -28,10 +28,10 @@ const args = yargs(hideBin(process.argv))
     noCopy: { type: 'boolean', default: true, describe: 'Fail obvious copies of the ST 2110-10 SDP example' },
     noMedia: { type: 'boolean', default: true, describe: 'Fail SDP files which do not include any media descriptions' },
     duplicate: { type: 'boolean', default: false, describe: 'Expect duplicate streams aka ST 2022-7' },
-    skipRFC4566: { type: 'boolean', default: false, describe: 'Skips RFC4566 checks' },
-    skipRFC4570: { type: 'boolean', default: false, describe: 'Skips RFC4570 checks' },
-    skipST2110: { type: 'boolean', default: false, describe: 'Skips ST2110 checks' },
-    channelOrder: { type: 'boolean', default: false, describe: 'Expect audio with ST2110-30 channel-order' },
+    skipRFC4566: { type: 'boolean', default: false, describe: 'Skips RFC 4566 checks' },
+    skipRFC4570: { type: 'boolean', default: false, describe: 'Skips RFC 4570 checks' },
+    skipST2110: { type: 'boolean', default: false, describe: 'Skips ST 2110 checks' },
+    channelOrder: { type: 'boolean', default: false, describe: 'Expect audio with ST 2110-30 channel-order' },
     useIP4: { type: 'boolean', default: false, describe: 'All addresses expressed in IP v4 notation' },
     useIP6: { type: 'boolean', default: false, describe: 'All addresses expressed in IP v6 notation' },
     multicast: { type: 'boolean', default: false, describe: 'Connection addresses must be multicast' },
@@ -39,7 +39,7 @@ const args = yargs(hideBin(process.argv))
     shaping: { type: 'boolean', default: true, describe: 'Check adherence to traffic shaping specification' },
     verbose: { type: 'boolean', default: false, describe: 'Print passed tests as well as failed' }
   })
-  .usage('Check an SDP file for conformance with RFC4566 and SMPTE ST 2110.\n' +
+  .usage('Check an SDP file for conformance with RFC 4566 and SMPTE ST 2110.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
   .check(argv => {
     if (argv._.length < 1) {
@@ -49,10 +49,10 @@ const args = yargs(hideBin(process.argv))
       accessSync(argv._[0], R_OK);
     }
     if (argv.useIP4 && argv.useIP6) {
-      throw new Error('Cannot set both useIP4 and useIP6 flags at the same time.');
+      throw new Error('Cannot set both --useIP4 and --useIP6 at the same time.');
     }
     if (argv.multicast && argv.unicast) {
-      throw new Error('Cannot set both multicast and unicast flags at the same time.');
+      throw new Error('Cannot set both --multicast and --unicast at the same time.');
     }
     return true;
   })
@@ -64,7 +64,7 @@ async function test (args) {
   try {
     if(args.skipRFC4566 && args.skipRFC4570 && args.skipST2110)
     {
-      console.error('All checks have been skipped');
+      console.error('All checks have been skipped.');
       process.exit(1);
     }
 

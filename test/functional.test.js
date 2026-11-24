@@ -54,22 +54,22 @@ const invalidCases = [
   {
     file: 'invalid/line-endings-lf.sdp',
     params: { checkEndings: true },
-    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+    messageIncludes: 'and CR and LF must not appear separately, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/line-endings-cr.sdp',
     params: { checkEndings: true },
-    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+    messageIncludes: 'and CR and LF must not appear separately, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/line-endings-mixed.sdp',
     params: { checkEndings: true },
-    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+    messageIncludes: 'and CR and LF must not appear separately, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/line-endings-final-cr.sdp',
     params: { checkEndings: true },
-    messageIncludes: 'separately from the expected CRLF pattern, as per RFC 4566 Section 5'
+    messageIncludes: 'and CR and LF must not appear separately, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/no-final-line-ending.sdp',
@@ -77,11 +77,11 @@ const invalidCases = [
   },
   {
     file: 'invalid/blank-line.sdp',
-    messageIncludes: 'Blank lines are not permitted, as per RFC 4566 Section 5'
+    messageIncludes: 'An SDP file must not contain blank lines, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/blank-first-line.sdp',
-    messageIncludes: 'Blank lines are not permitted, as per RFC 4566 Section 5'
+    messageIncludes: 'An SDP file must not contain blank lines, as per RFC 4566 Section 5'
   },
   {
     file: 'invalid/missing-v0.sdp',
@@ -101,7 +101,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/media-pattern.sdp',
-    messageIncludes: 'Media description field (\'m=\') is not an acceptable pattern'
+    messageIncludes: 'Media field (\'m=\') is not an acceptable pattern'
   },
   {
     file: 'invalid/ts-refclk-pattern.sdp',
@@ -153,7 +153,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2022-8-clock-rate.sdp',
-    messageIncludes: 'For stream 1, clock rate shall be 27000000Hz, as per ST 2022-8 Section 5.3'
+    messageIncludes: 'For stream 1, clock rate shall be \'27000000\', as per ST 2022-8 Section 5.3'
   },
   {
     file: 'invalid/st2022-8-missing-tp.sdp',
@@ -161,45 +161,45 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2022-8-tp.sdp',
-    messageIncludes: 'For stream 1, format parameter \'TP\' is not one of \'2110TPNL\' or \'2110TPW\', as per ST 2022-8 Section 6'
+    messageIncludes: 'For stream 1, format parameter \'TP\' shall be \'2110TPNL\' or \'2110TPW\''
   },
   {
     file: 'invalid/st2022-8-dup-missing-tp.sdp',
     params: { shaping: true, duplicate: true },
-    messageIncludes: 'Stream 2 requires an \'fmtp\' attribute, as per ST 2022-8 Section 6'
+    messageIncludes: 'For stream 2, an \'fmtp\' attribute shall be specified, as per ST 2022-8 Section 6'
   },
   {
     file: 'invalid/st2022-8-troff.sdp',
     params: { shaping: true },
-    messageIncludes: 'For stream 1, format parameter \'TROFF\' cannot be negative, as per ST 2110-21 Section 8.2'
+    messageIncludes: 'For stream 1, format parameter \'TROFF\' shall be a non-negative integer'
   },
   {
     file: 'invalid/st2110-40-ssn.sdp',
-    messageIncludes: 'format parameter \'SSN\' shall be set to \'ST2110-40:2023\' when \'TM\' is present, as per ST 2110-40:2023 Section 7'
+    messageIncludes: 'format parameter \'SSN\' shall be \'ST2110-40:2023\' when \'TM\' is specified, as per ST 2110-40:2023 Section 7'
   },
   {
     file: 'invalid/st2110-40-clock-rate.sdp',
-    messageIncludes: 'For stream 1, clock rate shall be 90000Hz, as per ST 2110-40:2023 Section 5.3'
+    messageIncludes: 'For stream 1, clock rate shall be \'90000\', as per ST 2110-40:2023 Section 5.3'
   },
   {
     file: 'invalid/st2110-40-2018-clock-rate.sdp',
-    messageIncludes: 'For stream 1, clock rate shall be 90000Hz, as per ST 2110-40:2023 Section 5.3'
+    messageIncludes: 'For stream 1, clock rate shall be \'90000\', as per ST 2110-40:2023 Section 5.3'
   },
   {
     file: 'invalid/st2110-40-did-sdid.sdp',
-    messageIncludes: 'format parameter \'DID_SDID\' value \'{0x141,0x05}\' is not of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
+    messageIncludes: 'format parameter \'DID_SDID\' value \'{0x141,0x05}\' is not an acceptable pattern, which must be of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
   },
   {
     file: 'invalid/st2110-40-did-sdid-no-value.sdp',
-    messageIncludes: 'format parameter \'DID_SDID\' value \'\' is not of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
+    messageIncludes: 'format parameter \'DID_SDID\' value \'\' is not an acceptable pattern, which must be of the form \'{0xNN,0xNN}\', as per RFC 8331 Section 4'
   },
   {
     file: 'invalid/st2110-40-vpid-code.sdp',
-    messageIncludes: 'format parameter \'VPID_Code\' is not an integer from 0 to 255, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4'
+    messageIncludes: 'format parameter \'VPID_Code\' must be an integer in the range 0 to 255 inclusive, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4'
   },
   {
     file: 'invalid/st2110-40-fmtp-first.sdp',
-    messageIncludes: 'format parameter \'TM\' is not set to a required value'
+    messageIncludes: 'format parameter \'TM\' shall be \'CTM\' or \'LLTM\''
   },
   {
     file: 'invalid/rtpmap-payload-type.sdp',
@@ -225,16 +225,16 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2110-30-encoding-name.sdp',
-    messageIncludes: 'does not match the acceptable audio pattern',
+    messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern',
     messageExcludes: 'required attribute \'rtpmap\' is missing'
   },
   {
     file: 'invalid/st2110-31-clock-rate.sdp',
-    messageIncludes: 'For stream 1, attribute \'rtpmap\' specifies an unacceptable sampling rate \'32000\', as per ST 2110-31 Section 6.1'
+    messageIncludes: 'For stream 1, the sampling rate in attribute \'rtpmap\' shall be \'44100\', \'48000\' or \'96000\', but is \'32000\', as per ST 2110-31 Section 6.1'
   },
   {
     file: 'invalid/st2110-31-channels.sdp',
-    messageIncludes: 'For stream 1, attribute \'rtpmap\' specifies an odd number \'3\' of AES3 subframe sequences, as per ST 2110-31 Section 6.1'
+    messageIncludes: 'For stream 1, attribute \'rtpmap\' shall specify an even number of AES3 subframe sequences, but specifies \'3\', as per ST 2110-31 Section 6.1'
   },
   {
     file: 'invalid/st2110-31-missing-ptime.sdp',
@@ -242,27 +242,27 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2110-31-ptime.sdp',
-    messageIncludes: 'For stream 1, attribute \'ptime\' value \'0.125\' is not permitted for clock rate \'48000\', as per ST 2110-31 Section 6.1'
+    messageIncludes: 'For stream 1, attribute \'ptime\' shall be a packet time permitted for clock rate \'48000\', but is \'0.125\', as per ST 2110-31 Section 6.1'
   },
   {
     file: 'invalid/st2110-31-44100-ptime.sdp',
-    messageIncludes: 'For stream 1, attribute \'ptime\' value \'1\' is not permitted for clock rate \'44100\', as per ST 2110-31 Section 6.1'
+    messageIncludes: 'For stream 1, attribute \'ptime\' shall be a packet time permitted for clock rate \'44100\', but is \'1\', as per ST 2110-31 Section 6.1'
   },
   {
     file: 'invalid/st2110-31-channel-order.sdp',
-    messageIncludes: 'For stream 1, format parameter \'channel-order\' is not acceptable, as per ST 2110-31 Section 6.2'
+    messageIncludes: 'For stream 1, format parameter \'channel-order\' is not an acceptable pattern, as per ST 2110-31 Section 6.2'
   },
   {
     file: 'invalid/st2110-43-missing-fmtp.sdp',
-    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
+    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' shall be specified'
   },
   {
     file: 'invalid/st2110-43-missing-codecs.sdp',
-    messageIncludes: 'format parameter \'codecs\' is required'
+    messageIncludes: 'format parameter \'codecs\' shall be specified'
   },
   {
     file: 'invalid/st2110-43-fmtp-payload-type.sdp',
-    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' is required'
+    messageIncludes: 'an \'fmtp\' attribute with format parameter \'codecs\' shall be specified'
   },
   {
     file: 'invalid/st2110-43-rtpmap-payload-type.sdp',
@@ -271,63 +271,63 @@ const invalidCases = [
   },
   {
     file: 'invalid/st2110-43-clock-rate.sdp',
-    messageIncludes: 'clock rate shall be 90000Hz, as per ST 2110-43'
+    messageIncludes: 'clock rate shall be \'90000\', as per ST 2110-43'
   },
   {
     file: 'invalid/st2110-43-upper-case-encoding-name.sdp',
-    messageIncludes: 'clock rate shall be 90000Hz, as per ST 2110-43'
+    messageIncludes: 'clock rate shall be \'90000\', as per ST 2110-43'
   },
   {
     file: 'invalid/st2110-22-missing-fmtp.sdp',
-    messageIncludes: 'Line 6: For stream 1, the frame rate shall be specified as either an attribute or a parameter of video \'fmtp\''
+    messageIncludes: 'Line 6: For stream 1, the frame rate shall be specified by attribute \'framerate\' or format parameter \'exactframerate\''
   },
   {
     file: 'invalid/st2110-22-missing-fmtp.sdp',
-    messageIncludes: 'Stream 1 requires an \'fmtp\' attribute'
+    messageIncludes: 'For stream 1, an \'fmtp\' attribute shall be specified'
   },
   {
     file: 'invalid/st2110-22-transmode.sdp',
-    messageIncludes: 'format parameter \'transmode\' is not one of \'0\' or \'1\', as per RFC 9134 Section 7.1'
+    messageIncludes: 'format parameter \'transmode\' must be \'0\' or \'1\''
   },
   {
     file: 'invalid/st2110-22-profile-level-sublevel.sdp',
-    messageIncludes: 'format parameter \'profile\' is not a JPEG XS profile defined by ISO/IEC 21122-2'
+    messageIncludes: 'format parameter \'profile\' must be a JPEG XS profile defined by ISO/IEC 21122-2'
   },
   {
     file: 'invalid/st2110-22-profile-level-sublevel.sdp',
-    messageIncludes: 'format parameter \'level\' is not a JPEG XS level defined by ISO/IEC 21122-2'
+    messageIncludes: 'format parameter \'level\' must be a JPEG XS level defined by ISO/IEC 21122-2'
   },
   {
     file: 'invalid/st2110-22-profile-level-sublevel.sdp',
-    messageIncludes: 'format parameter \'sublevel\' is not a JPEG XS sublevel defined by ISO/IEC 21122-2'
+    messageIncludes: 'format parameter \'sublevel\' must be a JPEG XS sublevel defined by ISO/IEC 21122-2'
   },
   {
     file: 'invalid/st2110-22-depth.sdp',
-    messageIncludes: 'format parameter \'depth\' is not a positive integer, as per RFC 9134 Section 7.1'
+    messageIncludes: 'format parameter \'depth\' must be a positive integer'
   },
   {
     file: 'invalid/st2110-22-segmented.sdp',
-    messageIncludes: 'format parameter \'segmented\' requires format parameter \'interlace\', as per RFC 9134 Section 7.1'
+    messageIncludes: 'format parameter \'interlace\' must be specified when \'segmented\' is specified, as per RFC 9134 Section 7.1'
   },
   {
     file: 'invalid/st2110-22-sampling.sdp',
-    messageIncludes: 'format parameter \'sampling\' is not an acceptable value, as per RFC 9134 Section 7.1'
+    messageIncludes: 'format parameter \'sampling\' must be a permitted value'
   },
   {
     file: 'invalid/st2110-22-colorimetry.sdp',
-    messageIncludes: 'format parameter \'colorimetry\' is not a permitted value, as per RFC 9134 Section 7.1'
+    messageIncludes: 'format parameter \'colorimetry\' must be a permitted value'
   },
   {
     file: 'invalid/st2110-22-tcs.sdp',
-    messageIncludes: 'format parameter \'TCS\' (Transfer Characteristic System) is not a permitted value, as per RFC 9134 Section 7.1'
+    messageIncludes: 'format parameter \'TCS\' (Transfer Characteristic System) must be a permitted value'
   },
   {
     file: 'invalid/st2110-22-range.sdp',
-    messageIncludes: 'not one of the acceptable values for colorimetry BT.2100 of \'FULL\' or \'NARROW\', as per RFC 9134 Section 7.1'
+    messageIncludes: 'must be \'FULL\' or \'NARROW\' when \'colorimetry\' is \'BT2100\''
   },
   {
     file: 'invalid/st2110-22-exactframerate.sdp',
-    messageIncludes: 'parameter \'exactframerate\' is an integer rate expressed as a non-integer rational, as per ST 2110-22 Section 7.4'
+    messageIncludes: 'parameter \'exactframerate\' shall be a single integer for an integer frame rate, as per ST 2110-22 Section 7.4'
   },
   {
     file: 'invalid/st2110-mixed-essence.sdp',
@@ -403,7 +403,7 @@ test('an origin or connection data field that is not the IP version requested is
 
 test('a multicast connection address is reported in quotes when unicast is requested', t => {
   const messages = runAllChecks(readFixture('valid/st2110-20.sdp'), { ...cliDefaults, unicast: true }).map(error => error.message);
-  t.ok(messages.includes('Line 6: Unicast connections requested by configuration and connection data field address \'232.80.177.113\' is multicast.'));
+  t.ok(messages.includes('Line 6: Connection data field (\'c=\') address \'232.80.177.113\' must be a unicast address, as requested by --unicast.'));
   t.end();
 });
 
@@ -469,9 +469,9 @@ test('ST 2110-10:2022 Section 8.7 tests check TSDELAY is an integer number of mi
 test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const cases = [
-    ['a=ts-refclk:ptp=IEEE1588-2008:nottraceablex', 'do not match acceptable patterns'],
-    ['a=ts-refclk:ptp=IEEE1588-2008:junk39-A7-94-FF-FE-07-CB-D0:37', 'do not match acceptable patterns'],
-    ['a=ts-refclk:localmac=7C-E9-D3-1B-9A-AFjunk', 'has an invalid MAC address'],
+    ['a=ts-refclk:ptp=IEEE1588-2008:nottraceablex', 'is not an acceptable pattern'],
+    ['a=ts-refclk:ptp=IEEE1588-2008:junk39-A7-94-FF-FE-07-CB-D0:37', 'is not an acceptable pattern'],
+    ['a=ts-refclk:localmac=7C-E9-D3-1B-9A-AFjunk', 'shall specify a MAC address of the form'],
     ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'Attribute \'source-filter\' is not an acceptable pattern']
   ];
 
@@ -501,7 +501,7 @@ test('RFC 4566 Section 5.7 tests recognise multicast addresses in IPv4 and IPv6 
     const addressType = address.includes(':') ? 'IP6' : 'IP4';
     const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN ${addressType} ${address}`), { ...cliDefaults, multicast: true });
     t.equal(
-      errors.some(error => error.message.includes('is unicast')),
+      errors.some(error => error.message.includes('must be a multicast address')),
       !isMulticast,
       `${address} is recognised as ${isMulticast ? 'multicast' : 'unicast'}`
     );
@@ -634,7 +634,7 @@ test('BT.2100 signals without RANGE are reported only with --should', t => {
     [readFixture('valid/st2110-20.sdp').replace('colorimetry=BT709', 'colorimetry=BT2100'), 'ST 2110-20 Section 7.5'],
     [readFixture('invalid/st2110-22-range.sdp').replace('RANGE=FULLPROTECT; ', ''), 'RFC 9134 Section 7.1']
   ];
-  const message = 'format parameter \'colorimetry\' is \'BT2100\' and so format parameter \'RANGE\' should also be specified, as per';
+  const message = 'format parameter \'RANGE\' should be specified when \'colorimetry\' is \'BT2100\', as per';
 
   for (const [sdp, specification] of cases) {
     t.same(checkST2110(sdp, cliDefaults), [], `${specification} is skipped by default`);
@@ -652,7 +652,7 @@ test('SMPTE channel orders must match the grouping symbols to the end of the val
   for (const [sdp, order] of cases) {
     t.same(runAllChecks(sdp), [], `'${order}' is accepted`);
     const messages = runAllChecks(sdp.replace(order, `${order}junk`)).map(error => error.message).join(' ');
-    t.ok(messages.includes('format parameter \'channel-order\' is not acceptable'), `'${order}junk' is reported`);
+    t.ok(messages.includes('format parameter \'channel-order\' is not an acceptable pattern'), `'${order}junk' is reported`);
   }
   t.end();
 });
@@ -673,7 +673,7 @@ test('ST 2110-40:2023 Section 7 tests check TROFF only when shaping', t => {
 
 test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --should', t => {
   const sdp = readFixture('valid/st2110-40-2023.sdp').replace('SSN=ST2110-40:2023', 'SSN=ST2110-40:2021');
-  const message = 'should be set to \'ST2110-40:2023\' rather than the equivalent \'ST2110-40:2021\'';
+  const message = 'should be \'ST2110-40:2023\' rather than the equivalent \'ST2110-40:2021\'';
 
   t.same(section_40_2023_7(sdp, cliDefaults), [], 'SSN=ST2110-40:2021 passes by default');
   t.ok(
@@ -685,7 +685,7 @@ test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --shou
 
 test('RFC 8331 Section 4 tests check VPID_Code is no more than 255', t => {
   const sdp = readFixture('valid/st2110-40-rfc8331.sdp');
-  const message = 'format parameter \'VPID_Code\' is not an integer from 0 to 255';
+  const message = 'format parameter \'VPID_Code\' must be an integer in the range 0 to 255 inclusive';
   const messages = vpid => section_8331_4(sdp.replace('VPID_Code=132', `VPID_Code=${vpid}`), cliDefaults).map(error => error.message).join(' ');
 
   t.notOk(messages(255).includes(message), 'VPID_Code=255 is accepted');
@@ -717,9 +717,9 @@ test('a missing attribute, field or format parameter is reported at the media de
   const messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message).join(' ');
   const pair = readFixture('valid/st2110-22.sdp');
 
-  t.ok(messages(readFixture('invalid/st2110-22-missing-fmtp.sdp')).includes('Line 6: Stream 1 requires an \'fmtp\' attribute'),
+  t.ok(messages(readFixture('invalid/st2110-22-missing-fmtp.sdp')).includes('Line 6: For stream 1, an \'fmtp\' attribute shall be specified'),
     'a missing fmtp in the first of two streams');
-  t.ok(messages(readFixture('invalid/bad-line-format.sdp')).includes('Line 6: Stream 1 requires an \'fmtp\' attribute'),
+  t.ok(messages(readFixture('invalid/bad-line-format.sdp')).includes('Line 6: For stream 1, an \'fmtp\' attribute shall be specified'),
     'a missing fmtp in the last stream');
   t.ok(messages(readFixture('invalid/bad-line-format.sdp')).includes('Line 6: For stream 1, format parameter \'TP\' shall be specified'),
     'a missing format parameter of a stream with no fmtp');
@@ -729,7 +729,7 @@ test('a missing attribute, field or format parameter is reported at the media de
     'a missing connection data field in the last stream');
   t.ok(messages(readFixture('invalid/st2110-31-missing-ptime.sdp')).includes('Line 5: For stream 1, attribute \'ptime\' shall be specified'),
     'a missing ptime');
-  t.ok(messages(readFixture('valid/st2110-30.sdp'), { channelOrder: true }).includes('Line 5: For stream 1, channel order for an audio stream is required'),
+  t.ok(messages(readFixture('valid/st2110-30.sdp'), { channelOrder: true }).includes('Line 5: For stream 1, format parameter \'channel-order\' must be specified'),
     'a missing channel-order');
   t.end();
 });
@@ -737,8 +737,8 @@ test('a missing attribute, field or format parameter is reported at the media de
 test('RFC 4566 Section 5.7 tests check the TTL of IPv4 multicast connection data fields', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const messages = ttl => checkRFC4566(sdp.replace('c=IN IP4 232.80.177.113/32', `c=IN IP4 232.80.177.113${ttl}`), cliDefaults).map(error => error.message).join(' ');
-  const missing = 'Connection data fields using multicast addresses must have a TTL field';
-  const range = 'Multicast TTL value must be in the range 0-255';
+  const missing = 'with an IPv4 multicast address must have a TTL value';
+  const range = 'Multicast TTL value must be an integer in the range 0 to 255 inclusive';
 
   t.ok(messages('').includes(missing), 'a missing TTL is reported');
   t.ok(messages('/256').includes(range), 'a TTL of 256 is reported');
