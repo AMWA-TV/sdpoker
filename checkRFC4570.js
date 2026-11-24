@@ -49,6 +49,7 @@ const test_30_1 = (sdp, params) => {
   return errors;
 };
 
+// RFC 4570 Section 3 Test 2 is now ST 2110-10:2022 Section 8.4 Tests 1 and 2
 // RFC 4570 Section 3 Test 3 - Source filter destination addresses match a connection address
 // A media-level source filter can match the session-level connection address, and a session-level source filter
 // can match the session-level or any media-level connection address, as per RFC 4570 Section 3.

@@ -732,6 +732,8 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
   return errors;
 };
 
+// ST 2110-20 Section 7.1 Test 1 checked all streams are video, as requested by the removed --videoOnly option
+// ST 2110-20 Section 7.1 Test 2 is now ST 2110-10 Section 6.2 Test 1
 // ST 2110-20 Section 7.1 Test 3 - All video streams have 'rtpmap' entry 'raw/90000'
 const test_20_71_3 = (sdp, params) => {
   let errors = checkStreamsRtpMap(sdp, params, 'raw', '90000', 'ST 2110-20 Section 7.1');
@@ -1391,6 +1393,7 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
   return errors;
 };
 
+// ST 2110-30 Section 6.2.1 Test 2 is now ST 2110-10 Section 6.2 Test 1
 // ST 2110-30 Section 6.2.1 Test 3 - 'ptime' is present, and 'ptime' and 'maxptime' match an acceptable pattern
 const test_30_62_3 = (sdp, params) => {
   let errors = checkStreamsPtime(sdp,
@@ -1449,6 +1452,7 @@ const checkStreamsChannelOrder = (sdp, params, checkOrder) => {
   return errors;
 };
 
+// ST 2110-30 Section 6.2.2 Tests 1 to 3 have never been assigned
 // ST 2110-30 Section 6.2.2 Test 4 - 'channel-order', if present, has an acceptable format
 const test_30_62_4 = (sdp, params) => {
   let errors = checkStreamsChannelOrder(sdp, params, order => {
@@ -1466,6 +1470,8 @@ const test_30_62_4 = (sdp, params) => {
   }
   return errors;
 };
+
+// ST 2110-30 Section 6.2.2 Test 5 checked all streams are audio, as requested by the removed --audioOnly option
 
 // Permitted packet times (ms) for each RTP clock rate, as per ST 2110-31 Section 6.1 Table 1
 const ptimePermitted31 = {
