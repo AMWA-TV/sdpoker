@@ -17,8 +17,8 @@ const { splitLines, LineError } = require('./lines.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
-const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
-const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:direct(\s|$)/;
+const mediaclkDirectPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct=(\d+)/g;
+const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct(\s|$)/;
 const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
 const mediaclkDirectTypePattern = /^a=mediaclk:(id=\S+\s+)?direct([=\s]|$)/;
 const mediaclkDirectFormPattern = /^a=mediaclk:(id=\S+\s+)?direct(=\d+)?( rate=[1-9]\d*\/[1-9]\d*)?$/;
@@ -154,29 +154,24 @@ a=mid:SECONDARY
 
 // NOTE: all ST 2110 references are for the originally published specifications unless a later revision is indicated
 
-// ST 2110-10 Section 7.4 Test 1 - Where attribute 'mediaclk' uses the direct reference with PTP, the offset value is zero
+// ST 2110-10 Section 7.4 Test 1 - Where attribute 'mediaclk' uses the direct reference, the offset is included and is zero
 // [also ST 2110-10:2022 Sections 7.3 and 8.3]
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   let mediaLines = splitLines(sdp).flatMap((line, x) => line.startsWith('m=') ? [x + 1] : []);
   for (let s = 0; s < streams.length; s++) {
-    if (mediaclkNoOffsetPattern.test(streams[s]) && streams[s].indexOf('IEEE1588-2008') > 0) {
-      errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall include a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
+    if (mediaclkNoOffsetPattern.test(streams[s])) {
+      errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall include a zero offset when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
     }
-    let zeroCheck = streams[s].match(mediaclkDirectPattern);
-    if (Array.isArray(zeroCheck) && zeroCheck.length > 0 &&
-      streams[s].indexOf('IEEE1588-2008') > 0) { // Zero check only PTP clocks
-      zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
-      for (let x = 0; x < zeroCheck.length; x++) {
-        if (zeroCheck[x] !== 0) {
-          errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
-        }
+    for (let offsetMatch of streams[s].matchAll(mediaclkDirectPattern)) {
+      if (+offsetMatch[1] !== 0) {
+        errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset, but has '${offsetMatch[1]}', when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3] Test 1 - Where attribute \'mediaclk\' uses the direct reference with PTP, the offset value is zero.');
+    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3] Test 1 - Where attribute \'mediaclk\' uses the direct reference, the offset is included and is zero.');
   }
   return errors;
 };

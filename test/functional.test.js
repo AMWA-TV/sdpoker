@@ -965,10 +965,21 @@ test('every error that starts with a line number has that line as its line prope
   t.end();
 });
 
-test('a direct-referenced media clock with no offset is reported when PTP is in use', t => {
-  const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:direct');
-  t.ok(checkST2110(sdp, cliDefaults).some(error => error.message.includes('the \'mediaclk\' attribute shall include a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3]')),
-    'a=mediaclk:direct with no offset is reported');
+test('a direct-referenced media clock with no offset or a non-zero offset is reported for any reference clock', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const citation = 'when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].';
+  const messages = (mediaclk, refclk) => checkST2110(sdp
+    .replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${mediaclk}`)
+    .replace(/a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`), cliDefaults)
+    .map(error => error.message).filter(m => m.includes(citation));
+  const missing = `Line 5: For stream 1, the 'mediaclk' attribute shall include a zero offset ${citation}`;
+  const nonZero = `Line 5: For stream 1, the 'mediaclk' attribute shall have a zero offset, but has '5', ${citation}`;
+  for (const refclk of ['ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37', 'ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0:37', 'localmac=7C-E9-D3-1B-9A-AF']) {
+    t.same(messages('direct', refclk), [missing], `no offset is reported with ${refclk}`);
+    t.same(messages('direct=5', refclk), [nonZero], `a non-zero offset is reported with ${refclk}`);
+    t.same(messages('direct=0', refclk), [], `a zero offset is accepted with ${refclk}`);
+  }
+  t.same(messages('id=src1 direct=5', 'localmac=7C-E9-D3-1B-9A-AF'), [nonZero], 'a non-zero offset is reported after a media clock identifier');
   t.end();
 });
 
