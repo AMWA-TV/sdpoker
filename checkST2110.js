@@ -49,9 +49,9 @@ const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
 const smpteChannelSymbols30 = 'M|DM|ST|LtRt|51|71|222|SGRP|U\\d\\d';
 const smpteChannelSymbols31 = smpteChannelSymbols30 + '|AES3';
 const smpteChannelPattern =
-  new RegExp('SMPTE2110\\.\\((' + smpteChannelSymbols30 + ')(,(' + smpteChannelSymbols30 + '))*\\)');
+  new RegExp('^SMPTE2110\\.\\((' + smpteChannelSymbols30 + ')(,(' + smpteChannelSymbols30 + '))*\\)$');
 const smpteChannelPattern31 =
-  new RegExp('SMPTE2110\\.\\((' + smpteChannelSymbols31 + ')(,(' + smpteChannelSymbols31 + '))*\\)');
+  new RegExp('^SMPTE2110\\.\\((' + smpteChannelSymbols31 + ')(,(' + smpteChannelSymbols31 + '))*\\)$');
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2'];
 // Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.

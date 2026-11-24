@@ -426,6 +426,19 @@ test('BT.2100 signals without RANGE are reported only with --should', t => {
   t.end();
 });
 
+test('SMPTE channel orders must match the grouping symbols to the end of the value', t => {
+  const cases = [
+    [readFixture('valid/st2110-30.sdp').replace('a=rtpmap:102 L24/48000/2', '$&\r\na=fmtp:102 channel-order=SMPTE2110.(ST)'), 'SMPTE2110.(ST)'],
+    [readFixture('valid/st2110-31-aes3.sdp'), 'SMPTE2110.(AES3,ST)']
+  ];
+  for (const [sdp, order] of cases) {
+    t.same(runAllChecks(sdp), [], `'${order}' is accepted`);
+    const messages = runAllChecks(sdp.replace(order, `${order}junk`)).map(error => error.message).join(' ');
+    t.ok(messages.includes('format parameter \'channel-order\' is not acceptable'), `'${order}junk' is reported`);
+  }
+  t.end();
+});
+
 test('ST 2022-8 Section 7.1 tests check TROFF only when shaping', t => {
   t.same(section_2022_8_71(readFixture('invalid/st2022-8-troff.sdp'), cliDefaults), [], 'a negative TROFF is not reported');
   t.end();
