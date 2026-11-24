@@ -402,6 +402,31 @@ test('an origin or connection data field that is not the IP version requested is
   t.end();
 });
 
+test('an origin or connection data address that is not of its address type is reported', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = (from, to) => checkRFC4566(sdp.replace(from, to), cliDefaults).map(error => error.message);
+  const origin = 'IN IP4 172.29.80.65';
+  const connection = 'c=IN IP4 232.80.177.113/32';
+
+  t.same(messages(origin, 'IN IP6 172.29.80.65'),
+    ['Line 2: Origin field (\'o=\') address \'172.29.80.65\' must be an IPv6 address to match address type \'IP6\', as per RFC 4566 Section 5.2.']);
+  t.same(messages(origin, 'IN IP4 2001:db8::1'),
+    ['Line 2: Origin field (\'o=\') address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4566 Section 5.2.']);
+  t.same(messages(origin, 'IN IP| 172.29.80.65'), ['Line 2: Origin field (\'o=\') is not an acceptable pattern, as per RFC 4566 Section 5.2.']);
+  t.same(messages(connection, 'c=IN IP6 232.130.55.188/32'),
+    ['Line 6: Connection data field (\'c=\') address \'232.130.55.188\' must be an IPv6 address to match address type \'IP6\', as per RFC 4566 Section 5.7.'],
+    'an IPv4 address with address type IP6 is reported, and its /32 is not checked as a TTL');
+  t.same(messages(connection, 'c=IN IP4 ff3e::8000:1'),
+    ['Line 6: Connection data field (\'c=\') address \'ff3e::8000:1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4566 Section 5.7.']);
+  t.same(messages(connection, 'c=IN IP6 ff3e:::1'),
+    ['Line 6: Connection data field (\'c=\') address \'ff3e:::1\' must be an IPv6 address to match address type \'IP6\', as per RFC 4566 Section 5.7.']);
+
+  t.same(messages(origin, 'IN IP4 host.example.com'), [], 'a domain name origin address is accepted');
+  t.same(messages(origin, 'IN IP6 host.example.com'), [], 'a domain name origin address is accepted with address type IP6');
+  t.same(messages(connection, 'c=IN IP6 ff3e::8000:1/2'), [], 'an IPv6 multicast address with a number of addresses is accepted');
+  t.end();
+});
+
 test('a multicast connection address is reported in quotes when unicast is requested', t => {
   const messages = runAllChecks(readFixture('valid/st2110-20.sdp'), { ...cliDefaults, unicast: true }).map(error => error.message);
   t.ok(messages.includes('Line 6: Connection data field (\'c=\') address \'232.80.177.113\' must be a unicast address, as requested by --unicast.'));

@@ -74,7 +74,7 @@ for (const rows of Object.values(followedBy)) {
     }
   }
 }
-const oPattern = /^o=(\S+)\s+(\d+)\s+(\d+)\s+IN\s+(IP[4|6])\s+(\S+)$/;
+const oPattern = /^o=(\S+)\s+(\d+)\s+(\d+)\s+IN\s+(IP[46])\s+(\S+)$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 const bPattern = /^b=[^\s:]+:\d+$/;
 const tPattern = /^t=(0|[1-9]\d{9,})\s+(0|[1-9]\d{9,})$/;
@@ -82,6 +82,13 @@ const ip4Pattern = /^([1-9]\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)\.(\d\d?\d?)$/;
 // IP6-address = hexpart [ ":" IP4-address ], as per RFC 4566 Section 9
 const ip6Pattern = /^([0-9a-f]{1,4}(:[0-9a-f]{1,4})*|([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?::([0-9a-f]{1,4}(:[0-9a-f]{1,4})*)?)(:\d{1,3}(\.\d{1,3}){3})?$/i;
 const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[0-9a-f:.]*))$/i;
+
+// An IP address must be of the address type before it. A domain name is
+// accepted with either address type, and cannot contain ':'.
+const addressTypeMismatch = (addrtype, address) => addrtype === 'IP4' ?
+  address.includes(':') :
+  ip4Pattern.test(address) || (address.includes(':') && !ip6Pattern.test(address));
+const addressTypeName = { IP4: 'an IPv4 address', IP6: 'an IPv6 address' };
 
 // RFC 4566 Section 5 Test 1 - Line endings are all CRLF
 const test50_1 = (sdp, params) => {
@@ -231,6 +238,9 @@ const test_52_1 = (sdp, params) => {
         errors.push(new LineError(x + 1, 'Origin field (\'o=\') is not an acceptable pattern, as per RFC 4566 Section 5.2.'));
         continue;
       }
+      if (addressTypeMismatch(oMatch[4], oMatch[5])) {
+        errors.push(new LineError(x + 1, `Origin field ('o=') address '${oMatch[5]}' must be ${addressTypeName[oMatch[4]]} to match address type '${oMatch[4]}', as per RFC 4566 Section 5.2.`));
+      }
       if (multiPattern.test(oMatch[5])) {
         errors.push(new LineError(x + 1, `Origin field ('o=') address '${oMatch[5]}' must be a unicast address, as per RFC 4566 Section 5.2.`));
       }
@@ -316,6 +326,10 @@ const test_57_2 = (sdp, params) => {
       let cMatch = lines[x].match(cPattern);
       if (!cMatch) {
         errors.push(new LineError(x + 1, 'Connection data field (\'c=\') is not an acceptable pattern, as per RFC 4566 Section 5.7.'));
+        continue;
+      }
+      if (addressTypeMismatch(cMatch[1], cMatch[2])) {
+        errors.push(new LineError(x + 1, `Connection data field ('c=') address '${cMatch[2]}' must be ${addressTypeName[cMatch[1]]} to match address type '${cMatch[1]}', as per RFC 4566 Section 5.7.`));
         continue;
       }
       let addrMatch = cMatch[2].match(ip4Pattern);
