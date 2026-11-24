@@ -813,3 +813,12 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     'a test that reports an error does not report that it passed');
   t.end();
 });
+
+test('a repeated format parameter is reported once for every stream format', t => {
+  for (const fixture of ['st2110-20', 'st2110-22', 'st2110-40-2023']) {
+    const sdp = readFixture(`valid/${fixture}.sdp`).replace(/(a=fmtp:\d+ )/, '$1TSMODE=SAMP; TSMODE=SAMP; ');
+    const repeats = runAllChecks(sdp).map(error => error.message).filter(m => m.includes('format parameter \'TSMODE\' is specified more than once'));
+    t.equal(repeats.length, 1, `${fixture} reports a repeated format parameter once`);
+  }
+  t.end();
+});

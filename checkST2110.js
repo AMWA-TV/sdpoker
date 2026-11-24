@@ -667,6 +667,7 @@ const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
 // ST 2110-10:2022 Section 8.7 Test 1 - Format parameters 'TSMODE' and 'TSDELAY' are acceptable values
 const test_10_2022_87_1 = (sdp, params) => {
+  // This test runs for every stream format, so it also reports any repeated format parameter
   let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
   for (let stream of mtParams) {
     let keys = Object.keys(stream);
@@ -901,7 +902,7 @@ const mustHaves20 = ['sampling', 'depth', 'width', 'height', 'exactframerate',
 
 // ST 2110-20 Section 7.2 Test 1 - All required format parameters are present
 const test_20_72_1 = (sdp, params) => {
-  let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
+  let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (stream._encodingName == 'raw') {
       let keys = Object.keys(stream);
@@ -1667,7 +1668,7 @@ const mustHaves9134 = ['packetmode']; // Defined as mandatory in RFC 9134
 
 // ST 2110-22 Section 7.2 Test 1 - All format parameters required by ST 2110-22 Section 7.2 and RFC 9134 Section 7.1 are present
 const test_22_72_1 = (sdp, params) => {
-  let [mtParams, errors] = extractMTParams(sdp, { checkDups: true });
+  let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     let keys = Object.keys(stream);
     for (let param of mustHaves22) {
