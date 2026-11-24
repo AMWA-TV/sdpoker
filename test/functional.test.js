@@ -2,11 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const test = require('tape');
 const { checkRFC4566, checkRFC4570, checkST2110 } = require('../index.js');
+const { section_22_74 } = require('../checkST2110.js');
 
 // Mirror sdpoker.js default CLI options so library tests match CLI behaviour.
 const cliDefaults = {
   checkEndings: false, should: false, noCopy: true, noMedia: true,
-  duplicate: false, videoOnly: false, audioOnly: false,
+  duplicate: false,
   skipRFC4566: false, skipRFC4570: false, skipST2110: false,
   channelOrder: false, useIP4: false, useIP6: false,
   multicast: false, unicast: false, shaping: false, verbose: false
@@ -172,6 +173,66 @@ const invalidCases = [
   {
     file: 'invalid/st2110-43-upper-case-encoding-name.sdp',
     messageIncludes: 'clock rate must be 90000Hz, as per ST 2110-43'
+  },
+  {
+    file: 'invalid/st2110-22-missing-fmtp.sdp',
+    messageIncludes: 'Media Stream 1: Framerate must specified as either an attribute or a parameter of video fmtp'
+  },
+  {
+    file: 'invalid/st2110-22-missing-fmtp.sdp',
+    messageIncludes: 'Stream 1 does not have an \'fmtp\' attribute'
+  },
+  {
+    file: 'invalid/st2110-22-transmode.sdp',
+    messageIncludes: 'format parameter \'transmode\' is not one of \'0\' or \'1\', as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-profile-level-sublevel.sdp',
+    messageIncludes: 'format parameter \'profile\' is not a JPEG XS profile defined by ISO/IEC 21122-2'
+  },
+  {
+    file: 'invalid/st2110-22-profile-level-sublevel.sdp',
+    messageIncludes: 'format parameter \'level\' is not a JPEG XS level defined by ISO/IEC 21122-2'
+  },
+  {
+    file: 'invalid/st2110-22-profile-level-sublevel.sdp',
+    messageIncludes: 'format parameter \'sublevel\' is not a JPEG XS sublevel defined by ISO/IEC 21122-2'
+  },
+  {
+    file: 'invalid/st2110-22-depth.sdp',
+    messageIncludes: 'format parameter \'depth\' is not a positive integer, as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-segmented.sdp',
+    messageIncludes: 'format parameter \'segmented\' is signalled without \'interlace\' being signalled, as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-sampling.sdp',
+    messageIncludes: 'format parameter \'sampling\' is not an acceptable value, as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-colorimetry.sdp',
+    messageIncludes: 'format parameter \'colorimetry\' is not a permitted value, as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-tcs.sdp',
+    messageIncludes: 'format parameter \'TCS\' (Transfer Characteristic System) is not a permitted value, as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-range.sdp',
+    messageIncludes: 'not one of the acceptable values for colorimetry BT.2100 of \'FULL\' or \'NARROW\', as per RFC 9134 Section 7.1'
+  },
+  {
+    file: 'invalid/st2110-22-exactframerate.sdp',
+    messageIncludes: 'parameter \'exactframerate\' is an integer rate expressed as a non-integer rational, as per ST 2110-22 Section 7.4'
+  },
+  {
+    file: 'invalid/st2110-mixed-essence.sdp',
+    messageIncludes: 'For stream 2, the essence \'audio/L24\' differs from the essence \'video/raw\' of stream 1'
+  },
+  {
+    file: 'invalid/st2110-mixed-encoding.sdp',
+    messageIncludes: 'For stream 2, the essence \'video/jxsv\' differs from the essence \'video/raw\' of stream 1'
   }
 ];
 
@@ -233,6 +294,30 @@ test('ts-refclk and source-filter attributes must match a pattern to the end of 
     const variant = sdp.replace(new RegExp(`${name}:[^\\r\\n]*`), attribute);
     const messages = runAllChecks(variant).map(error => error.message).join(' ');
     t.ok(messages.includes(message), `'${attribute}' is reported`);
+  }
+  t.end();
+});
+
+test('ST 2110-22 Section 7.4 tests report fmtp errors', t => {
+  const sdp = readFixture('valid/st2110-22.sdp').replace('a=fmtp:112 ', 'a=fmtp:112 ;');
+  const errors = section_22_74(sdp, cliDefaults);
+
+  t.ok(errors.length > 0, 'a malformed fmtp is reported');
+  t.ok(errors.every(error => error instanceof Error), 'every result is an Error');
+  t.end();
+});
+
+test('BT.2100 signals without RANGE are reported only with --should', t => {
+  const cases = [
+    [readFixture('valid/st2110-20.sdp').replace('colorimetry=BT709', 'colorimetry=BT2100'), 'ST 2110-20 Section 7.5'],
+    [readFixture('invalid/st2110-22-range.sdp').replace('RANGE=FULLPROTECT; ', ''), 'RFC 9134 Section 7.1']
+  ];
+  const message = 'format parameter \'colorimetry\' is \'BT2100\' and so a \'RANGE\' parameter should also be specified, as per';
+
+  for (const [sdp, specification] of cases) {
+    t.same(checkST2110(sdp, cliDefaults), [], `${specification} is skipped by default`);
+    const messages = checkST2110(sdp, { ...cliDefaults, should: true }).map(error => error.message);
+    t.ok(messages.some(m => m.includes(`${message} ${specification}.`)), `${specification} is reported with --should`);
   }
   t.end();
 });
