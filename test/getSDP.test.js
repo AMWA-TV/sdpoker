@@ -5,7 +5,7 @@ const test = require('tape');
 const { getSDP } = require('../index.js');
 
 const fixtureBody = fs.readFileSync(
-  path.join(__dirname, 'fixtures', 'valid', 'st2110-10.sdp'),
+  path.join(__dirname, 'fixtures', 'valid', 'st2110-20.sdp'),
   'utf8'
 );
 

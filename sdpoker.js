@@ -36,7 +36,7 @@ const args = yargs(hideBin(process.argv))
     useIP6: { type: 'boolean', default: false, describe: 'All addresses expressed in IP v6 notation' },
     multicast: { type: 'boolean', default: false, describe: 'Connection addresses must be multicast' },
     unicast: { type: 'boolean', default: false, describe: 'Connection addresses must be unicast' },
-    shaping: { type: 'boolean', default: false, describe: 'Check adherence to traffic shaping specification' },
+    shaping: { type: 'boolean', default: true, describe: 'Check adherence to traffic shaping specification' },
     verbose: { type: 'boolean', default: false, describe: 'Print passed tests as well as failed' }
   })
   .usage('Check an SDP file for conformance with RFC4566 and SMPTE ST 2110.\n' +
