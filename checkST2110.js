@@ -2089,6 +2089,12 @@ const test_40_2023_7_3 = (sdp, params) => {
 
 // ST 2110-40:2023 Section 7 Test 4 - When format parameter 'TROFF' is specified, it is an acceptable value
 const test_40_2023_7_4 = (sdp, params) => {
+  if (params.shaping === false) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-40:2023 Section 7 Test 4 - When format parameter \'TROFF\' is specified, it is an acceptable value. Use --shaping to test.');
+    }
+    return [];
+  }
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TROFF !== 'undefined') {

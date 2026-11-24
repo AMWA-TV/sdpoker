@@ -18,7 +18,7 @@ This is a fork of the original repository from [Streampunk/sdpoker](https://gith
 
 Recent activity on the project (newest first):
 
-- The traffic shaping checks of ST 2110-21 and ST 2022-8 run by default, and `--no-shaping` skips them
+- The traffic shaping checks of ST 2110-21, ST 2022-8 and ST 2110-40 run by default, and `--no-shaping` skips them
 - Added checks of the ST 2110-40 and RFC 8331 format parameters of ANC data streams
 - Added checks of the RFC 9134 format parameters of JPEG XS streams
 - Removed the `--videoOnly` and `--audioOnly` options, because SDPoker now reports any SDP file that describes more than one essence

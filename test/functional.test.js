@@ -646,6 +646,15 @@ test('ST 2022-8 Section 7.1 tests check TROFF only when shaping', t => {
   t.end();
 });
 
+test('ST 2110-40:2023 Section 7 tests check TROFF only when shaping', t => {
+  const sdp = readFixture('valid/st2110-40-2023.sdp').replace('SSN=ST2110-40:2023', 'SSN=ST2110-40:2023; TROFF=-1');
+  const message = 'format parameter \'TROFF\'';
+
+  t.ok(section_40_2023_7(sdp, cliDefaults).some(error => error.message.includes(message)), 'a negative TROFF is reported by default');
+  t.notOk(section_40_2023_7(sdp, { ...cliDefaults, shaping: false }).some(error => error.message.includes(message)), 'a negative TROFF is not reported with --no-shaping');
+  t.end();
+});
+
 test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --should', t => {
   const sdp = readFixture('valid/st2110-40-2023.sdp').replace('SSN=ST2110-40:2023', 'SSN=ST2110-40:2021');
   const message = 'should be set to \'ST2110-40:2023\' rather than the equivalent \'ST2110-40:2021\'';
