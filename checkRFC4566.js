@@ -62,6 +62,15 @@ const followedBy = {
     'a': { 'a': 'media', 'm' : 'media' }
   }
 };
+// The state that each type of line leads to, or null if that depends on the state before it
+const leadsTo = {};
+for (const rows of Object.values(followedBy)) {
+  for (const row of Object.values(rows)) {
+    for (const [type, next] of Object.entries(row)) {
+      leadsTo[type] = leadsTo[type] === undefined || leadsTo[type] === next ? next : null;
+    }
+  }
+}
 const oPattern = /^o=(\S+)\s+(\d+)\s+(\d+)\s+IN\s+(IP[4|6])\s+(\S+)$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 const bPattern = /^b=[^\s:]+:\d+$/;
@@ -173,6 +182,7 @@ const test_50_5 = (lines, params) => {
     nextState = movingOn ? movingOn : nextState;
     if (Object.keys(nextState).indexOf(types[x]) < 0) {
       errors.push(new Error(`Line ${x + 1}: A line of type '${types[previous]}' must not be followed by a line of type '${types[x]}', as per RFC 4566 Section 5.`));
+      state = leadsTo[types[x]] ?? state;
     } else {
       state = nextState[types[x]];
     }

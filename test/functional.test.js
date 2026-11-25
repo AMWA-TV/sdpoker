@@ -933,3 +933,13 @@ test('a missing duplicate stream group is reported at the first media descriptio
   t.ok(messages('invalid/missing-media.sdp').includes(message(4)), 'the last line when there is no media description');
   t.end();
 });
+
+test('a line out of order is reported once, and the lines after it are checked from that line', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const without = type => sdp.split('\r\n').filter(line => !line.startsWith(`${type}=`)).join('\r\n');
+  const order = variant => checkRFC4566(variant, cliDefaults).map(error => error.message)
+    .filter(message => message.includes('must not be followed by'));
+  t.same(order(without('t')), ['Line 4: A line of type \'s\' must not be followed by a line of type \'m\', as per RFC 4566 Section 5.'], 'no t');
+  t.same(order(without('s')), ['Line 3: A line of type \'o\' must not be followed by a line of type \'t\', as per RFC 4566 Section 5.'], 'no s');
+  t.end();
+});
