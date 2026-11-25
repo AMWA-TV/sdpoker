@@ -35,7 +35,12 @@ export default function ResultsPanel({ result, options, stale, onShowLine }: Pro
   }
 
   return (
-    <Box sx={{ p: 2, opacity: stale ? 0.6 : 1 }} data-testid="results">
+    <Box sx={{ p: 2 }} data-testid="results">
+      {stale && (
+        <Alert severity="warning" sx={{ mb: 1 }}>
+          Out of date: the SDP or the options have changed since it was checked.
+        </Alert>
+      )}
       <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Typography variant="h6" component="h2">
           Validation results
@@ -45,12 +50,9 @@ export default function ResultsPanel({ result, options, stale, onShowLine }: Pro
           color={result.errorCount ? 'error' : 'success'}
           data-testid="error-count"
         />
-        <Typography variant="body2" color="text.secondary" data-testid="duration">
+        <Typography variant="caption" color="text.secondary" data-testid="duration">
           {result.durationMs.toFixed(1)} ms
         </Typography>
-        {stale && (
-          <Chip label="Out of date: the SDP has changed since it was checked" color="warning" variant="outlined" />
-        )}
       </Stack>
       {!result.lineEndingsChecked && (
         <Alert severity="info" sx={{ mb: 1 }} data-testid="endings-skipped">
@@ -62,12 +64,18 @@ export default function ResultsPanel({ result, options, stale, onShowLine }: Pro
         const diagnostics = result.diagnostics.filter((d) => d.validator === validator);
         return (
           <Box key={validator} component="section" aria-label={validator} sx={{ mb: 1 }}>
-            <Typography variant="subtitle1" component="h3">
-              {validator}{' '}
-              <Typography component="span" variant="body2" color="text.secondary" data-testid="validator-count">
-                {options[skip] ? 'skipped' : `${diagnostics.length} error${diagnostics.length === 1 ? '' : 's'}`}
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Typography variant="subtitle1" component="h3">
+                {validator}
               </Typography>
-            </Typography>
+              <Chip
+                size="small"
+                variant="outlined"
+                label={options[skip] ? 'skipped' : `${diagnostics.length} error${diagnostics.length === 1 ? '' : 's'}`}
+                color={options[skip] ? 'default' : diagnostics.length ? 'error' : 'success'}
+                data-testid="validator-count"
+              />
+            </Stack>
             <List dense disablePadding>
               {diagnostics.map((diagnostic) => (
                 <DiagnosticItem key={diagnostic.id} diagnostic={diagnostic} onShowLine={onShowLine} />
@@ -82,9 +90,15 @@ export default function ResultsPanel({ result, options, stale, onShowLine }: Pro
 
 function DiagnosticItem({ diagnostic, onShowLine }: { diagnostic: Diagnostic; onShowLine: (line: number) => void }) {
   const { line, message } = diagnostic;
+  // The chip shows the line, so the message does not repeat it
+  const prefix = `Line ${line}: `;
   const text = (
     <ListItemText
-      primary={<MessageText message={message} />}
+      primary={
+        <MessageText
+          message={line !== undefined && message.startsWith(prefix) ? message.slice(prefix.length) : message}
+        />
+      }
       slotProps={{ primary: { sx: { fontFamily: 'monospace' } } }}
     />
   );

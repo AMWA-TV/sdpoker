@@ -33,7 +33,9 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./');
 });
 
-test('an example is checked with its line endings, and its diagnostics lead to their lines', async ({ page }) => {
+test('an example is checked as soon as it is loaded, with its line endings, and its diagnostics lead to their lines', async ({
+  page,
+}) => {
   const path = 'test/fixtures/invalid/missing-media.sdp';
   const lines = readSource(path).split('\r\n');
   await loadExample(page, 'missing-media.sdp');
@@ -43,7 +45,6 @@ test('an example is checked with its line endings, and its diagnostics lead to t
     `https://github.com/AMWA-TV/sdpoker/blob/master/${path}`,
   );
 
-  await page.getByRole('button', { name: 'Validate' }).click();
   await expect(page.getByTestId('error-count')).toHaveText('2 errors');
   await expect(page.getByTestId('duration')).toHaveText(/^\d+\.\d ms$/);
   await expect(page.getByTestId('endings-skipped')).toHaveCount(0);
@@ -80,10 +81,67 @@ test('editing marks the results stale and skips the line-ending check until reve
   await expect(page.getByRole('button', { name: 'Revert to original' })).toHaveCount(0);
   await expect(page.getByLabel('Check line endings')).toBeEnabled();
   await expect(page.getByLabel('Check line endings')).toBeChecked();
+  await expect(page.getByTestId('error-count')).toHaveText('2 errors');
+  await expect(page.getByText('Out of date')).toHaveCount(0);
+  await expect(page.getByTestId('endings-skipped')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Clear' }).click();
   await expect(editor(page)).toHaveText('');
   await expect(status(page)).toContainText('0 lines');
+});
+
+test('changing an option marks the results out of date until it is changed back or the SDP is checked', async ({
+  page,
+}) => {
+  await loadExample(page, 'missing-media.sdp');
+  await page.getByRole('button', { name: 'Validate' }).click();
+  await expect(page.getByTestId('error-count')).toHaveText('2 errors');
+
+  await page.getByText('Validation options').click();
+  await page.getByLabel('Skip RFC 4566 checks').check();
+  await expect(page.getByText('Out of date: the SDP or the options have changed')).toBeVisible();
+  await expect(page.getByTestId('error-count')).toHaveText('2 errors');
+
+  await page.getByLabel('Skip RFC 4566 checks').uncheck();
+  await expect(page.getByText('Out of date')).toHaveCount(0);
+
+  await page.getByLabel('Skip RFC 4566 checks').check();
+  await page.getByRole('button', { name: 'Validate' }).click();
+  await expect(page.getByText('Out of date')).toHaveCount(0);
+  await expect(page.getByTestId('error-count')).toHaveText('1 error');
+});
+
+test('the example box shows the example that is open, and has no clear button', async ({ page }) => {
+  const box = page.getByLabel('Load an example or test fixture');
+  await loadExample(page, 'missing-media.sdp');
+  await expect(page.locator('.MuiAutocomplete-clearIndicator')).toHaveCount(0);
+
+  await editor(page).click();
+  await page.keyboard.type('x');
+  await page.getByRole('button', { name: 'Revert to original' }).click();
+  await expect(box).toHaveValue('missing-media.sdp');
+
+  await editor(page).click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Delete');
+  await editor(page).evaluate((element, text) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', text);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+  }, readSource('examples/st2110-20.sdp'));
+  await expect(status(page)).toContainText('Pasted SDP');
+  await expect(box).toHaveValue('');
+
+  await loadExample(page, 'missing-media.sdp');
+  await page.getByRole('button', { name: 'Clear' }).click();
+  await expect(box).toHaveValue('');
+
+  await loadExample(page, 'missing-media.sdp');
+  await page
+    .getByTestId('file-input')
+    .setInputFiles({ name: 'opened.sdp', mimeType: 'application/sdp', buffer: Buffer.from('v=0\r\n') });
+  await expect(status(page)).toContainText('opened.sdp');
+  await expect(box).toHaveValue('');
 });
 
 test('pasted SDP is checked without its line endings', async ({ page }) => {
@@ -108,9 +166,9 @@ test('an opened file keeps its line endings, and blank lines do not move the dia
     .setInputFiles({ name: 'blank.sdp', mimeType: 'application/sdp', buffer: Buffer.from(text) });
   await expect(status(page)).toContainText('blank.sdp');
   await expect(page.getByTestId('line-endings')).toHaveText('Original line endings (CRLF)');
-  await page.getByRole('button', { name: 'Validate' }).click();
   const diagnostic = page.getByTestId('diagnostic').filter({ hasText: "of the form '<type>=<value>'" });
   await expect(diagnostic).toHaveAttribute('data-line', `${badLine}`);
+  await expect(diagnostic).not.toContainText(`Line ${badLine}:`);
   await diagnostic.click();
   expect(await selectedText(page)).toBe('i= leading space');
 });

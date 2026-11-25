@@ -14,7 +14,7 @@
 */
 
 import DarkModeIcon from '@mui/icons-material/DarkMode';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import {
@@ -37,7 +37,7 @@ import {
   createTheme,
 } from '@mui/material';
 import type { EditorView } from '@codemirror/view';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import OptionsPanel from './components/OptionsPanel';
 import ResultsPanel from './components/ResultsPanel';
@@ -83,7 +83,6 @@ export default function App() {
   const [options, setOptions] = useState<ValidationOptions>(defaultOptions);
   const [checked, setChecked] = useState<Checked>();
   const [manifest, setManifest] = useState<ManifestEntry[]>([]);
-  const [example, setExample] = useState<ManifestEntry | null>(null);
   const view = useRef<EditorView>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [dark, setDark] = useState(() => localStorage.getItem('sdpoker-theme') === 'dark');
@@ -104,39 +103,51 @@ export default function App() {
       .catch(() => setManifest([]));
   }, []);
 
+  const check = (checkedDocument: SDPDocument, checkedOptions: ValidationOptions) => {
+    const input = validationInput(checkedDocument, checkedOptions);
+    const result = validateSDP(input.text, input.options);
+    setChecked({ result, options: input.options, editorText: checkedDocument.editorText });
+  };
+
+  // The editor receives the text of a loaded document when it renders, so mark the lines after that
+  useEffect(() => {
+    view.current?.dispatch({ effects: setDiagnostics.of(checked?.result.diagnostics ?? []) });
+  }, [checked]);
+
+  // An opened file or example is checked at once, with the line-ending check on
   const load = (next: SDPDocument) => {
     setDocument(next);
-    setChecked(undefined);
-    view.current?.dispatch({ effects: setDiagnostics.of([]) });
     if (next.originalText !== undefined) {
-      setOptions((current) => ({ ...current, checkEndings: true }));
+      const nextOptions = { ...options, checkEndings: true };
+      setOptions(nextOptions);
+      check(next, nextOptions);
+    } else {
+      setChecked(undefined);
     }
   };
 
-  const openFile = useCallback((file: File) => {
-    file.text().then((text) => {
-      setExample(null);
-      load(openOriginal('file', file.name, text));
-    });
-  }, []);
-
-  const openExample = (entry: ManifestEntry | null) => {
-    setExample(entry);
-    if (entry) {
-      fetch(`./sdp/${entry.path}`)
-        .then((response) => response.text())
-        .then((text) => load(openOriginal('example', entry.name, text, entry.path)));
-    }
+  const openFile = (file: File) => {
+    file.text().then((text) => load(openOriginal('file', file.name, text)));
   };
 
-  const validate = useCallback(() => {
-    const input = validationInput(document, options);
-    const result = validateSDP(input.text, input.options);
-    setChecked({ result, options: input.options, editorText: document.editorText });
-    view.current?.dispatch({ effects: setDiagnostics.of(result.diagnostics) });
-  }, [document, options]);
+  const openExample = (entry: ManifestEntry) => {
+    fetch(`./sdp/${entry.path}`)
+      .then((response) => response.text())
+      .then((text) => load(openOriginal('example', entry.name, text, entry.path)));
+  };
+  const example = document.source === 'example' ? manifest.find((entry) => entry.path === document.path) : undefined;
+
+  const validate = () => check(document, options);
 
   const endingsAvailable = lineEndingsAvailable(document);
+  // The results are out of date when the SDP, or the options that its check would use, have changed
+  const checkedOptions = validationInput(document, options).options;
+  const stale =
+    checked !== undefined &&
+    (checked.editorText !== document.editorText ||
+      (Object.keys(checkedOptions) as (keyof ValidationOptions)[]).some(
+        (key) => checkedOptions[key] !== checked.options[key],
+      ));
   const resetOptions = { ...defaultOptions, checkEndings: endingsAvailable };
   const changedOptions = (Object.keys(resetOptions) as (keyof ValidationOptions)[]).filter(
     (key) => (key === 'checkEndings' ? options.checkEndings && endingsAvailable : options[key]) !== resetOptions[key],
@@ -150,7 +161,12 @@ export default function App() {
         <AppBar position="static" elevation={0} enableColorOnDark sx={{ bgcolor: amwaBlue, color: amwaHeaderText }}>
           <Toolbar variant="dense">
             <Link href="https://www.amwa.tv" sx={{ display: 'flex', mr: 1.5 }}>
-              <img src={amwaLogo} alt="AMWA logo" style={{ height: 25, display: 'block' }} />
+              <Box
+                component="img"
+                src={amwaLogo}
+                alt="AMWA logo"
+                sx={{ height: { xs: 25, sm: 31 }, display: 'block' }}
+              />
             </Link>
             <Typography variant="h6" component="h1" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
               SDPoker
@@ -197,16 +213,13 @@ export default function App() {
               options={manifest}
               groupBy={(entry) => entry.group}
               getOptionLabel={(entry) => entry.name}
-              value={example}
+              disableClearable
+              // The box is empty when the document is not an example
+              value={example ?? (null as unknown as ManifestEntry)}
               onChange={(_, entry) => openExample(entry)}
               renderInput={(params) => <TextField {...params} label="Load an example or test fixture" />}
             />
-            <Button
-              onClick={() => {
-                setExample(null);
-                load(emptyDocument);
-              }}
-            >
+            <Button variant="outlined" onClick={() => load(emptyDocument)}>
               Clear
             </Button>
             <Box sx={{ flexGrow: 1 }} />
@@ -265,12 +278,30 @@ export default function App() {
               </Stack>
             </Panel>
             <Separator aria-label="Resize the editor and results">
-              <Box sx={{ height: 6, bgcolor: 'divider', cursor: 'row-resize' }} />
+              <Box
+                sx={{
+                  height: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'row-resize',
+                  '&::before': { content: '""', flexGrow: 1, height: 4, bgcolor: 'divider' },
+                  '&:hover::before, &:active::before, :focus-visible > &::before': { bgcolor: 'primary.main' },
+                }}
+              />
             </Separator>
             <Panel id="results" minSize="15" style={{ overflow: 'auto' }}>
               <Accordion disableGutters variant="outlined">
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  Validation options
+                <AccordionSummary
+                  expandIcon={<ChevronRightIcon />}
+                  sx={{
+                    flexDirection: 'row-reverse',
+                    '& .MuiAccordionSummary-expandIconWrapper.Mui-expanded': { transform: 'rotate(90deg)' },
+                    '& .MuiAccordionSummary-content': { ml: 1, alignItems: 'baseline' },
+                  }}
+                >
+                  <Typography variant="subtitle1" component="h2">
+                    Validation options
+                  </Typography>
                   {changedOptions > 0 && (
                     <Typography component="span" color="text.secondary" sx={{ ml: 1 }} data-testid="changed-options">
                       · {changedOptions} changed from defaults
@@ -291,7 +322,7 @@ export default function App() {
               <ResultsPanel
                 result={checked?.result}
                 options={checked?.options}
-                stale={checked !== undefined && checked.editorText !== document.editorText}
+                stale={stale}
                 onShowLine={(line) => view.current && showLine(view.current, line)}
               />
             </Panel>
@@ -299,10 +330,10 @@ export default function App() {
         </Box>
 
         <Box component="footer" sx={{ p: 1, borderTop: 1, borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary" data-testid="privacy">
+          <Typography variant="caption" component="p" color="text.secondary" data-testid="privacy">
             SDP validation is performed entirely within your browser. Your SDP contents are not uploaded to a server.
           </Typography>
-          <Typography variant="body2" color="text.secondary" data-testid="version">
+          <Typography variant="caption" component="p" color="text.secondary" data-testid="version">
             SDPoker {__SDPOKER_VERSION__}, built from{' '}
             <Link href={`${repositoryUrl}/commit/${__SDPOKER_COMMIT__}`}>{__SDPOKER_COMMIT__}</Link>
           </Typography>
