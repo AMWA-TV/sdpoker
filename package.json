@@ -20,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Streampunk/sdpoker.git"
+    "url": "git+https://github.com/AMWA-TV/sdpoker.git"
   },
   "keywords": [
     "SDP",
@@ -29,11 +29,14 @@
     "NMOS"
   ],
   "author": "Streampunk Media <furnace@streampunk.media> (http://www.streampunk.media)",
+  "contributors": [
+    "Advanced Media Workflow Association (https://www.amwa.tv)"
+  ],
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/Streampunk/sdpoker/issues"
+    "url": "https://github.com/AMWA-TV/sdpoker/issues"
   },
-  "homepage": "https://github.com/Streampunk/sdpoker#readme",
+  "homepage": "https://github.com/AMWA-TV/sdpoker#readme",
   "engines": {
     "node": ">=22.12.0"
   },
