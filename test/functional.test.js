@@ -943,3 +943,20 @@ test('a line out of order is reported once, and the lines after it are checked f
   t.same(order(without('s')), ['Line 3: A line of type \'o\' must not be followed by a line of type \'t\', as per RFC 4566 Section 5.'], 'no s');
   t.end();
 });
+
+test('every error that starts with a line number has that line as its line property', t => {
+  const files = ['valid', 'invalid'].flatMap(dir => fs.readdirSync(path.join(fixturesRoot, dir))
+    .filter(file => file.endsWith('.sdp')).map(file => `${dir}/${file}`));
+  const paramSets = [
+    cliDefaults,
+    { ...cliDefaults, checkEndings: true, should: true, duplicate: true, channelOrder: true, midLast: true, multicast: true, useIP6: true }
+  ];
+  const errors = files.flatMap(file => paramSets.flatMap(params => runAllChecks(readFixture(file), params)));
+  const mismatches = errors.filter(error => {
+    const lineMatch = error.message.match(/^Line (\d+): /);
+    return error.line !== (lineMatch ? Number(lineMatch[1]) : undefined) || !(error instanceof Error);
+  }).map(error => `${error.line}: ${error.message}`);
+  t.ok(errors.some(error => error.line !== undefined), 'some errors have a line');
+  t.same(mismatches, [], 'the line property matches the message');
+  t.end();
+});

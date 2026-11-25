@@ -93,6 +93,7 @@ getSDP('examples/st2110-10.sdp')
 The `params` parameter is an object that, when present, can be used to configure the tests. See the [parameters](#parameters) section below for more information.
 
 The return value of the method is an array of [Javascript Errors](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error). The array is empty if no errors occurred.
+An error found at a line of the SDP file has a `line` property with that line number, which also starts its message.
 
 ### Check RFC4570
 
@@ -110,6 +111,7 @@ getSDP('examples/st2110-10.sdp')
 The `params` parameter is an object that, when present, can be used to configure the tests. See the [parameters](#parameters) section below for more information.
 
 The return value of the method is an array of [Javascript Errors](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error). The array is empty if no errors occurred.
+An error found at a line of the SDP file has a `line` property with that line number, which also starts its message.
 
 ### Check ST 2110
 
@@ -131,6 +133,7 @@ getSDP('examples/st2110-10.sdp')
 The `params` parameter is an object that, when present, can be used to configure the tests. See the [parameters](#parameters) section below for more information.
 
 The return value of the method is an array of [Javascript Errors](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error). The array is empty if no errors occurred.
+An error found at a line of the SDP file has a `line` property with that line number, which also starts its message.
 
 ### Parameters
 

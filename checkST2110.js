@@ -13,9 +13,8 @@
   limitations under the License.
 */
 
-// A line ends with CRLF, CR or LF. Blank lines are kept, so that line numbers
-// count them.
-const splitLines = sdp => sdp.replace(/(\r\n?|\n)$/, '').split(/\r\n?|\n/);
+const { splitLines, LineError } = require('./lines.js');
+
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
@@ -165,7 +164,7 @@ const test_10_74_1 = (sdp, params) => {
       zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
       for (let x = 0; x < zeroCheck.length; x++) {
         if (zeroCheck[x] !== 0) {
-          errors.push(new Error(`Line ${mediaLines[s]}: For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
+          errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
         }
       }
     }
@@ -184,7 +183,7 @@ const test_10_81_1 = (sdp, params) => {
   let mediaLines = splitLines(sdp).flatMap((line, x) => line.startsWith('m=') ? [x + 1] : []);
   for (let s = 0; s < streams.length; s++) {
     if (!mediaclkPattern.test(streams[s])) {
-      errors.push(new Error(`Line ${mediaLines[s]}: For stream ${s + 1}, the media description shall have a 'mediaclk' attribute, as per ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3].`));
+      errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the media description shall have a 'mediaclk' attribute, as per ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3].`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -212,7 +211,7 @@ const test_10_81_2 = (sdp, params) => {
     }
     let typeMatch = lines[x].match(mediaclkTypePattern);
     if (typeMatch && typeMatch[1] !== 'direct' && typeMatch[1] !== 'sender') {
-      errors.push(new Error(`Line ${x + 1}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' or 'sender' reference, not '${typeMatch[1]}', as per ST 2110-10 Section 8.1.`));
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' or 'sender' reference, not '${typeMatch[1]}', as per ST 2110-10 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -232,7 +231,7 @@ const test_10_81_3 = (sdp, params) => {
       continue;
     }
     if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
-      errors.push(new Error(`Line ${x + 1}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -248,7 +247,7 @@ const test_10_82_1 = (sdp, params) => {
   let mediaLines = splitLines(sdp).flatMap((line, x) => line.startsWith('m=') ? [x + 1] : []);
   for (let s = 0; s < streams.length; s++) {
     if (!tsrefclkPattern.test(streams[s])) {
-      errors.push(new Error(`Line ${mediaLines[s]}: For stream ${s + 1}, the media description shall have a 'ts-refclk' attribute, as per ST 2110-10 Section 8.2.`));
+      errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the media description shall have a 'ts-refclk' attribute, as per ST 2110-10 Section 8.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -277,7 +276,7 @@ const test_10_2022_82_1 = (sdp, params) => {
         !lines[x].startsWith('a=ts-refclk:localmac') &&
         !otherRefclkPattern.test(lines[x])) {
         errors.push(
-          new Error(`Line ${x + 1}: Attribute 'ts-refclk' is not an acceptable pattern, which shall be a form specified in RFC 7273 Section 4.8 or the 'localmac' form, as per ST 2110-10:2022 Section 8.2.`));
+          new LineError(x + 1, 'Attribute \'ts-refclk\' is not an acceptable pattern, which shall be a form specified in RFC 7273 Section 4.8 or the \'localmac\' form, as per ST 2110-10:2022 Section 8.2.'));
       }
     }
   }
@@ -302,31 +301,31 @@ const test_10_82_3 = (sdp, params) => {
     if (lines[x].startsWith('a=ts-refclk:ptp=')) {
       let ptpDetails = lines[x].slice(16);
       if (ptpDetails.startsWith('traceable')) {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' must give a PTP version, such as 'IEEE1588-2008:', before 'traceable', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.`));
+        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' must give a PTP version, such as \'IEEE1588-2008:\', before \'traceable\', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.'));
         continue; // no longer acceptable form
       }
       let ptpVersion = ptpDetails.split(':')[0];
       if (!ptpVersions.includes(ptpVersion)) {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' must specify PTP version 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', but specifies '${ptpVersion}', as per RFC 7273 Section 4.8.`));
+        errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify PTP version 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', but specifies '${ptpVersion}', as per RFC 7273 Section 4.8.`));
         continue;
       }
       if (params.should && ptpVersion !== 'IEEE1588-2008') {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' should specify 'IEEE1588-2008', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.`));
+        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' should specify \'IEEE1588-2008\', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.'));
       }
       let ptpServer = ptpDetails.slice(ptpVersion.length + 1);
       if (!ptpPattern.test(ptpServer)) {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' is not an acceptable pattern, which must be of the form 'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]' or 'a=ts-refclk:ptp=<ptp version>:traceable', as per RFC 7273 Section 4.8.`));
+        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' is not an acceptable pattern, which must be of the form \'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable\', as per RFC 7273 Section 4.8.'));
         continue;
       }
       let ptpMatch = ptpServer.match(ptpPattern);
       if (ptpMatch[5]) {
         let domainNmbr = +ptpMatch[5];
         if (domainNmbr < 0 || domainNmbr > 127) {
-          errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[5]}', as per RFC 7273 Section 4.8.`));
+          errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[5]}', as per RFC 7273 Section 4.8.`));
         }
       } else if (ptpMatch[2] && ptpVersion === 'IEEE1588-2008') {
         // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not for IEEE 1588-2008
-        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'ptp' shall specify a PTP domain number, as per ST 2110-10 Section 8.2.`));
+        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' shall specify a PTP domain number, as per ST 2110-10 Section 8.2.'));
       }
     }
   }
@@ -351,7 +350,7 @@ const test_10_82_4 = (sdp, params) => {
     if (lines[x].startsWith('a=ts-refclk:localmac=')) {
       let mac = lines[x].slice(21);
       if (!macPattern.test(mac)) {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'ts-refclk' of type 'localmac' shall specify a MAC address of the form 'XX-XX-XX-XX-XX-XX', as per ST 2110-10 Section 8.2.`));
+        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'localmac\' shall specify a MAC address of the form \'XX-XX-XX-XX-XX-XX\', as per ST 2110-10 Section 8.2.'));
       }
     }
   }
@@ -379,7 +378,7 @@ const test_10_83_1 = (sdp, params) => {
     // Report the first media description, which a session-level attribute must come before
     const lines = splitLines(sdp);
     const line = lines.findIndex(line => line.startsWith('m=')) + 1 || lines.length;
-    return [new Error(`Line ${line}: Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level 'group:DUP' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].`)];
+    return [new LineError(line, 'Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level \'group:DUP\' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].')];
   }
 };
 
@@ -404,7 +403,7 @@ const test_10_83_2 = (sdp, params) => {
     if (lines[x].startsWith('a=ssrc:')) {
       let ssrcMatch = lines[x].match(ssrcPattern);
       if (!ssrcMatch) {
-        errors.push(new Error(`Line ${x + 1}: For ${streamCounter ? 'stream ' + streamCounter : 'all streams'}, attribute 'ssrc' is not an acceptable pattern, which must be of the form 'a=ssrc:<ssrc-id> <attribute>', as per RFC 5576 Section 4.1.`));
+        errors.push(new LineError(x + 1, `For ${streamCounter ? 'stream ' + streamCounter : 'all streams'}, attribute 'ssrc' is not an acceptable pattern, which must be of the form 'a=ssrc:<ssrc-id> <attribute>', as per RFC 5576 Section 4.1.`));
         continue;
       }
       ssrcs[streamCounter].push(+ssrcMatch[1]);
@@ -420,12 +419,12 @@ const test_10_83_2 = (sdp, params) => {
     }
     let groupMatch = lines[x].match(ssrcGroupPattern);
     if (!groupMatch) {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, attribute 'ssrc-group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.2.`));
+      errors.push(new LineError(x + 1, `For stream ${streamCounter}, attribute 'ssrc-group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.2.`));
       continue;
     }
     for (let groupID of groupMatch.slice(1, 3)) {
       if (ssrcs[streamCounter].indexOf(+groupID) < 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, SSRC '${groupID}' in attribute 'ssrc-group' must be defined by an 'ssrc' attribute, as per RFC 5576 Section 4.2.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCounter}, SSRC '${groupID}' in attribute 'ssrc-group' must be defined by an 'ssrc' attribute, as per RFC 5576 Section 4.2.`));
       }
     }
   }
@@ -456,11 +455,11 @@ const test_10_83_3 = (sdp, params) => {
     if (lines[x].startsWith('a=mid:')) {
       let mid = lines[x].slice(6);
       if (mids.indexOf(mid) >= 0) {
-        errors.push(new Error(`Line ${x + 1}: Media identification '${mid}' must be unique, as per RFC 5888 Section 4.`));
+        errors.push(new LineError(x + 1, `Media identification '${mid}' must be unique, as per RFC 5888 Section 4.`));
         continue;
       }
       if (mids[streamCounter]) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, a media description must have at most one 'mid' attribute, but has '${mids[streamCounter]}' and '${mid}', as per RFC 5888 Section 4.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCounter}, a media description must have at most one 'mid' attribute, but has '${mids[streamCounter]}' and '${mid}', as per RFC 5888 Section 4.`));
         continue;
       }
       mids.push(mid);
@@ -470,7 +469,7 @@ const test_10_83_3 = (sdp, params) => {
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!doneOne) {
-        errors.push(new Error(`Line ${x + 1}: The session-level description must include attribute 'group:DUP', as per RFC 7104 Section 3.1.`));
+        errors.push(new LineError(x + 1, 'The session-level description must include attribute \'group:DUP\', as per RFC 7104 Section 3.1.'));
       }
       break;
     }
@@ -479,13 +478,13 @@ const test_10_83_3 = (sdp, params) => {
     }
     let groupMatch = lines[x].match(groupPattern);
     if (!groupMatch) {
-      errors.push(new Error(`Line ${x + 1}: Attribute 'group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.1.`));
+      errors.push(new LineError(x + 1, 'Attribute \'group:DUP\' is not an acceptable pattern, as per RFC 7104 Section 3.1.'));
       continue;
     }
     doneOne = true;
     for (let groupId of groupMatch.slice(1, 3)) {
       if (mids.indexOf(groupId) < 0) {
-        errors.push(new Error(`Line ${x + 1}: Identification tag '${groupId}' in attribute 'group:DUP' must match the 'mid' attribute of a media description, otherwise the group is ignored, as per RFC 5888 Section 6.`));
+        errors.push(new LineError(x + 1, `Identification tag '${groupId}' in attribute 'group:DUP' must match the 'mid' attribute of a media description, otherwise the group is ignored, as per RFC 5888 Section 6.`));
       }
     }
   }
@@ -523,7 +522,7 @@ const test_23_53_1 = (sdp, params) => {
     let next = lines.slice(x + 1).find(line => line !== '');
     let isLastLineOfMediaDescription = next === undefined || next.startsWith('m=');
     if (streamCounter > 0 && isLastLineOfMediaDescription && !lines[x].startsWith('a=mid:')) {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, the media description does not end with its 'a=mid' attribute. RFC 8866 does not require this, but receivers that follow SMPTE RP 2110-23 Section 5.3 may expect it.`));
+      errors.push(new LineError(x + 1, `For stream ${streamCounter}, the media description does not end with its 'a=mid' attribute. RFC 8866 does not require this, but receivers that follow SMPTE RP 2110-23 Section 5.3 may expect it.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -540,11 +539,11 @@ const test_10_84_1 = (sdp, params) => {
     if ('MAXUDP' in stream) {
       const MAXUDP = +stream.MAXUDP;
       if (isNaN(MAXUDP) || integerPattern.test(stream.MAXUDP) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be a decimal value, as per ST 2110-10 Section 8.4 [also ST 2110-10:2022 Section 8.6].`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall be a decimal value, as per ST 2110-10 Section 8.4 [also ST 2110-10:2022 Section 8.6].`));
       } else if (MAXUDP > 8960) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall not exceed the Extended UDP Size Limit of 8960 octets, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.4 [also ST 2110-10:2022 Sections 6.4 and 8.6].`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'MAXUDP' shall not exceed the Extended UDP Size Limit of 8960 octets, but is '${MAXUDP}', as per ST 2110-10 Sections 6.4 and 8.4 [also ST 2110-10:2022 Sections 6.4 and 8.6].`));
       } else if (MAXUDP < 20) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${MAXUDP}', which is less than the 20 octets of the UDP and RTP headers, so SDPoker does not accept it.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'MAXUDP' is '${MAXUDP}', which is less than the 20 octets of the UDP and RTP headers, so SDPoker does not accept it.`));
       }
     }
   }
@@ -567,22 +566,22 @@ const test_10_62_1 = (sdp, params) => {
 
     let mediaMatch = lines[x].match(mediaPattern);
     if (!mediaMatch) {
-      errors.push(new Error(`Line ${x + 1}: Media field ('m=') is not an acceptable pattern, which shall be of the form 'm=<media> <port> RTP/AVP <payload type>', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.`));
+      errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
       continue;
     }
     // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
     let port = +mediaMatch[2];
     if (isNaN(port) || port < 0 || port > 65535) {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, port '${port}' shall be a UDP port in the range 0 to 65535 inclusive, as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, port '${port}' shall be a UDP port in the range 0 to 65535 inclusive, as per ST 2110-10 Section 6.2.`));
     }
     // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
     if (mediaMatch[4] === 'RTP/SAVP') {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`));
     }
     // Check dynamic range - assume ST 2110-20 is always dynamic
     let payloadType = +mediaMatch[5];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type '${mediaMatch[5]}' shall be a dynamic payload type in the range 96 to 127 inclusive, as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${mediaMatch[5]}' shall be a dynamic payload type in the range 96 to 127 inclusive, as per ST 2110-10 Section 6.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -620,7 +619,7 @@ const test_10_62_2 = (sdp, params) => {
     let stream = streams[streams.length - 1];
     let payloadType = +attributeMatch[2];
     if (!stream.payloadTypes.includes(payloadType)) {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streams.length}, payload type '${payloadType}' of attribute '${attributeMatch[1]}' must be a format of the media description, as per RFC 4566 Section 6.`));
+      errors.push(new LineError(x + 1, `For stream ${streams.length}, payload type '${payloadType}' of attribute '${attributeMatch[1]}' must be a format of the media description, as per RFC 4566 Section 6.`));
     } else if (attributeMatch[1] === 'rtpmap') {
       stream.rtpmaps.push(payloadType);
     }
@@ -628,7 +627,7 @@ const test_10_62_2 = (sdp, params) => {
   streams.forEach((stream, s) => {
     for (let payloadType of stream.payloadTypes) {
       if (payloadType >= 96 && payloadType <= 127 && !stream.rtpmaps.includes(payloadType)) {
-        errors.push(new Error(`Line ${stream.line}: For stream ${s + 1}, dynamic payload type '${payloadType}' shall have an 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
+        errors.push(new LineError(stream.line, `For stream ${s + 1}, dynamic payload type '${payloadType}' shall have an 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
       }
     }
   });
@@ -649,7 +648,7 @@ const test_10_62_3 = (sdp, params) => {
       continue;
     }
     if (lines[x].startsWith('a=rtpmap') && !rtpmapPattern.test(lines[x])) {
-      errors.push(new Error(`Line ${x + 1}: For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'rtpmap' is not an acceptable pattern, which must be of the form 'a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>]', as per RFC 4566 Section 6.`));
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'rtpmap' is not an acceptable pattern, which must be of the form 'a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>]', as per RFC 4566 Section 6.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -714,7 +713,7 @@ to a Receiver that does not specify the source, as per RFC 4607 Section 5.2.
 const test_10_2022_84_1 = (sdp, params) => {
   let errors = streamsWithoutSourceFilter(sdp)
     .filter(stream => ssmPattern.test(stream.address))
-    .map(stream => new Error(`Line ${stream.line}: For stream ${stream.streamNumber}, destination address '${stream.address}' is in the source-specific multicast range, so an inclusive 'source-filter' attribute must be included for Receivers to join the stream, as per RFC 4607 Sections 1 and 5.2 and ST 2110-10:2022 Section 8.4.`));
+    .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${stream.address}' is in the source-specific multicast range, so an inclusive 'source-filter' attribute must be included for Receivers to join the stream, as per RFC 4607 Sections 1 and 5.2 and ST 2110-10:2022 Section 8.4.`));
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.4 Test 1 - Streams with a source-specific multicast destination address have an inclusive source filter.');
   }
@@ -731,7 +730,7 @@ const test_10_2022_84_2 = (sdp, params) => {
   }
   let errors = streamsWithoutSourceFilter(sdp)
     .filter(stream => !ssmPattern.test(stream.address))
-    .map(stream => new Error(`Line ${stream.line}: For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute should be included to support source-specific multicast, as per ST 2110-10:2022 Section 8.4.`));
+    .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute should be included to support source-specific multicast, as per ST 2110-10:2022 Section 8.4.`));
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address have an inclusive source filter.');
   }
@@ -749,13 +748,13 @@ const test_10_2022_87_1 = (sdp, params) => {
     let keys = Object.keys(stream);
     if (keys.indexOf('TSMODE') >= 0) {
       if (tsmodePermitted2022.indexOf(stream.TSMODE) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSMODE' shall be 'SAMP', 'NEW' or 'PRES', as per ST 2110-10:2022 Section 8.7.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TSMODE' shall be 'SAMP', 'NEW' or 'PRES', as per ST 2110-10:2022 Section 8.7.`));
       }
     }
     if (keys.indexOf('TSDELAY') >= 0) {
       // ST 2110-10:2022 Section 8.7 says a positive integer, but its Annex B example uses 'TSDELAY=0'
       if (!/^\d+$/.test(stream.TSDELAY)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TSDELAY' shall be an integer number of microseconds, as per ST 2110-10:2022 Section 8.7.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TSDELAY' shall be an integer number of microseconds, as per ST 2110-10:2022 Section 8.7.`));
       }
     }
   }
@@ -784,7 +783,7 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
     }
     if (lines[x].startsWith('a=rtpmap') && payloadType >= 0) {
       if (rtpmapInStream) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' is specified more than once.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'rtpmap' is specified more than once.`));
         continue;
       }
       rtpmapInStream = true;
@@ -794,15 +793,15 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
         continue;
       }
       if (+rtpmapMatch[1] !== payloadType) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type '${rtpmapMatch[1]}' of attribute 'rtpmap' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${rtpmapMatch[1]}' of attribute 'rtpmap' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
       }
       if (skipVideoTypes.includes(rtpmapMatch[2])) {
         continue;
       } else if (rtpmapMatch[2] !== type) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, encoding name shall be media sub-type '${type}', as per ${specification}.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, encoding name shall be media sub-type '${type}', as per ${specification}.`));
       }
       if (rtpmapMatch[3] !== clockRate) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate shall be '${clockRate}', as per ${specification}.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, clock rate shall be '${clockRate}', as per ${specification}.`));
       }
     }
   }
@@ -833,7 +832,7 @@ const checkStreamsFmtp = (sdp, specification) => {
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!fmtpInStream && payloadType >= 0) {
-        errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, an 'fmtp' attribute shall be specified, as per ${specification}.`));
+        errors.push(new LineError(mediaLine, `For stream ${streamCount}, an 'fmtp' attribute shall be specified, as per ${specification}.`));
       }
       let mediaMatch = lines[x].match(mediaPattern);
       payloadType = mediaMatch ? +mediaMatch[5] : -1;
@@ -844,7 +843,7 @@ const checkStreamsFmtp = (sdp, specification) => {
     }
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
       if (fmtpInStream) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'fmtp' is specified more than once.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is specified more than once.`));
         continue;
       }
       fmtpInStream = true;
@@ -854,12 +853,12 @@ const checkStreamsFmtp = (sdp, specification) => {
         continue;
       }
       if (+fmtpMatch[1] !== payloadType) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type '${fmtpMatch[1]}' of attribute 'fmtp' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${fmtpMatch[1]}' of attribute 'fmtp' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
       }
     }
   }
   if (!fmtpInStream && payloadType >= 0) {
-    errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, an 'fmtp' attribute shall be specified, as per ${specification}.`));
+    errors.push(new LineError(mediaLine, `For stream ${streamCount}, an 'fmtp' attribute shall be specified, as per ${specification}.`));
   }
   return errors;
 };
@@ -911,7 +910,7 @@ const extractMTParams = (sdp, params = {}) => {
         encodingName = encodingNames[section][payloadType] ?? -1;
       }
       else {
-        errors.push(new Error(`Line ${x + 1}: Media field ('m=') is not an acceptable pattern, which shall be of the form 'm=<media> <port> RTP/AVP <payload type>', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.`));
+        errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
         payloadTypes = [];
         continue;
       }
@@ -922,7 +921,7 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
       let fmtpMatch = lines[x].match(fmtpPattern);
       if (!fmtpMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which must be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which must be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
         continue;
       }
       // A payload type that is not a format of the media description is reported by test_10_62_2
@@ -943,7 +942,7 @@ const extractMTParams = (sdp, params = {}) => {
         for (let y = 0; y < keys.length; y++) {
           if (!repeatableParams.includes(keys[y]) && keys.filter(k => keys[y] === k).length >= 2) {
             if (reported.indexOf(keys[y]) < 0) {
-              errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter '${keys[y]}' is specified more than once.`));
+              errors.push(new LineError(x + 1, `For stream ${streamCount}, format parameter '${keys[y]}' is specified more than once.`));
               reported.push(keys[y]);
             }
           }
@@ -985,7 +984,7 @@ const test_20_72_1 = (sdp, params) => {
       let keys = Object.keys(stream);
       for (let param of mustHaves20) {
         if (keys.indexOf(param) < 0) {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' shall be specified, as per ST 2110-20 Section 7.2.`));
+          errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter '${param}' shall be specified, as per ST 2110-20 Section 7.2.`));
         }
       }
     }
@@ -1003,15 +1002,15 @@ const test_20_72_2 = (sdp, params) => {
     if (typeof stream.width !== 'undefined' && typeof stream.height !== 'undefined') { // Test 1 confirms
       let width = +stream.width;
       if (isNaN(width) || integerPattern.test(stream.width) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'width' shall be an integer value, as per ST 2110-20 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'width' shall be an integer value, as per ST 2110-20 Section 7.2.`));
       } else if (width < 1 || width > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'width' shall be in the range 1 to 32767 inclusive, but is '${width}', as per ST 2110-20 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'width' shall be in the range 1 to 32767 inclusive, but is '${width}', as per ST 2110-20 Section 7.2.`));
       }
       let height = +stream.height;
       if (isNaN(height) || integerPattern.test(stream.height) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'height' shall be an integer value, as per ST 2110-20 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'height' shall be an integer value, as per ST 2110-20 Section 7.2.`));
       } else if (height < 1 || height > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'height' shall be in the range 1 to 32767 inclusive, but is '${height}', as per ST 2110-20 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'height' shall be in the range 1 to 32767 inclusive, but is '${height}', as per ST 2110-20 Section 7.2.`));
       }
     }
   }
@@ -1036,7 +1035,7 @@ const checkExactframerate = (stream = {}, specification = 'ST 2110-20 Section 7.
   let errors = [];
   let frMatch = stream.exactframerate.match(frameRatePattern);
   if (!frMatch) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' is not an acceptable pattern, which shall be of the form '<integer>' or '<integer>/<integer>', as per ${specification}.`));
+    errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'exactframerate' is not an acceptable pattern, which shall be of the form '<integer>' or '<integer>/<integer>', as per ${specification}.`));
     return errors;
   }
   if (!frMatch[2]) { // Non-integer value tests
@@ -1045,13 +1044,13 @@ const checkExactframerate = (stream = {}, specification = 'ST 2110-20 Section 7.
   let numerator = +frMatch[1];
   let denominator = +frMatch[2];
   if (Number.isInteger(numerator / denominator)) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' shall be a single integer for an integer frame rate, as per ${specification}.`));
+    errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'exactframerate' shall be a single integer for an integer frame rate, as per ${specification}.`));
   }
   if (denominator > numerator) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' specifies a frame rate slower than one frame per second, which suggests that the numerator and denominator are swapped.`));
+    errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'exactframerate' specifies a frame rate slower than one frame per second, which suggests that the numerator and denominator are swapped.`));
   }
   if (greatestCommonDivisor(numerator, denominator) !== 1) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' shall be a ratio in lowest terms, as per ${specification}.`));
+    errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'exactframerate' shall be a ratio in lowest terms, as per ${specification}.`));
   }
   return errors;
 };
@@ -1078,7 +1077,7 @@ const test_20_72_4 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.PM !== 'undefined') {
       if (packingModes.indexOf(stream.PM) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'PM' (packing mode) shall be '2110GPM' or '2110BPM', but is '${stream.PM}', as per ST 2110-20 Sections 7.2 and 6.3.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'PM' (packing mode) shall be '2110GPM' or '2110BPM', but is '${stream.PM}', as per ST 2110-20 Sections 7.2 and 6.3.`));
       }
     }
   }
@@ -1097,16 +1096,16 @@ const test_20_72_5 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
       if (ssnPermitted20.indexOf(stream.SSN) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-20:2017' or 'ST2110-20:2022', as per ST 2110-20 Section 7.2 [also ST 2110-20:2022 Section 7.2].`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-20:2017' or 'ST2110-20:2022', as per ST 2110-20 Section 7.2 [also ST 2110-20:2022 Section 7.2].`));
       } else {
         let detect2022tcs = typeof stream.TCS !== 'undefined' && stream.TCS === 'ST2115LOGS3';
         let detect2022colorimetry = typeof stream.colorimetry !== 'undefined' && stream.colorimetry === 'ALPHA';
 
         if ((detect2022tcs || detect2022colorimetry) && stream.SSN === 'ST2110-20:2017') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-20:2022' when 'TCS' is 'ST2115LOGS3' or 'colorimetry' is 'ALPHA', as per ST 2110-20:2022 Section 7.2.`));
+          errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-20:2022' when 'TCS' is 'ST2115LOGS3' or 'colorimetry' is 'ALPHA', as per ST 2110-20:2022 Section 7.2.`));
         }
         if (!(detect2022tcs || detect2022colorimetry) && stream.SSN !== 'ST2110-20:2017') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-20:2017' unless 'TCS' is 'ST2115LOGS3' or 'colorimetry' is 'ALPHA', as per ST 2110-20:2022 Section 7.2.`));
+          errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-20:2017' unless 'TCS' is 'ST2115LOGS3' or 'colorimetry' is 'ALPHA', as per ST 2110-20:2022 Section 7.2.`));
         }
       }
     }
@@ -1124,7 +1123,7 @@ const checkInterlace = (stream, specification) => {
   let errors = [];
   if (typeof stream.interlace !== 'undefined') {
     if (stream.interlace !== '') {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'interlace' ${shallOrMust(specification)} have no value, as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'interlace' ${shallOrMust(specification)} have no value, as per ${specification}.`));
     }
   }
   return errors;
@@ -1146,10 +1145,10 @@ const checkSegmented = (stream, specification) => {
   let errors = [];
   if (typeof stream.segmented !== 'undefined') {
     if (stream.segmented !== '') {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'segmented' ${shallOrMust(specification)} have no value, as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'segmented' ${shallOrMust(specification)} have no value, as per ${specification}.`));
     }
     if (typeof stream.interlace === 'undefined') {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'interlace' ${shallOrMust(specification)} be specified when 'segmented' is specified, as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'interlace' ${shallOrMust(specification)} be specified when 'segmented' is specified, as per ${specification}.`));
     }
   }
   return errors;
@@ -1174,12 +1173,12 @@ const checkRange = (stream, specification) => {
   if (typeof stream.RANGE !== 'undefined') {
     if (stream.colorimetry === 'BT2100') {
       if (stream.RANGE !== 'FULL' && stream.RANGE !== 'NARROW') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' ${shallOrMust(specification)} be 'FULL' or 'NARROW' when 'colorimetry' is 'BT2100', but is '${stream.RANGE}', as per ${specification}.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'RANGE' ${shallOrMust(specification)} be 'FULL' or 'NARROW' when 'colorimetry' is 'BT2100', but is '${stream.RANGE}', as per ${specification}.`));
       }
       return errors;
     }
     if (rangePermitted.indexOf(stream.RANGE) < 0) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' ${shallOrMust(specification)} be 'FULL', 'FULLPROTECT' or 'NARROW', but is '${stream.RANGE}', as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'RANGE' ${shallOrMust(specification)} be 'FULL', 'FULLPROTECT' or 'NARROW', but is '${stream.RANGE}', as per ${specification}.`));
     }
   }
   return errors;
@@ -1204,12 +1203,12 @@ const test_20_73_4 = (sdp, params) => {
     if (typeof stream.PAR !== 'undefined') {
       let parMatch = stream.PAR.match(parPattern);
       if (!parMatch) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'PAR' is not an acceptable pattern, which shall be of the form '<integer>:<integer>', as per ST 2110-20 Section 7.3.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'PAR' is not an acceptable pattern, which shall be of the form '<integer>:<integer>', as per ST 2110-20 Section 7.3.`));
         continue;
       }
       let [numerator, denominator] = [+parMatch[1], +parMatch[2]];
       if (greatestCommonDivisor(numerator, denominator) > 1) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'PAR' shall be a ratio in lowest terms, but is '${stream.PAR}', as per ST 2110-20 Section 7.3.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'PAR' shall be a ratio in lowest terms, but is '${stream.PAR}', as per ST 2110-20 Section 7.3.`));
       }
     }
   }
@@ -1230,7 +1229,7 @@ const checkSampling = (stream, permitted, specification) => {
   let errors = [];
   if (typeof stream.sampling !== 'undefined') {
     if (permitted.indexOf(stream.sampling) < 0) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'sampling' ${shallOrMust(specification)} be a permitted value, but is '${stream.sampling}', as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'sampling' ${shallOrMust(specification)} be a permitted value, but is '${stream.sampling}', as per ${specification}.`));
       return errors;
     }
     // TODO colorimetry-specific tests - if possible
@@ -1258,7 +1257,7 @@ const test_20_74_2 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.depth !== 'undefined') {
       if (depthPermitted.indexOf(stream.depth) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'depth' shall be '8', '10', '12', '16' or '16f', but is '${stream.depth}', as per ST 2110-20 Section 7.4.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'depth' shall be '8', '10', '12', '16' or '16f', but is '${stream.depth}', as per ST 2110-20 Section 7.4.2.`));
       }
     }
   }
@@ -1278,7 +1277,7 @@ const checkColorimetry = (stream, permitted, specification) => {
   let errors = [];
   if (typeof stream.colorimetry !== 'undefined') {
     if (permitted.indexOf(stream.colorimetry) < 0) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'colorimetry' ${shallOrMust(specification)} be a permitted value, but is '${stream.colorimetry}', as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'colorimetry' ${shallOrMust(specification)} be a permitted value, but is '${stream.colorimetry}', as per ${specification}.`));
     }
   }
   return errors;
@@ -1300,7 +1299,7 @@ const checkRangeSpecified = (stream, specification) => {
   let errors = [];
   if (typeof stream.colorimetry !== 'undefined') {
     if (stream.colorimetry === 'BT2100' && typeof stream.RANGE === 'undefined') {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'RANGE' should be specified when 'colorimetry' is 'BT2100', as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'RANGE' should be specified when 'colorimetry' is 'BT2100', as per ${specification}.`));
     }
   }
   return errors;
@@ -1335,7 +1334,7 @@ const checkTCS = (stream, permitted, specification) => {
   let errors = [];
   if (typeof stream.TCS !== 'undefined') {
     if (permitted.indexOf(stream.TCS) < 0) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) ${shallOrMust(specification)} be a permitted value, but is '${stream.TCS}', as per ${specification}.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TCS' (Transfer Characteristic System) ${shallOrMust(specification)} be a permitted value, but is '${stream.TCS}', as per ${specification}.`));
     }
   }
   return errors;
@@ -1373,21 +1372,21 @@ const checkStreamsAudioRtpmap = (sdp, rtpmapPattern, patternMessage, sampleRateS
     if (payloadType >= 0 && lines[x].startsWith('a=rtpmap')) {
       let soundMatch = lines[x].match(rtpmapPattern);
       if (!soundMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, ${patternMessage}`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, ${patternMessage}`));
         continue;
       }
       if (hasRtpmap) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'rtpmap' is specified more than once.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'rtpmap' is specified more than once.`));
       }
       hasRtpmap = true;
       if (payloadType !== +soundMatch[1]) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type '${soundMatch[1]}' of attribute 'rtpmap' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${soundMatch[1]}' of attribute 'rtpmap' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
       }
       if (sampleRatePermitted.indexOf(soundMatch[3]) < 0) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, the sampling rate in attribute 'rtpmap' shall be '44100', '48000' or '96000', but is '${soundMatch[3]}', as per ${sampleRateSpecification}.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, the sampling rate in attribute 'rtpmap' shall be '44100', '48000' or '96000', but is '${soundMatch[3]}', as per ${sampleRateSpecification}.`));
       }
       for (let message of checkRtpmap(soundMatch)) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, ${message}`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, ${message}`));
       }
     }
   }
@@ -1437,7 +1436,7 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!hasPTime && payloadType >= 0) {
-        errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
+        errors.push(new LineError(mediaLine, `For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
       }
       let audioMatch = lines[x].match(audioPattern);
       streamCount++;
@@ -1449,11 +1448,11 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
     if (lines[x].startsWith('a=ptime') && payloadType >= 0) {
       let ptimeMatch = lines[x].match(ptimePattern);
       if (!ptimeMatch) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' is not an acceptable pattern, as per ${ptimeSpecification}.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ptime' is not an acceptable pattern, as per ${ptimeSpecification}.`));
         continue;
       }
       if (hasPTime) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'ptime' is specified more than once.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ptime' is specified more than once.`));
         continue;
       }
       hasPTime = true;
@@ -1461,12 +1460,12 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
     }
     if (lines[x].startsWith('a=maxptime')) {
       if (!maxptimePattern.test(lines[x])) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'maxptime' is not an acceptable pattern, as per ${maxptimeSpecification}.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'maxptime' is not an acceptable pattern, as per ${maxptimeSpecification}.`));
       }
     }
   }
   if (!hasPTime && payloadType >= 0) {
-    errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
+    errors.push(new LineError(mediaLine, `For stream ${streamCount}, attribute 'ptime' shall be specified, as per ${ptimeSpecification}.`));
   }
   return errors;
 };
@@ -1494,7 +1493,7 @@ const checkStreamsChannelOrder = (sdp, params, checkOrder) => {
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (params.channelOrder === true && hasFmtp === false && payloadType >= 0) {
-        errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, format parameter 'channel-order' must be specified, as requested by --channelOrder.`));
+        errors.push(new LineError(mediaLine, `For stream ${streamCount}, format parameter 'channel-order' must be specified, as requested by --channelOrder.`));
       }
       let audioMatch = lines[x].match(audioPattern);
       payloadType = audioMatch ? +audioMatch[4] : -1;
@@ -1507,25 +1506,25 @@ const checkStreamsChannelOrder = (sdp, params, checkOrder) => {
       let fmtpMatch = lines[x].match(channelOrderPattern);
       if (fmtpMatch === null) {
         if (params.channelOrder === true) {
-          errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, format parameter 'channel-order' must be specified, as requested by --channelOrder.`));
+          errors.push(new LineError(x + 1, `For stream ${streamCount}, format parameter 'channel-order' must be specified, as requested by --channelOrder.`));
         }
         hasFmtp = true;
         continue;
       }
       if (hasFmtp) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, attribute 'fmtp' is specified more than once.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is specified more than once.`));
       }
       hasFmtp = true;
       if (payloadType !== +fmtpMatch[1]) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, payload type '${fmtpMatch[1]}' of attribute 'fmtp' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${fmtpMatch[1]}' of attribute 'fmtp' must be the payload type '${payloadType}' of the media description, as per RFC 4566 Section 6.`));
       }
       for (let message of checkOrder(fmtpMatch[2])) {
-        errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, ${message}`));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, ${message}`));
       }
     }
   }
   if (params.channelOrder === true && hasFmtp === false && payloadType >= 0) {
-    errors.push(new Error(`Line ${mediaLine}: For stream ${streamCount}, format parameter 'channel-order' must be specified, as requested by --channelOrder.`));
+    errors.push(new LineError(mediaLine, `For stream ${streamCount}, format parameter 'channel-order' must be specified, as requested by --channelOrder.`));
   }
   return errors;
 };
@@ -1611,7 +1610,7 @@ const test_31_61_3 = (sdp, params) => {
     }
     for (let { line, ptime } of stream.ptimes) {
       if (!permitted.includes(+ptime)) {
-        errors.push(new Error(`Line ${line}: For stream ${s + 1}, attribute 'ptime' shall be a packet time permitted for clock rate '${stream.clockRate}', but is '${ptime}', as per ST 2110-31 Section 6.1.`));
+        errors.push(new LineError(line, `For stream ${s + 1}, attribute 'ptime' shall be a packet time permitted for clock rate '${stream.clockRate}', but is '${ptime}', as per ST 2110-31 Section 6.1.`));
       }
     }
   });
@@ -1644,7 +1643,7 @@ const test_21_81_1 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.TP === 'undefined') {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' shall be specified, as per ST 2110-21 Section 8.1.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TP' shall be specified, as per ST 2110-21 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -1667,7 +1666,7 @@ const test_21_81_2 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.TP !== 'undefined') {
       if (typesPermitted.indexOf(stream.TP) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' shall be '2110TPN', '2110TPNL' or '2110TPW', but is '${stream.TP}', as per ST 2110-21 Section 8.1.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TP' shall be '2110TPN', '2110TPNL' or '2110TPW', but is '${stream.TP}', as per ST 2110-21 Section 8.1.`));
       }
     }
   }
@@ -1684,9 +1683,9 @@ const checkTroff = (stream = {}, specification = 'ST 2110-21 Section 8.2') => {
   let errors = [];
   let troff = +stream.TROFF;
   if (isNaN(troff) || Number.isInteger(troff) === false) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TROFF' shall be an integer number of microseconds, but is '${stream.TROFF}', as per ${specification}.`));
+    errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TROFF' shall be an integer number of microseconds, but is '${stream.TROFF}', as per ${specification}.`));
   } else if (troff < 0) {
-    errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TROFF' is '${stream.TROFF}', a negative transmit offset, which SDPoker does not accept.`));
+    errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TROFF' is '${stream.TROFF}', a negative transmit offset, which SDPoker does not accept.`));
   }
   return errors;
 };
@@ -1724,9 +1723,9 @@ const test_21_82_2 = (sdp, params) => {
     if (typeof stream.CMAX !== 'undefined') {
       let cmax = +stream.CMAX;
       if (isNaN(cmax) || Number.isInteger(cmax) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'CMAX' shall be an integer, but is '${stream.CMAX}', as per ST 2110-21 Section 8.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'CMAX' shall be an integer, but is '${stream.CMAX}', as per ST 2110-21 Section 8.2.`));
       } else if (cmax < 1) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'CMAX' is '${stream.CMAX}', which is less than 1, so SDPoker does not accept it.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'CMAX' is '${stream.CMAX}', which is less than 1, so SDPoker does not accept it.`));
       }
     }
   }
@@ -1755,12 +1754,12 @@ const test_22_72_1 = (sdp, params) => {
     let keys = Object.keys(stream);
     for (let param of mustHaves22) {
       if (keys.indexOf(param) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' shall be specified, as per ST 2110-22 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter '${param}' shall be specified, as per ST 2110-22 Section 7.2.`));
       }
     }
     for (let param of mustHaves9134) {
       if (keys.indexOf(param) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' must be specified, as per RFC 9134 Section 7.1.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter '${param}' must be specified, as per RFC 9134 Section 7.1.`));
       }
     }
   }
@@ -1777,17 +1776,17 @@ const test_22_72_2 = (sdp, params) => {
     if (stream.width !== undefined) {
       const width = +stream.width;
       if (isNaN(width) || integerPattern.test(stream.width) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'width' shall be an integer value, as per ST 2110-22 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'width' shall be an integer value, as per ST 2110-22 Section 7.2.`));
       } else if (width < 1 || width > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'width' shall be in the range 1 to 32767 inclusive, but is '${width}', as per ST 2110-22 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'width' shall be in the range 1 to 32767 inclusive, but is '${width}', as per ST 2110-22 Section 7.2.`));
       }
     }
     if (stream.height !== undefined) {
       const height = +stream.height;
       if (isNaN(height) || integerPattern.test(stream.height) === false) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'height' shall be an integer value, as per ST 2110-22 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'height' shall be an integer value, as per ST 2110-22 Section 7.2.`));
       } else if (height < 1 || height > 32767) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'height' shall be in the range 1 to 32767 inclusive, but is '${height}', as per ST 2110-22 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'height' shall be in the range 1 to 32767 inclusive, but is '${height}', as per ST 2110-22 Section 7.2.`));
       }
     }
   }
@@ -1814,7 +1813,7 @@ const test_9134_71_2 = (sdp, params) => {
   for (let stream of mtParams) {
     for (let param of ['packetmode', 'transmode']) {
       if (typeof stream[param] !== 'undefined' && modesPermitted9134.indexOf(stream[param]) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' must be '0' or '1', but is '${stream[param]}', as per RFC 9134 Section 7.1.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter '${param}' must be '0' or '1', but is '${stream[param]}', as per RFC 9134 Section 7.1.`));
       }
     }
   }
@@ -1853,7 +1852,7 @@ const test_9134_71_3 = (sdp, params) => {
   for (let stream of mtParams) {
     for (let param of Object.keys(permitted)) {
       if (typeof stream[param] !== 'undefined' && permitted[param].indexOf(stream[param]) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter '${param}' must be a JPEG XS ${param} defined by ISO/IEC 21122-2, but is '${stream[param]}', as per RFC 9134 Section 7.1.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter '${param}' must be a JPEG XS ${param} defined by ISO/IEC 21122-2, but is '${stream[param]}', as per RFC 9134 Section 7.1.`));
       }
     }
   }
@@ -1868,7 +1867,7 @@ const test_9134_71_4 = (sdp, params) => {
   let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     if (typeof stream.depth !== 'undefined' && !integerPattern.test(stream.depth)) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'depth' must be a positive integer, but is '${stream.depth}', as per RFC 9134 Section 7.1.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'depth' must be a positive integer, but is '${stream.depth}', as per RFC 9134 Section 7.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -1973,7 +1972,7 @@ const test_22_2022_72_1 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined') {
       if (ssnPermitted22.indexOf(stream.SSN) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-22:2019' or 'ST2110-22:2022', but is '${stream.SSN}', as per ST 2110-22:2022 Section 7.2.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-22:2019' or 'ST2110-22:2022', but is '${stream.SSN}', as per ST 2110-22:2022 Section 7.2.`));
       }
     }
   }
@@ -2003,19 +2002,19 @@ const test_22_73_1 = (sdp, params) => {
       if (lines[x].startsWith('b=')) {
         let bandwidthMatch = lines[x].match(bandwidthPattern);
         if (bandwidthMatch == null) {
-          errors.push(new Error(`Line ${sdpLineNumb}: For stream ${s}, bandwidth field ('b=') is not an acceptable pattern, which shall be of the form 'b=<bwtype>:<bandwidth>', as per ST 2110-22 Section 7.3.`));
+          errors.push(new LineError(sdpLineNumb, `For stream ${s}, bandwidth field ('b=') is not an acceptable pattern, which shall be of the form 'b=<bwtype>:<bandwidth>', as per ST 2110-22 Section 7.3.`));
           sdpLineNumb++;
           continue;
         }
         if (bandwidthMatch[1] != 'AS') {
-          errors.push(new Error(`Line ${sdpLineNumb}: For stream ${s}, the bandwidth type of bandwidth field ('b=') shall be 'AS', as per ST 2110-22 Section 7.3.`));
+          errors.push(new LineError(sdpLineNumb, `For stream ${s}, the bandwidth type of bandwidth field ('b=') shall be 'AS', as per ST 2110-22 Section 7.3.`));
         }
         bandwidthPresent = true;
       }
       sdpLineNumb++;
     }
     if (!bandwidthPresent) {
-      errors.push(new Error(`Line ${mediaLine}: For stream ${s}, a bandwidth field ('b=<bwtype>:<bandwidth>') shall be specified, as per ST 2110-22 Section 7.3.`));
+      errors.push(new LineError(mediaLine, `For stream ${s}, a bandwidth field ('b=<bwtype>:<bandwidth>') shall be specified, as per ST 2110-22 Section 7.3.`));
     }
   }
 
@@ -2041,7 +2040,7 @@ const test_22_74_1 = (sdp, params) => {
     if (s == 0) {
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
-          errors.push(new Error(`Line ${sdpLineNumb}: Attribute 'framerate' must be a media-level attribute, as per RFC 4566 Section 6.`));
+          errors.push(new LineError(sdpLineNumb, 'Attribute \'framerate\' must be a media-level attribute, as per RFC 4566 Section 6.'));
         }
         sdpLineNumb++;
       }
@@ -2060,7 +2059,7 @@ const test_22_74_1 = (sdp, params) => {
         if (lines[x].startsWith('a=framerate')) {
           let framerateMatch = lines[x].match(frameRateAttributePattern);
           if (framerateMatch == null) {
-            errors.push(new Error(`Line ${sdpLineNumb}: For stream ${s}, attribute 'framerate' is not an acceptable pattern, which must be a non-zero integer or a decimal with no trailing zeros, as per RFC 8866 Section 6.13.`));
+            errors.push(new LineError(sdpLineNumb, `For stream ${s}, attribute 'framerate' is not an acceptable pattern, which must be a non-zero integer or a decimal with no trailing zeros, as per RFC 8866 Section 6.13.`));
           }
           framerateAttributePresent = true;
         }
@@ -2068,11 +2067,11 @@ const test_22_74_1 = (sdp, params) => {
       }
       // If neither exactframerate or framerate attribute present and sessionFramerate not specified, load up error
       if (!framerateAttributePresent && !framerateParameterPresent) {
-        errors.push(new Error(`Line ${mediaLine}: For stream ${s}, the frame rate shall be specified by attribute 'framerate' or format parameter 'exactframerate', as per ST 2110-22 Section 7.4.`));
+        errors.push(new LineError(mediaLine, `For stream ${s}, the frame rate shall be specified by attribute 'framerate' or format parameter 'exactframerate', as per ST 2110-22 Section 7.4.`));
       }
       // If both specified then error. ST 2110-22 section 7.4 indicates one method of specifying
       if (framerateAttributePresent && framerateParameterPresent) {
-        errors.push(new Error(`Line ${mediaLine}: For stream ${s}, the frame rate shall be specified by only one of attribute 'framerate' or format parameter 'exactframerate', as per ST 2110-22 Section 7.4.`));
+        errors.push(new LineError(mediaLine, `For stream ${s}, the frame rate shall be specified by only one of attribute 'framerate' or format parameter 'exactframerate', as per ST 2110-22 Section 7.4.`));
       }
     }
   }
@@ -2108,20 +2107,20 @@ const test_40_2023_7_1 = (sdp, params) => {
     let detect2023tm = typeof stream.TM !== 'undefined';
     // SSN is not required by ST 2110-40:2018, which does not define TM
     if (typeof stream.SSN === 'undefined' && detect2023tm) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be specified when 'TM' is specified, as per ST 2110-40:2023 Section 7.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be specified when 'TM' is specified, as per ST 2110-40:2023 Section 7.`));
     }
     if (typeof stream.SSN !== 'undefined') {
       if (ssnPermitted40.indexOf(stream.SSN) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-40:2018', 'ST2110-40:2021' or 'ST2110-40:2023', but is '${stream.SSN}', as per ST 2110-40:2023 Section 7.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-40:2018', 'ST2110-40:2021' or 'ST2110-40:2023', but is '${stream.SSN}', as per ST 2110-40:2023 Section 7.`));
       } else {
         if (detect2023tm && stream.SSN === 'ST2110-40:2018') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-40:2023' when 'TM' is specified, as per ST 2110-40:2023 Section 7.`));
+          errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-40:2023' when 'TM' is specified, as per ST 2110-40:2023 Section 7.`));
         }
         if (!detect2023tm && stream.SSN !== 'ST2110-40:2018') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-40:2018' when 'TM' is not specified, as per ST 2110-40:2023 Section 7.`));
+          errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' shall be 'ST2110-40:2018' when 'TM' is not specified, as per ST 2110-40:2023 Section 7.`));
         }
         if (params.should && stream.SSN === 'ST2110-40:2021') {
-          errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'SSN' should be 'ST2110-40:2023' rather than the equivalent 'ST2110-40:2021', as per ST 2110-40:2023 Section 7.`));
+          errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'SSN' should be 'ST2110-40:2023' rather than the equivalent 'ST2110-40:2021', as per ST 2110-40:2023 Section 7.`));
         }
       }
     }
@@ -2140,7 +2139,7 @@ const test_40_2023_7_2 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.TM !== 'undefined') {
       if (tmPermitted40.indexOf(stream.TM) < 0) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TM' shall be 'CTM' or 'LLTM', but is '${stream.TM}', as per ST 2110-40:2023 Section 7.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TM' shall be 'CTM' or 'LLTM', but is '${stream.TM}', as per ST 2110-40:2023 Section 7.`));
       }
     }
   }
@@ -2156,7 +2155,7 @@ const test_40_2023_7_3 = (sdp, params) => {
   for (let stream of mtParams) {
     if (typeof stream.SSN !== 'undefined' && stream.SSN !== 'ST2110-40:2018') {
       if (typeof stream.exactframerate === 'undefined') {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'exactframerate' shall be specified, as per ST 2110-40:2023 Section 7.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'exactframerate' shall be specified, as per ST 2110-40:2023 Section 7.`));
       } else {
         errors = errors.concat(checkExactframerate(stream, 'ST 2110-40:2023 Section 7 and ST 2110-20:2022 Section 7.2'));
       }
@@ -2200,7 +2199,7 @@ const test_40_2023_53_1 = (sdp, params) => {
     }
     let rtpmapMatch = lines[x].match(rtpmapPattern);
     if (rtpmapMatch && rtpmapMatch[2].toLowerCase() === 'smpte291' && rtpmapMatch[3] !== '90000') {
-      errors.push(new Error(`Line ${x + 1}: For stream ${streamCount}, clock rate shall be '90000', as per ST 2110-40:2023 Section 5.3.`));
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, clock rate shall be '90000', as per ST 2110-40:2023 Section 5.3.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2222,7 +2221,7 @@ const test_8331_4_1 = (sdp, params) => {
   for (let stream of mtParams) {
     for (let didSdid of stream.DID_SDID ?? []) {
       if (!didSdidPattern.test(didSdid)) {
-        errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'DID_SDID' value '${didSdid}' is not an acceptable pattern, which must be of the form '{0xNN,0xNN}', as per RFC 8331 Section 4.`));
+        errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'DID_SDID' value '${didSdid}' is not an acceptable pattern, which must be of the form '{0xNN,0xNN}', as per RFC 8331 Section 4.`));
       }
     }
   }
@@ -2243,7 +2242,7 @@ const test_8331_4_2 = (sdp, params) => {
       continue;
     }
     if (!/^\d+$/.test(stream.VPID_Code) || +stream.VPID_Code > 255) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'VPID_Code' must be an integer in the range 0 to 255 inclusive, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'VPID_Code' must be an integer in the range 0 to 255 inclusive, the value of byte 1 of the VPID, as per RFC 8331 Sections 3.1 and 4.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2279,9 +2278,9 @@ const test_2022_8_60_1 = (sdp, params) => {
   errors = errors.concat(checkStreamsFmtp(sdp, 'ST 2022-8 Section 6'));
   for (let stream of mtParams) {
     if (typeof stream.TP === 'undefined') {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' shall be specified, as per ST 2022-8 Section 6.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TP' shall be specified, as per ST 2022-8 Section 6.`));
     } else if (typesPermitted2022_8.indexOf(stream.TP) < 0) {
-      errors.push(new Error(`Line ${stream._line}: For stream ${stream._streamNumber}, format parameter 'TP' shall be '2110TPNL' or '2110TPW', but is '${stream.TP}', as per ST 2022-8 Section 6.`));
+      errors.push(new LineError(stream._line, `For stream ${stream._streamNumber}, format parameter 'TP' shall be '2110TPNL' or '2110TPW', but is '${stream.TP}', as per ST 2022-8 Section 6.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2366,9 +2365,9 @@ const test_43_2021_41_1 = (sdp, params) => {
   let errors = [];
   for (let stream of extractTTMLStreams(sdp)) {
     if (stream.fmtpLine === null) {
-      errors.push(new Error(`Line ${stream.mediaLine}: For stream ${stream.streamNumber}, an 'fmtp' attribute with format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+      errors.push(new LineError(stream.mediaLine, `For stream ${stream.streamNumber}, an 'fmtp' attribute with format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
     } else if (stream.codecs === null) {
-      errors.push(new Error(`Line ${stream.fmtpLine}: For stream ${stream.streamNumber}, format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'codecs' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2382,7 +2381,7 @@ const test_43_2021_42_1 = (sdp, params) => {
   let errors = [];
   for (let stream of extractTTMLStreams(sdp)) {
     if (stream.clockRate !== '90000') {
-      errors.push(new Error(`Line ${stream.rtpmapLine}: For stream ${stream.streamNumber}, clock rate shall be '90000', as per ST 2110-43:2021 Section 4.2.`));
+      errors.push(new LineError(stream.rtpmapLine, `For stream ${stream.streamNumber}, clock rate shall be '90000', as per ST 2110-43:2021 Section 4.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2623,7 +2622,7 @@ const no_media = (sdp, params) => {
     }
   }
   if (!hasMedia) {
-    return [new Error(`Line ${lines.length}: An SDP file shall include at least one media description ('m='), as per ST 2110-10 Section 8.1.`)];
+    return [new LineError(lines.length, 'An SDP file shall include at least one media description (\'m=\'), as per ST 2110-10 Section 8.1.')];
   }
   if (params.verbose) {
     console.log('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.');
@@ -2669,7 +2668,7 @@ const checkSingleEssence = (sdp, params) => {
     if (streams[s].mediaType !== streams[0].mediaType ||
       (streams[s].encodingName && streams[0].encodingName &&
         streams[s].encodingName.toLowerCase() !== streams[0].encodingName.toLowerCase())) {
-      errors.push(new Error(`Line ${streams[s].line}: For stream ${s + 1}, the essence '${essence(streams[s])}' differs from the essence '${essence(streams[0])}' of stream 1. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
+      errors.push(new LineError(streams[s].line, `For stream ${s + 1}, the essence '${essence(streams[s])}' differs from the essence '${essence(streams[0])}' of stream 1. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
     }
   }
   if (params.verbose && errors.length == 0) {
