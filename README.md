@@ -2,7 +2,10 @@
 
 [![CI Status](https://github.com/AMWA-TV/sdpoker/workflows/CI/badge.svg)](https://github.com/AMWA-TV/sdpoker/actions?query=workflow%3ACI)
 
-CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. With `--verbose`, it also lists the tests that passed or were skipped.
+CLI tool, web application, and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. With `--verbose`, it also lists the tests that passed or were skipped.
+
+> [!NOTE]
+> Try the SDPoker web application at https://amwa-tv.github.io/sdpoker/. The checks run in your browser, and the SDP is not uploaded. See [Web Application](#web-application).
 
 Just because an SDP file passes these tests does not mean it is 100% valid. However, if it fails one of the tests, the file is likely to need some work!
 
@@ -157,6 +160,24 @@ let params = {
   multicast: true
 };
 ```
+
+# Web Application
+
+The `web` directory is a browser application that runs the same checks as the command line tool. SDP can be pasted, typed, opened from a local file, or loaded from the SDP files in `examples` and `test/fixtures`. The checks run in the browser, and the SDP is not uploaded. The GitHub Actions workflow `.github/workflows/pages.yml` publishes the application with GitHub Pages when the `master` branch changes, and when the workflow is run manually, from any branch that the repository's `github-pages` environment allows.
+
+The line-ending check is available only for an unmodified file or example, because pasted, typed or edited SDP does not keep its original line endings.
+
+To develop the application, install Node.js and run:
+
+```
+cd web
+npm install
+npm run dev
+```
+
+`npm test` runs the unit tests. `npm run build` builds the static site in `web/dist`. After that, `npm run preview` serves the built site at `http://localhost:4173/`, and `npm run test:e2e` runs the browser tests in Chromium, after `npx playwright install chromium`.
+
+For either `npm run dev` or `npm run preview`, add `-- --port <port>` to use another port, and/or `-- --host` to make the server reachable from other machines.
 
 # Tests
 
