@@ -157,6 +157,32 @@ test('pasted SDP is checked without its line endings', async ({ page }) => {
   await expect(page.getByTestId('endings-skipped')).toBeVisible();
 });
 
+test('an example that cannot be fetched is reported, and not opened', async ({ page }) => {
+  await page.route('**/sdp/examples/st2110-20.sdp', (route) => route.fulfill({ status: 404, body: 'Not Found' }));
+  await page.getByLabel('Load an example or test fixture').fill('st2110-20.sdp');
+  await page.getByRole('option', { name: 'st2110-20.sdp', exact: true }).first().click();
+  await expect(page.getByTestId('load-error')).toContainText('st2110-20.sdp could not be opened');
+  await expect(editor(page)).toHaveText('');
+  await expect(status(page)).toContainText('New SDP');
+});
+
+test('only the last example selected is opened', async ({ page }) => {
+  let release = () => {};
+  const delayed = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/sdp/examples/st2110-20.sdp', async (route) => {
+    await delayed;
+    await route.continue();
+  });
+  await page.getByLabel('Load an example or test fixture').fill('st2110-20.sdp');
+  await page.getByRole('option', { name: 'st2110-20.sdp', exact: true }).first().click();
+  await loadExample(page, 'missing-media.sdp');
+  const response = page.waitForResponse('**/sdp/examples/st2110-20.sdp');
+  release();
+  await (await response).finished();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(status(page)).toContainText('missing-media.sdp');
+});
+
 test('the results say the line-ending check was skipped only when the line endings are unknown', async ({ page }) => {
   await loadExample(page, 'missing-media.sdp');
   await page.getByText('Validation options').click();

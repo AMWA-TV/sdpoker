@@ -21,6 +21,7 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   AppBar,
   Autocomplete,
   Box,
@@ -84,6 +85,8 @@ export default function App() {
   const [options, setOptions] = useState<ValidationOptions>(defaultOptions);
   const [checked, setChecked] = useState<Checked>();
   const [manifest, setManifest] = useState<ManifestEntry[]>([]);
+  const [loadError, setLoadError] = useState<string>();
+  const latestLoad = useRef(0);
   const view = useRef<EditorView>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [dark, setDark] = useState(() => localStorage.getItem('sdpoker-theme') === 'dark');
@@ -122,6 +125,7 @@ export default function App() {
 
   // An opened file or example is checked at once, with the line-ending check on
   const load = (next: SDPDocument) => {
+    setLoadError(undefined);
     setDocument(next);
     if (next.originalText !== undefined) {
       const nextOptions = { ...options, checkEndings: true };
@@ -132,14 +136,38 @@ export default function App() {
     }
   };
 
+  // Only the file or example asked for last is opened, so a slow read cannot replace a later one
+  const loadLatest = (name: string, next: Promise<SDPDocument>) => {
+    const request = ++latestLoad.current;
+    next
+      .then((loaded) => request === latestLoad.current && load(loaded))
+      .catch((e) => request === latestLoad.current && setLoadError(`${name} could not be opened: ${e.message}`));
+  };
+
   const openFile = (file: File) => {
-    file.text().then((text) => load(openOriginal('file', file.name, text)));
+    loadLatest(
+      file.name,
+      file.text().then((text) => openOriginal('file', file.name, text)),
+    );
   };
 
   const openExample = (entry: ManifestEntry) => {
-    fetch(`./sdp/${entry.path}`)
-      .then((response) => response.text())
-      .then((text) => load(openOriginal('example', entry.name, text, entry.path)));
+    loadLatest(
+      entry.name,
+      fetch(`./sdp/${entry.path}`)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`the server responded ${response.status} ${response.statusText}`);
+          }
+          return response.text();
+        })
+        .then((text) => openOriginal('example', entry.name, text, entry.path)),
+    );
+  };
+
+  const clear = () => {
+    latestLoad.current++;
+    load(emptyDocument);
   };
   const example = document.source === 'example' ? manifest.find((entry) => entry.path === document.path) : undefined;
 
@@ -225,7 +253,7 @@ export default function App() {
               onChange={(_, entry) => openExample(entry)}
               renderInput={(params) => <TextField {...params} label="Load an example or test fixture" />}
             />
-            <Button variant="outlined" onClick={() => load(emptyDocument)}>
+            <Button variant="outlined" onClick={clear}>
               Clear
             </Button>
             <Box sx={{ flexGrow: 1 }} />
@@ -233,6 +261,11 @@ export default function App() {
               Validate
             </Button>
           </Stack>
+          {loadError && (
+            <Alert severity="error" sx={{ mb: 1 }} onClose={() => setLoadError(undefined)} data-testid="load-error">
+              {loadError}
+            </Alert>
+          )}
 
           <Group orientation="vertical" style={{ flexGrow: 1, minHeight: 0 }}>
             <Panel id="editor" defaultSize="55" minSize="15" style={{ display: 'flex', flexDirection: 'column' }}>
