@@ -15,7 +15,9 @@
 
 const hasNoNewlineAtEnd = /[^\r\n]$/;
 const linePattern = /^([a-z]=\S.*|s= )$/;
-const letterCheck = /^[vosiuepcbzkatrm].*$/;
+// The order of the types of line in RFC 4566 Section 5
+const typeOrder = 'vosiuepcbtrzkam';
+const typeCheck = new RegExp(`^[${typeOrder}]`);
 // const spaceCheck = /\s\s/;
 const mustHaves = [ 'v', 'o', 's', 't' ];
 const followedBy = {
@@ -127,7 +129,7 @@ const test_50_2 = (lines, params) => {
 const test_50_3 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines[x] !== '' && !letterCheck.test(lines[x])) {
+    if (lines[x] !== '' && !typeCheck.test(lines[x])) {
       errors.push(new Error(
         `Line ${x + 1}: Every line of an SDP file must start with a permitted type letter, as per RFC 4566 Section 5.`));
     }
@@ -144,7 +146,10 @@ const test_50_4 = (lines, params) => {
   let types = lines.map(x => x.slice(0, 1));
   for ( let x of mustHaves ) {
     if (types.indexOf(x) < 0) {
-      errors.push(new Error(`An SDP file must have at least one line of type '${x}', as per RFC 4566 Section 5.`));
+      // Report the first line of a type that must come after the missing type
+      const after = typeOrder.slice(typeOrder.indexOf(x) + 1);
+      const line = types.findIndex(type => type !== '' && after.includes(type)) + 1 || lines.length;
+      errors.push(new Error(`Line ${line}: An SDP file must have at least one line of type '${x}', as per RFC 4566 Section 5.`));
     }
   }
   if (params.verbose && errors.length == 0) {

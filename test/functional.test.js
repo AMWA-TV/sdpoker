@@ -902,3 +902,34 @@ test('the line ending errors give the line', t => {
   t.same(messages(sdp.replace(/\r\n/g, '\n'), { checkEndings: true }), [`Line 1: ${crlf}`], 'LF at the end of every line');
   t.end();
 });
+
+test('a missing line of a required type is reported where it belongs', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const without = type => sdp.split('\r\n').filter(line => !line.startsWith(`${type}=`)).join('\r\n');
+  const missing = (variant, type) => checkRFC4566(variant, cliDefaults).map(error => error.message)
+    .filter(message => message.includes(`at least one line of type '${type}'`));
+  const message = (line, type) => `Line ${line}: An SDP file must have at least one line of type '${type}', as per RFC 4566 Section 5.`;
+  t.same(missing(without('v'), 'v'), [message(1, 'v')], 'v');
+  t.same(missing(without('o'), 'o'), [message(2, 'o')], 'o');
+  t.same(missing(without('s'), 's'), [message(3, 's')], 's');
+  t.same(missing(without('t'), 't'), [message(4, 't')], 't');
+  t.same(missing('v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=x\r\n', 't'), [message(3, 't')], 'at the last line when no line comes after it');
+  t.end();
+});
+
+test('a missing media description is reported at the last line', t => {
+  const sdp = readFixture('invalid/missing-media.sdp');
+  const message = line => `Line ${line}: An SDP file shall include at least one media description ('m='), as per ST 2110-10 Section 8.1.`;
+  const messages = variant => checkST2110(variant, cliDefaults).map(error => error.message);
+  t.ok(messages(sdp).includes(message(4)), 'the last line');
+  t.ok(messages('\r\n' + sdp).includes(message(5)), 'counting a blank first line');
+  t.end();
+});
+
+test('a missing duplicate stream group is reported at the first media description', t => {
+  const message = line => `Line ${line}: Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level 'group:DUP' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].`;
+  const messages = file => checkST2110(readFixture(file), { ...cliDefaults, duplicate: true }).map(error => error.message);
+  t.ok(messages('valid/st2110-20.sdp').includes(message(5)), 'the first media description');
+  t.ok(messages('invalid/missing-media.sdp').includes(message(4)), 'the last line when there is no media description');
+  t.end();
+});

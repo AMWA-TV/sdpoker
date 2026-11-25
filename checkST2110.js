@@ -378,7 +378,10 @@ const test_10_83_1 = (sdp, params) => {
     }
     return [];
   } else {
-    return [new Error('Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level \'group:DUP\' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].')];
+    // Report the first media description, which a session-level attribute must come before
+    const lines = splitLines(sdp);
+    const line = lines.findIndex(line => line.startsWith('m=')) + 1 || lines.length;
+    return [new Error(`Line ${line}: Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level 'group:DUP' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].`)];
   }
 };
 
@@ -2612,7 +2615,7 @@ const no_media = (sdp, params) => {
     }
     return [];
   }
-  let lines = splitLines(sdp.trim());
+  let lines = splitLines(sdp);
   let hasMedia = false;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
@@ -2621,7 +2624,7 @@ const no_media = (sdp, params) => {
     }
   }
   if (!hasMedia) {
-    return [new Error('An SDP file shall include at least one media description (\'m=\'), as per ST 2110-10 Section 8.1.')];
+    return [new Error(`Line ${lines.length}: An SDP file shall include at least one media description ('m='), as per ST 2110-10 Section 8.1.`)];
   }
   if (params.verbose) {
     console.log('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.');
