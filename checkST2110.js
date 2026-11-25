@@ -194,6 +194,7 @@ const test_10_81_1 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct reference
+// Only the sender reference is reported, because ST 2110-10:2022 Section 8.3 Test 1 reports any other
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
@@ -210,8 +211,8 @@ const test_10_81_2 = (sdp, params) => {
       continue;
     }
     let typeMatch = lines[x].match(mediaclkTypePattern);
-    if (typeMatch && typeMatch[1] !== 'direct') {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not '${typeMatch[1]}', as per ST 2110-10 Section 8.1.`));
+    if (typeMatch && typeMatch[1] === 'sender') {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not 'sender', as per ST 2110-10 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -221,7 +222,7 @@ const test_10_81_2 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.1 Test 3 - Every 'mediaclk' attribute matches an acceptable pattern
-// RFC 7273 allows a media clock identifier, but SDPoker reports one, because receivers might not support it
+// RFC 7273 allows a media clock identifier, but with --should SDPoker reports one, because receivers might not support it
 const test_10_81_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -231,8 +232,8 @@ const test_10_81_3 = (sdp, params) => {
       streamCount++;
       continue;
     }
-    if (lines[x].startsWith('a=mediaclk:id=')) {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' has a media clock identifier ('id='), which RFC 7273 Section 5.4 allows but SDPoker does not accept, because receivers might not support it.`));
+    if (params.should && lines[x].startsWith('a=mediaclk:id=')) {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should not have a media clock identifier ('id='), which RFC 7273 Section 5.4 allows but receivers might not support.`));
     }
     if (mediaclkDirectTypePattern.test(lines[x])) {
       if (!mediaclkDirectFormPattern.test(lines[x])) {
