@@ -157,6 +157,23 @@ test('pasted SDP is checked without its line endings', async ({ page }) => {
   await expect(page.getByTestId('endings-skipped')).toBeVisible();
 });
 
+test('the results say the line-ending check was skipped only when the line endings are unknown', async ({ page }) => {
+  await loadExample(page, 'missing-media.sdp');
+  await page.getByText('Validation options').click();
+  await page.getByLabel('Check line endings').uncheck();
+  await page.getByRole('button', { name: 'Validate' }).click();
+  await expect(page.getByText('Out of date')).toHaveCount(0);
+  await expect(page.getByTestId('endings-skipped')).toHaveCount(0);
+
+  await editor(page).click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('x');
+  await page.getByLabel('Skip RFC 4566 checks').check();
+  await page.getByRole('button', { name: 'Validate' }).click();
+  await expect(page.getByText('Out of date')).toHaveCount(0);
+  await expect(page.getByTestId('endings-skipped')).toHaveCount(0);
+});
+
 test('an opened file keeps its line endings, and blank lines do not move the diagnostics', async ({ page }) => {
   const text = readSource('test/fixtures/invalid/bad-line-format.sdp').replace('\r\n', '\r\n\r\n');
   const badLine = text.split('\r\n').indexOf('i= leading space') + 1;

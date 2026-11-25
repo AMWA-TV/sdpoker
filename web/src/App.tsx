@@ -76,6 +76,7 @@ interface Checked {
   result: ValidationResult;
   options: ValidationOptions;
   editorText: string;
+  endingsAvailable: boolean;
 }
 
 export default function App() {
@@ -106,7 +107,12 @@ export default function App() {
   const check = (checkedDocument: SDPDocument, checkedOptions: ValidationOptions) => {
     const input = validationInput(checkedDocument, checkedOptions);
     const result = validateSDP(input.text, input.options);
-    setChecked({ result, options: input.options, editorText: checkedDocument.editorText });
+    setChecked({
+      result,
+      options: input.options,
+      editorText: checkedDocument.editorText,
+      endingsAvailable: lineEndingsAvailable(checkedDocument),
+    });
   };
 
   // The editor receives the text of a loaded document when it renders, so mark the lines after that
@@ -322,6 +328,7 @@ export default function App() {
               <ResultsPanel
                 result={checked?.result}
                 options={checked?.options}
+                endingsAvailable={checked?.endingsAvailable ?? false}
                 stale={stale}
                 onShowLine={(line) => view.current && showLine(view.current, line)}
               />

@@ -45,5 +45,4 @@ export interface ValidationResult {
   diagnostics: Diagnostic[];
   errorCount: number;
   durationMs: number;
-  lineEndingsChecked: boolean;
 }

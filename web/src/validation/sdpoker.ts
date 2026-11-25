@@ -59,6 +59,5 @@ export function validateSDP(sdp: string, options: ValidationOptions): Validation
     diagnostics,
     errorCount: diagnostics.length,
     durationMs: performance.now() - start,
-    lineEndingsChecked: options.checkEndings,
   };
 }

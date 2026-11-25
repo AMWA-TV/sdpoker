@@ -21,11 +21,12 @@ import type { Diagnostic, ValidationOptions, ValidationResult } from '../validat
 interface Props {
   result?: ValidationResult;
   options?: ValidationOptions;
+  endingsAvailable: boolean;
   stale: boolean;
   onShowLine: (line: number) => void;
 }
 
-export default function ResultsPanel({ result, options, stale, onShowLine }: Props) {
+export default function ResultsPanel({ result, options, endingsAvailable, stale, onShowLine }: Props) {
   if (!result || !options) {
     return (
       <Typography color="text.secondary" sx={{ p: 2 }}>
@@ -54,7 +55,7 @@ export default function ResultsPanel({ result, options, stale, onShowLine }: Pro
           {result.durationMs.toFixed(1)} ms
         </Typography>
       </Stack>
-      {!result.lineEndingsChecked && (
+      {!endingsAvailable && !options.skipRFC4566 && (
         <Alert severity="info" sx={{ mb: 1 }} data-testid="endings-skipped">
           Line-ending validation skipped because the original line endings cannot be guaranteed after editing. All other
           selected validation checks have been performed.
