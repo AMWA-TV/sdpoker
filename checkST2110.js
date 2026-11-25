@@ -17,9 +17,12 @@
 const { splitLines, LineError } = require('./lines.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
-const mediaclkTypePattern = /^a=mediaclk:([^\s=]+)/;
-const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
+const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
+const mediaclkDirectPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct=(\d+)/g;
+const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct(\s|$)/;
 const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
+const mediaclkDirectTypePattern = /^a=mediaclk:(id=\S+\s+)?direct([=\s]|$)/;
+const mediaclkDirectFormPattern = /^a=mediaclk:(id=\S+\s+)?direct(=\d+)?( rate=[1-9]\d*\/[1-9]\d*)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
 const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
 const ptpVersions = ['IEEE1588-2002', 'IEEE1588-2008', 'IEEE802.1AS-2011'];
@@ -152,26 +155,24 @@ a=mid:SECONDARY
 
 // NOTE: all ST 2110 references are for the originally published specifications unless a later revision is indicated
 
-// ST 2110-10 Section 7.4 Test 1 - Where attribute 'mediaclk' uses the direct reference with PTP, the offset value is zero
+// ST 2110-10 Section 7.4 Test 1 - Where attribute 'mediaclk' uses the direct reference, the offset is included and is zero
 // [also ST 2110-10:2022 Sections 7.3 and 8.3]
 const test_10_74_1 = (sdp, params) => {
   let errors = [];
   let streams = sdp.split(/[\r\n]m=/).slice(1);
   let mediaLines = splitLines(sdp).flatMap((line, x) => line.startsWith('m=') ? [x + 1] : []);
   for (let s = 0; s < streams.length; s++) {
-    let zeroCheck = streams[s].match(mediaclkDirectPattern);
-    if (Array.isArray(zeroCheck) && zeroCheck.length > 0 &&
-      streams[s].indexOf('IEEE1588-2008') > 0) { // Zero check only PTP clocks
-      zeroCheck = zeroCheck.map(z => +(z.trim().split('=')[2]));
-      for (let x = 0; x < zeroCheck.length; x++) {
-        if (zeroCheck[x] !== 0) {
-          errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset when direct-referenced PTP timing is in use, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
-        }
+    if (mediaclkNoOffsetPattern.test(streams[s])) {
+      errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall include a zero offset when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
+    }
+    for (let offsetMatch of streams[s].matchAll(mediaclkDirectPattern)) {
+      if (+offsetMatch[1] !== 0) {
+        errors.push(new LineError(mediaLines[s], `For stream ${s + 1}, the 'mediaclk' attribute shall have a zero offset, but has '${offsetMatch[1]}', when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].`));
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3] Test 1 - Where attribute \'mediaclk\' uses the direct reference with PTP, the offset value is zero.');
+    console.log('Test Passed: ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3] Test 1 - Where attribute \'mediaclk\' uses the direct reference, the offset is included and is zero.');
   }
   return errors;
 };
@@ -193,12 +194,12 @@ const test_10_81_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct or sender reference
-// [also ST 2110-10:2022 Section 8.3, which requires the direct or sender reference]
+// ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct reference
+// Only the sender reference is reported, because ST 2110-10:2022 Section 8.3 Test 1 reports any other
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
-      console.log('Test Skipped: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 2 - Attribute \'mediaclk\' uses the direct or sender reference. Use --should to test.');
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference. Use --should to test.');
     }
     return [];
   }
@@ -211,17 +212,18 @@ const test_10_81_2 = (sdp, params) => {
       continue;
     }
     let typeMatch = lines[x].match(mediaclkTypePattern);
-    if (typeMatch && typeMatch[1] !== 'direct' && typeMatch[1] !== 'sender') {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' or 'sender' reference, not '${typeMatch[1]}', as per ST 2110-10 Section 8.1.`));
+    if (typeMatch && typeMatch[1] === 'sender') {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not 'sender', as per ST 2110-10 Section 8.1.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 [also ST 2110-10:2022 Section 8.3] Test 2 - Attribute \'mediaclk\' uses the direct or sender reference.');
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference.');
   }
   return errors;
 };
 
 // ST 2110-10 Section 8.1 Test 3 - Every 'mediaclk' attribute matches an acceptable pattern
+// RFC 7273 allows a media clock identifier, but with --should SDPoker reports one, because receivers might not support it
 const test_10_81_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
@@ -231,7 +233,14 @@ const test_10_81_3 = (sdp, params) => {
       streamCount++;
       continue;
     }
-    if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
+    if (params.should && lines[x].startsWith('a=mediaclk:id=')) {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should not have a media clock identifier ('id='), which RFC 7273 Section 5.4 allows but receivers might not support.`));
+    }
+    if (mediaclkDirectTypePattern.test(lines[x])) {
+      if (!mediaclkDirectFormPattern.test(lines[x])) {
+        errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, which must be of the form 'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]', as per RFC 7273 Section 5.4.`));
+      }
+    } else if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
       errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
     }
   }
@@ -703,6 +712,27 @@ const streamsWithoutSourceFilter = sdp => {
       return !filters.some(filter => filter.mode === 'incl' &&
         (canonicalAddress(filter.address) === canonicalAddress(stream.address) || filter.address === '*'));
     });
+};
+
+// ST 2110-10:2022 Section 8.3 Test 1 - Attribute 'mediaclk' uses the direct or sender reference
+const test_10_2022_83_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let typeMatch = lines[x].match(mediaclkTypePattern);
+    if (typeMatch && typeMatch[1] !== 'direct' && typeMatch[1] !== 'sender') {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' shall use the 'direct' or 'sender' reference, not '${typeMatch[1]}', as per ST 2110-10:2022 Section 8.3.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10:2022 Section 8.3 Test 1 - Attribute \'mediaclk\' uses the direct or sender reference.');
+  }
+  return errors;
 };
 
 // ST 2110-10:2022 Section 8.4 Test 1 - Streams with a source-specific multicast destination address have an inclusive source filter
@@ -2426,6 +2456,11 @@ const section_10_86 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_10_2022_83 = (sdp, params) => {
+  let tests = [test_10_2022_83_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const section_10_2022_84 = (sdp, params) => {
   let tests = [test_10_2022_84_1, test_10_2022_84_2];
   return tests.flatMap(t => t(sdp, params));
@@ -2638,6 +2673,7 @@ const st2110_10_sections = [
   section_10_82,
   section_10_83,
   section_10_86,
+  section_10_2022_83,
   section_10_2022_84,
   section_10_2022_87,
   section_23_53,
@@ -2744,6 +2780,7 @@ module.exports = {
   section_10_82,
   section_10_83,
   section_10_86,
+  section_10_2022_83,
   section_10_2022_84,
   section_10_2022_87,
   section_20_71,

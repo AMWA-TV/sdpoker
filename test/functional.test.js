@@ -147,6 +147,10 @@ const invalidCases = [
     messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/mediaclk-direct-rate.sdp',
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern, which must be of the form \'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]\''
+  },
+  {
     file: 'invalid/source-filter-pattern.sdp',
     messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
   },
@@ -973,5 +977,64 @@ test('every error that starts with a line number has that line as its line prope
   }).map(error => `${error.line}: ${error.message}`);
   t.ok(errors.some(error => error.line !== undefined), 'some errors have a line');
   t.same(mismatches, [], 'the line property matches the message');
+  t.end();
+});
+
+test('a direct-referenced media clock with no offset or a non-zero offset is reported for any reference clock', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const citation = 'when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].';
+  const messages = (mediaclk, refclk) => checkST2110(sdp
+    .replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${mediaclk}`)
+    .replace(/a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`), cliDefaults)
+    .map(error => error.message).filter(m => m.includes(citation));
+  const missing = `Line 5: For stream 1, the 'mediaclk' attribute shall include a zero offset ${citation}`;
+  const nonZero = `Line 5: For stream 1, the 'mediaclk' attribute shall have a zero offset, but has '5', ${citation}`;
+  for (const refclk of ['ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0:37', 'ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0:37', 'localmac=7C-E9-D3-1B-9A-AF']) {
+    t.same(messages('direct', refclk), [missing], `no offset is reported with ${refclk}`);
+    t.same(messages('direct=5', refclk), [nonZero], `a non-zero offset is reported with ${refclk}`);
+    t.same(messages('direct=0', refclk), [], `a zero offset is accepted with ${refclk}`);
+  }
+  t.same(messages('id=src1 direct=5', 'localmac=7C-E9-D3-1B-9A-AF'), [nonZero], 'a non-zero offset is reported after a media clock identifier');
+  t.end();
+});
+
+test('a direct-referenced media clock must match the RFC 7273 grammar', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const reported = value => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), cliDefaults)
+    .some(error => error.message.includes('attribute \'mediaclk\' is not an acceptable pattern'));
+  for (const value of ['direct=0', 'direct', 'direct=0 rate=1000/1001']) {
+    t.notOk(reported(value), `'${value}' is accepted`);
+  }
+  for (const value of ['direct=0 rate=90000', 'direct=0 rate=abc', 'direct=0 rate=0/1001', 'direct=0 rate=01/1', 'direct=abc', 'direct=0rate=1/1']) {
+    t.ok(reported(value), `'${value}' is reported`);
+  }
+  t.end();
+});
+
+test('a media clock identifier is reported once with --should, and is not taken as the media clock reference', t => {
+  const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:id=src1 direct=0');
+  const messages = params => checkST2110(sdp, { ...cliDefaults, ...params }).map(error => error.message).filter(m => m.includes('\'mediaclk\''));
+  t.same(messages({}), [], 'a=mediaclk:id=src1 direct=0 is accepted');
+  t.same(messages({ should: true }),
+    ['Line 11: For stream 1, attribute \'mediaclk\' should not have a media clock identifier (\'id=\'), which RFC 7273 Section 5.4 allows but receivers might not support.'],
+    'with --should, a=mediaclk:id=src1 direct=0 is reported only for its identifier');
+  t.end();
+});
+
+test('a media clock reference other than direct is reported', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = (value, params) => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), { ...cliDefaults, ...params })
+    .map(error => error.message).filter(m => m.includes('reference'));
+  const stream = 'IEEE1722=38-D6-6D-8E-D2-78-13-2F';
+  t.same(messages('sender', {}), [], 'the sender reference is accepted');
+  t.same(messages('sender', { should: true }),
+    ['Line 11: For stream 1, attribute \'mediaclk\' should use the \'direct\' reference, not \'sender\', as per ST 2110-10 Section 8.1.'],
+    'with --should, the sender reference is reported');
+  t.same(messages(stream, {}),
+    ['Line 11: For stream 1, attribute \'mediaclk\' shall use the \'direct\' or \'sender\' reference, not \'IEEE1722\', as per ST 2110-10:2022 Section 8.3.'],
+    'a stream reference is reported');
+  t.same(messages(stream, { should: true }),
+    ['Line 11: For stream 1, attribute \'mediaclk\' shall use the \'direct\' or \'sender\' reference, not \'IEEE1722\', as per ST 2110-10:2022 Section 8.3.'],
+    'with --should, a stream reference is reported once');
   t.end();
 });
