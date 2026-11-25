@@ -13,8 +13,7 @@
   limitations under the License.
 */
 
-const splitLines = sdp => sdp.match(/[^\r\n]+/g);
-const concat = arrays => Array.prototype.concat.apply([], arrays);
+const { splitLines, LineError } = require('./lines.js');
 
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
@@ -38,7 +37,7 @@ const test_30_1 = (sdp, params) => {
     if (lines[x].startsWith('a=source-filter')) {
       let sourceFilterMatch = lines[x].match(sourceFilterPattern);
       if (!sourceFilterMatch) {
-        errors.push(new Error(`Line ${x + 1}: Attribute 'source-filter' is not an acceptable pattern, which must be of the form 'a=source-filter: <filter-mode> <filter-spec>', as per RFC 4570 Section 3.`));
+        errors.push(new LineError(x + 1, 'Attribute \'source-filter\' is not an acceptable pattern, which must be of the form \'a=source-filter: <filter-mode> <filter-spec>\', as per RFC 4570 Section 3.'));
         continue;
       }
     }
@@ -87,13 +86,13 @@ const test_30_3 = (sdp, params) => {
       if (!inMedia) {
         globalFilters.push({ line: x + 1, destAddr });
       } else if (destAddr != globalAddr && destAddr != mediaAddr && destAddr != '*') {
-        errors.push(new Error(`Line ${x + 1}: Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`));
+        errors.push(new LineError(x + 1, 'Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.'));
       }
     }
   }
   for (let { line, destAddr } of globalFilters) {
     if (destAddr != globalAddr && !mediaAddrs.includes(destAddr) && destAddr != '*') {
-      errors.push(new Error(`Line ${line}: Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`));
+      errors.push(new LineError(line, 'Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.'));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -104,12 +103,12 @@ const test_30_3 = (sdp, params) => {
 
 const section_30 = (sdp, params) => {
   let tests = [ test_30_1, test_30_3 ];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const allSections = (sdp, params) => {
   let sections = [ section_30 ];
-  return concat(sections.map(s => s(sdp, params)));
+  return sections.flatMap(s => s(sdp, params));
 };
 
 module.exports = {

@@ -54,7 +54,7 @@ test('CLI --version reports the sdpoker version when installed as a dependency',
     fs.mkdirSync(installedPackageRoot, { recursive: true });
     [
       'sdpoker.js', 'index.js', 'checkRFC4566.js', 'checkRFC4570.js',
-      'checkST2110.js', 'package.json'
+      'checkST2110.js', 'lines.js', 'package.json'
     ].forEach(fileName => {
       fs.copyFileSync(path.join(repositoryRoot, fileName), path.join(installedPackageRoot, fileName));
     });

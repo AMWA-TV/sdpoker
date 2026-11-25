@@ -861,3 +861,102 @@ test('midLast reports media descriptions that do not end with a=mid', t => {
     'is skipped when no a=mid is present');
   t.end();
 });
+
+test('line numbers count blank lines, with CRLF, CR or LF line endings', t => {
+  const params = { ...cliDefaults, midLast: true };
+  const sdp = readFixture('valid/rfc7104_sep_dest.sdp');
+  const messages = variant => runAllChecks(variant, params).map(error => error.message);
+  const expected = messages(sdp).map(message => message.replace(/^Line (\d+)/, (_, line) => `Line ${+line + 1}`));
+  t.ok(expected.length > 0 && expected.every(message => message.startsWith('Line ')), 'the errors give a line');
+  for (const [name, ending] of [['CRLF', '\r\n'], ['CR', '\r'], ['LF', '\n']]) {
+    const variant = sdp.replace(/\r\n/g, ending).replace(ending, ending + ending);
+    t.same(messages(variant), ['Line 2: An SDP file must not contain blank lines, as per RFC 4566 Section 5.', ...expected], name);
+  }
+  t.end();
+});
+
+test('blank lines are reported once, at the first blank line, and no other check reports them', t => {
+  const blank = line => `Line ${line}: An SDP file must not contain blank lines, as per RFC 4566 Section 5.`;
+  const messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message);
+  for (const fileName of validFixtures) {
+    t.same(messages(readFixture(path.join('valid', fileName)).replace(/\r\n/g, '\r\n\r\n')), [blank(2)], fileName);
+  }
+  const midLast = readFixture('valid/rfc7104_sep_dest_mid_last.sdp');
+  t.same(messages(midLast.replace(/\r\n/g, '\r\n\r\n'), { midLast: true }), [blank(2)], 'with midLast');
+  t.same(messages('\r\n' + midLast), [blank(1)], 'a blank first line');
+  const copy = readFixture('invalid/st2110-10-annex-b.sdp').replace(/\r\n/g, '\r\n\r\n');
+  t.ok(messages(copy).some(message => message.includes('must not be a copy of the example')), 'a copy of the example');
+  t.end();
+});
+
+test('the line ending errors give the line', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = (variant, params = {}) => checkRFC4566(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  const lastLine = sdp.split('\r\n').length - 1;
+  t.same(messages(sdp.slice(0, -2)),
+    [`Line ${lastLine}: The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.`], 'no newline at the end');
+  const crlf = 'Every record of an SDP file must end with CRLF (0x0d0a), and CR and LF must not appear separately, as per RFC 4566 Section 5.';
+  const third = ending => sdp.replace(/^((?:[^\r\n]*\r\n){2}[^\r\n]*)\r\n/, `$1${ending}`);
+  t.same(messages(third('\n'), { checkEndings: true }), [`Line 3: ${crlf}`], 'LF at the end of line 3');
+  t.same(messages(third('\r'), { checkEndings: true }), [`Line 3: ${crlf}`], 'CR at the end of line 3');
+  t.same(messages(sdp.replace(/\r\n/g, '\n'), { checkEndings: true }), [`Line 1: ${crlf}`], 'LF at the end of every line');
+  t.end();
+});
+
+test('a missing line of a required type is reported where it belongs', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const without = type => sdp.split('\r\n').filter(line => !line.startsWith(`${type}=`)).join('\r\n');
+  const missing = (variant, type) => checkRFC4566(variant, cliDefaults).map(error => error.message)
+    .filter(message => message.includes(`at least one line of type '${type}'`));
+  const message = (line, type) => `Line ${line}: An SDP file must have at least one line of type '${type}', as per RFC 4566 Section 5.`;
+  t.same(missing(without('v'), 'v'), [message(1, 'v')], 'v');
+  t.same(missing(without('o'), 'o'), [message(2, 'o')], 'o');
+  t.same(missing(without('s'), 's'), [message(3, 's')], 's');
+  t.same(missing(without('t'), 't'), [message(4, 't')], 't');
+  t.same(missing('v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=x\r\n', 't'), [message(3, 't')], 'at the last line when no line comes after it');
+  t.end();
+});
+
+test('a missing media description is reported at the last line', t => {
+  const sdp = readFixture('invalid/missing-media.sdp');
+  const message = line => `Line ${line}: An SDP file shall include at least one media description ('m='), as per ST 2110-10 Section 8.1.`;
+  const messages = variant => checkST2110(variant, cliDefaults).map(error => error.message);
+  t.ok(messages(sdp).includes(message(4)), 'the last line');
+  t.ok(messages('\r\n' + sdp).includes(message(5)), 'counting a blank first line');
+  t.end();
+});
+
+test('a missing duplicate stream group is reported at the first media description', t => {
+  const message = line => `Line ${line}: Duplicate RTP streams, as requested by --duplicate, shall be signalled with a session-level 'group:DUP' attribute, as per ST 2110-10 Section 8.3 [also ST 2110-10:2022 Section 8.5].`;
+  const messages = file => checkST2110(readFixture(file), { ...cliDefaults, duplicate: true }).map(error => error.message);
+  t.ok(messages('valid/st2110-20.sdp').includes(message(5)), 'the first media description');
+  t.ok(messages('invalid/missing-media.sdp').includes(message(4)), 'the last line when there is no media description');
+  t.end();
+});
+
+test('a line out of order is reported once, and the lines after it are checked from that line', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const without = type => sdp.split('\r\n').filter(line => !line.startsWith(`${type}=`)).join('\r\n');
+  const order = variant => checkRFC4566(variant, cliDefaults).map(error => error.message)
+    .filter(message => message.includes('must not be followed by'));
+  t.same(order(without('t')), ['Line 4: A line of type \'s\' must not be followed by a line of type \'m\', as per RFC 4566 Section 5.'], 'no t');
+  t.same(order(without('s')), ['Line 3: A line of type \'o\' must not be followed by a line of type \'t\', as per RFC 4566 Section 5.'], 'no s');
+  t.end();
+});
+
+test('every error that starts with a line number has that line as its line property', t => {
+  const files = ['valid', 'invalid'].flatMap(dir => fs.readdirSync(path.join(fixturesRoot, dir))
+    .filter(file => file.endsWith('.sdp')).map(file => `${dir}/${file}`));
+  const paramSets = [
+    cliDefaults,
+    { ...cliDefaults, checkEndings: true, should: true, duplicate: true, channelOrder: true, midLast: true, multicast: true, useIP6: true }
+  ];
+  const errors = files.flatMap(file => paramSets.flatMap(params => runAllChecks(readFixture(file), params)));
+  const mismatches = errors.filter(error => {
+    const lineMatch = error.message.match(/^Line (\d+): /);
+    return error.line !== (lineMatch ? Number(lineMatch[1]) : undefined) || !(error instanceof Error);
+  }).map(error => `${error.line}: ${error.message}`);
+  t.ok(errors.some(error => error.line !== undefined), 'some errors have a line');
+  t.same(mismatches, [], 'the line property matches the message');
+  t.end();
+});
