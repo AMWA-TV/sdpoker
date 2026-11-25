@@ -2,7 +2,10 @@
 
 [![CI Status](https://github.com/AMWA-TV/sdpoker/workflows/CI/badge.svg)](https://github.com/AMWA-TV/sdpoker/actions?query=workflow%3ACI)
 
-CLI tool and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. With `--verbose`, it also lists the tests that passed or were skipped.
+CLI tool, web application, and library for testing SMPTE ST 2110 compliant Session Description Protocol (SDP) files. The tool attempts to apply a number of rules that test relevant clauses of [RFC 4566](https://tools.ietf.org/html/rfc4566), ST 2110 and AES67. With `--verbose`, it also lists the tests that passed or were skipped.
+
+> [!NOTE]
+> Try the SDPoker web application at https://amwa-tv.github.io/sdpoker/. The checks run in your browser, and the SDP is not uploaded. See [Web Application](#web-application).
 
 Just because an SDP file passes these tests does not mean it is 100% valid. However, if it fails one of the tests, the file is likely to need some work!
 
