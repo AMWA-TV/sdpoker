@@ -17,9 +17,14 @@ This is a fork of the original repository from [Streampunk/sdpoker](https://gith
 
 Recent activity on the project (newest first):
 
+- Released v0.6.0
+- Added `--midLast`, to check that each media description ends with `a=mid`, as expected by SMPTE RP 2110-23
 - The traffic shaping checks of ST 2110-21, ST 2022-8 and ST 2110-40 run by default, and `--no-shaping` skips them
+- Added checks of the ST 2110-31 parameters of AM824 streams
+- Added checks of the ST 2022-8 parameters of ST 2022-6 streams
 - Added checks of the ST 2110-40 and RFC 8331 format parameters of ANC data streams
 - Added checks of the RFC 9134 format parameters of JPEG XS streams
+- Added checks of ST 2110-43 timed text (TTML) streams
 - Removed the `--videoOnly` and `--audioOnly` options, because SDPoker now reports any SDP file that describes more than one essence
 - v0.5.0 supports Node.js 22.12 or later
 - Fixed `sdpoker --version` when SDPoker is installed from the repository
