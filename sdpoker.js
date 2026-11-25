@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright 2018 Streampunk Media Ltd.
+   Copyright (C) 2019 Advanced Media Workflow Association
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -38,7 +39,7 @@ const args = yargs(hideBin(process.argv))
     unicast: { type: 'boolean', default: false, describe: 'Connection addresses must be unicast' },
     shaping: { type: 'boolean', default: true, describe: 'Check adherence to traffic shaping specification' },
     midLast: { type: 'boolean', default: false, describe: 'Check each media description ends with a=mid, as expected by SMPTE RP 2110-23' },
-    verbose: { type: 'boolean', default: false, describe: 'Print passed tests as well as failed' }
+    verbose: { type: 'boolean', default: false, describe: 'Print passed and skipped tests as well as failed' }
   })
   .usage('Check an SDP file for conformance with RFC 4566 and SMPTE ST 2110.\n' +
     'Usage: $0 [options] <sdp_file or HTTP URL>')
