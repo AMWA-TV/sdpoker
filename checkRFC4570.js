@@ -16,8 +16,6 @@
 // A line ends with CRLF, CR or LF. Blank lines are kept, so that line numbers
 // count them.
 const splitLines = sdp => sdp.replace(/(\r\n?|\n)$/, '').split(/\r\n?|\n/);
-const concat = arrays => Array.prototype.concat.apply([], arrays);
-
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 
@@ -106,12 +104,12 @@ const test_30_3 = (sdp, params) => {
 
 const section_30 = (sdp, params) => {
   let tests = [ test_30_1, test_30_3 ];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const allSections = (sdp, params) => {
   let sections = [ section_30 ];
-  return concat(sections.map(s => s(sdp, params)));
+  return sections.flatMap(s => s(sdp, params));
 };
 
 module.exports = {

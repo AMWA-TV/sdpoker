@@ -16,8 +16,6 @@
 // A line ends with CRLF, CR or LF. Blank lines are kept, so that line numbers
 // count them.
 const splitLines = sdp => sdp.replace(/(\r\n?|\n)$/, '').split(/\r\n?|\n/);
-const concat = arrays => Array.prototype.concat.apply([], arrays);
-
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:direct=\d+\s+/g;
@@ -876,6 +874,7 @@ const test_20_71_4 = (sdp, params) => {
 };
 
 // Test for duplicate parameters by setting params.checkDups
+/** @returns {[object[], Error[]]} */
 const extractMTParams = (sdp, params = {}) => {
   let mtParams = [];
   let errors = [];
@@ -2394,175 +2393,175 @@ const test_43_2021_42_1 = (sdp, params) => {
 
 const section_10_62 = (sdp, params) => {
   let tests = [test_10_62_1, test_10_62_2, test_10_62_3];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_74 = (sdp, params) => {
   let tests = [test_10_74_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_81 = (sdp, params) => {
   let tests = [test_10_81_1, test_10_81_2, test_10_81_3];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_82 = (sdp, params) => {
   let tests = [test_10_82_1, test_10_2022_82_1, test_10_82_3, test_10_82_4];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_83 = (sdp, params) => {
   let tests = [test_10_83_1, test_10_83_2, test_10_83_3];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_23_53 = (sdp, params) => {
   let tests = [test_23_53_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_86 = (sdp, params) => {
   let tests = [test_10_84_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_2022_84 = (sdp, params) => {
   let tests = [test_10_2022_84_1, test_10_2022_84_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_10_2022_87 = (sdp, params) => {
   let tests = [test_10_2022_87_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_20_71 = (sdp, params) => {
   let tests = [test_20_71_3, test_20_71_4];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_20_72 = (sdp, params) => {
   let tests = [test_20_72_1, test_20_72_2, test_20_72_3, test_20_72_4,
     test_20_72_5];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_20_73 = (sdp, params) => {
   let tests = [test_20_73_1, test_20_73_2, test_20_73_3, test_20_73_4];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_20_74 = (sdp, params) => {
   let tests = [test_20_74_1, test_20_74_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_20_75 = (sdp, params) => {
   let tests = [test_20_75_1, test_20_75_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_20_76 = (sdp, params) => {
   let tests = [test_20_76_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_30_62 = (sdp, params) => {
   let tests = [test_30_62_1, test_30_62_3, test_30_62_4];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_31_61 = (sdp, params) => {
   let tests = [test_31_61_1, test_31_61_2, test_31_61_3];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_31_62 = (sdp, params) => {
   let tests = [test_31_62_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_21_81 = (sdp, params) => {
   let tests = [test_21_81_1, test_21_81_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_21_82 = (sdp, params) => {
   let tests = [test_21_82_1, test_21_82_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_22_60 = (sdp, params) => {
   let tests = [test_22_60_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_22_72 = (sdp, params) => {
   let tests = [test_22_72_1, test_22_72_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_22_73 = (sdp, params) => {
   let tests = [test_22_73_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_22_74 = (sdp, params) => {
   let tests = [test_22_74_1, test_22_74_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_22_2022_72 = (sdp, params) => {
   let tests = [test_22_2022_72_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_9134_71 = (sdp, params) => {
   let tests = [test_9134_71_1, test_9134_71_2, test_9134_71_3, test_9134_71_4,
     test_9134_71_5, test_9134_71_6, test_9134_71_7, test_9134_71_8,
     test_9134_71_9, test_9134_71_10];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_40_2023_7 = (sdp, params) => {
   let tests = [test_40_2023_7_1, test_40_2023_7_2, test_40_2023_7_3, test_40_2023_7_4];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_40_2023_53 = (sdp, params) => {
   let tests = [test_40_2023_53_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_2022_8_53 = (sdp, params) => {
   let tests = [test_2022_8_53_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_2022_8_60 = (sdp, params) => {
   let tests = [test_2022_8_60_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_2022_8_71 = (sdp, params) => {
   let tests = [test_2022_8_71_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_8331_4 = (sdp, params) => {
   let tests = [test_8331_4_1, test_8331_4_2];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_43_2021_41 = (sdp, params) => {
   let tests = [test_43_2021_41_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const section_43_2021_42 = (sdp, params) => {
   let tests = [test_43_2021_42_1];
-  return concat(tests.map(t => t(sdp, params)));
+  return tests.flatMap(t => t(sdp, params));
 };
 
 const no_copy = (sdp, params, specSDP, test, example) => {
@@ -2734,7 +2733,7 @@ const allSections = (sdp, params) => {
     }
   }
 
-  return concat(sections.map(s => s(sdp, params)));
+  return sections.flatMap(s => s(sdp, params));
 };
 
 module.exports = {
