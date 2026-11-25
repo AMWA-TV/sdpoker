@@ -13,7 +13,9 @@
   limitations under the License.
 */
 
-const splitLines = sdp => sdp.match(/[^\r\n]+/g);
+// A line ends with CRLF, CR or LF. Blank lines are kept, so that line numbers
+// count them.
+const splitLines = sdp => sdp.replace(/(\r\n?|\n)$/, '').split(/\r\n?|\n/);
 const concat = arrays => Array.prototype.concat.apply([], arrays);
 
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;

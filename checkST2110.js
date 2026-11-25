@@ -13,7 +13,9 @@
   limitations under the License.
 */
 
-const splitLines = sdp => sdp.match(/[^\r\n]+/g);
+// A line ends with CRLF, CR or LF. Blank lines are kept, so that line numbers
+// count them.
+const splitLines = sdp => sdp.replace(/(\r\n?|\n)$/, '').split(/\r\n?|\n/);
 const concat = arrays => Array.prototype.concat.apply([], arrays);
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
@@ -511,10 +513,14 @@ const test_23_53_1 = (sdp, params) => {
   let errors = [];
   let streamCounter = 0;
   for (let x = 0; x < lines.length; x++) {
+    if (lines[x] === '') {
+      continue;
+    }
     if (lines[x].startsWith('m=')) {
       streamCounter++;
     }
-    let isLastLineOfMediaDescription = x + 1 === lines.length || lines[x + 1].startsWith('m=');
+    let next = lines.slice(x + 1).find(line => line !== '');
+    let isLastLineOfMediaDescription = next === undefined || next.startsWith('m=');
     if (streamCounter > 0 && isLastLineOfMediaDescription && !lines[x].startsWith('a=mid:')) {
       errors.push(new Error(`Line ${x + 1}: For stream ${streamCounter}, the media description does not end with its 'a=mid' attribute. RFC 8866 does not require this, but receivers that follow SMPTE RP 2110-23 Section 5.3 may expect it.`));
     }
@@ -2563,7 +2569,7 @@ const no_copy = (sdp, params, specSDP, test, example) => {
     }
     return [];
   }
-  let lines = splitLines(sdp.trim());
+  let lines = splitLines(sdp.trim()).filter(line => line !== '');
   let exlines = splitLines(specSDP);
   let length = lines.length < exlines.length ? lines.length : exlines.length;
   let matching = true;

@@ -861,3 +861,44 @@ test('midLast reports media descriptions that do not end with a=mid', t => {
     'is skipped when no a=mid is present');
   t.end();
 });
+
+test('line numbers count blank lines, with CRLF, CR or LF line endings', t => {
+  const params = { ...cliDefaults, midLast: true };
+  const sdp = readFixture('valid/rfc7104_sep_dest.sdp');
+  const messages = variant => runAllChecks(variant, params).map(error => error.message);
+  const expected = messages(sdp).map(message => message.replace(/^Line (\d+)/, (_, line) => `Line ${+line + 1}`));
+  t.ok(expected.length > 0 && expected.every(message => message.startsWith('Line ')), 'the errors give a line');
+  for (const [name, ending] of [['CRLF', '\r\n'], ['CR', '\r'], ['LF', '\n']]) {
+    const variant = sdp.replace(/\r\n/g, ending).replace(ending, ending + ending);
+    t.same(messages(variant), ['Line 2: An SDP file must not contain blank lines, as per RFC 4566 Section 5.', ...expected], name);
+  }
+  t.end();
+});
+
+test('blank lines are reported once, at the first blank line, and no other check reports them', t => {
+  const blank = line => `Line ${line}: An SDP file must not contain blank lines, as per RFC 4566 Section 5.`;
+  const messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message);
+  for (const fileName of validFixtures) {
+    t.same(messages(readFixture(path.join('valid', fileName)).replace(/\r\n/g, '\r\n\r\n')), [blank(2)], fileName);
+  }
+  const midLast = readFixture('valid/rfc7104_sep_dest_mid_last.sdp');
+  t.same(messages(midLast.replace(/\r\n/g, '\r\n\r\n'), { midLast: true }), [blank(2)], 'with midLast');
+  t.same(messages('\r\n' + midLast), [blank(1)], 'a blank first line');
+  const copy = readFixture('invalid/st2110-10-annex-b.sdp').replace(/\r\n/g, '\r\n\r\n');
+  t.ok(messages(copy).some(message => message.includes('must not be a copy of the example')), 'a copy of the example');
+  t.end();
+});
+
+test('the line ending errors give the line', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = (variant, params = {}) => checkRFC4566(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  const lastLine = sdp.split('\r\n').length - 1;
+  t.same(messages(sdp.slice(0, -2)),
+    [`Line ${lastLine}: The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.`], 'no newline at the end');
+  const crlf = 'Every record of an SDP file must end with CRLF (0x0d0a), and CR and LF must not appear separately, as per RFC 4566 Section 5.';
+  const third = ending => sdp.replace(/^((?:[^\r\n]*\r\n){2}[^\r\n]*)\r\n/, `$1${ending}`);
+  t.same(messages(third('\n'), { checkEndings: true }), [`Line 3: ${crlf}`], 'LF at the end of line 3');
+  t.same(messages(third('\r'), { checkEndings: true }), [`Line 3: ${crlf}`], 'CR at the end of line 3');
+  t.same(messages(sdp.replace(/\r\n/g, '\n'), { checkEndings: true }), [`Line 1: ${crlf}`], 'LF at the end of every line');
+  t.end();
+});

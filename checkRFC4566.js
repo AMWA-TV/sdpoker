@@ -13,9 +13,7 @@
   limitations under the License.
 */
 
-const badEndings = /^\n|[^\r]\n|\r[^\n]|\r$/;
 const hasNoNewlineAtEnd = /[^\r\n]$/;
-const blankLines = /^[\r\n]|\r\n?\r|\n\r?\n/;
 const linePattern = /^([a-z]=\S.*|s= )$/;
 const letterCheck = /^[vosiuepcbzkatrm].*$/;
 // const spaceCheck = /\s\s/;
@@ -80,8 +78,9 @@ const test50_1 = (sdp, params) => {
     return [];
   }
   let errors = [];
-  if (badEndings.test(sdp)) {
-    errors.push(new Error('Every record of an SDP file must end with CRLF (0x0d0a), and CR and LF must not appear separately, as per RFC 4566 Section 5.'));
+  const badEnding = (sdp.match(/\r\n|\r|\n/g) ?? []).findIndex(ending => ending !== '\r\n');
+  if (badEnding >= 0) {
+    errors.push(new Error(`Line ${badEnding + 1}: Every record of an SDP file must end with CRLF (0x0d0a), and CR and LF must not appear separately, as per RFC 4566 Section 5.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5 Test 1 - Line endings are all CRLF.');
@@ -93,10 +92,11 @@ const test50_1 = (sdp, params) => {
 const test50_1_1 = (sdp, params) => {
   let errors = [];
   if (hasNoNewlineAtEnd.test(sdp)) {
-    errors.push(new Error('The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.'));
+    errors.push(new Error(`Line ${splitLines(sdp).length}: The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.`));
   }
-  if (blankLines.test(sdp)) {
-    errors.push(new Error('An SDP file must not contain blank lines, as per RFC 4566 Section 5.'));
+  const blankLine = splitLines(sdp).indexOf('');
+  if (blankLine >= 0) {
+    errors.push(new Error(`Line ${blankLine + 1}: An SDP file must not contain blank lines, as per RFC 4566 Section 5.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5 Test 1.1 - Last record ends with a newline and there are no blank lines.');
@@ -104,13 +104,15 @@ const test50_1_1 = (sdp, params) => {
   return errors;
 };
 
-const splitLines = sdp => sdp.match(/[^\r\n]+/g);
+// A line ends with CRLF, CR or LF. Blank lines are kept, so that line numbers
+// count them, and test 1.1 is the only test that reports them.
+const splitLines = sdp => sdp.replace(/(\r\n?|\n)$/, '').split(/\r\n?|\n/);
 
 // RFC 4566 Section 5 Test 2 - Every line is of the form '<type>=<value>'
 const test_50_2 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (!linePattern.test(lines[x])) {
+    if (lines[x] !== '' && !linePattern.test(lines[x])) {
       errors.push(new Error(
         `Line ${x + 1}: Every line of an SDP file must be of the form '<type>=<value>' with <type> being one character and no whitespace either side of the equals, as per RFC 4566 Section 5.`));
     }
@@ -125,7 +127,7 @@ const test_50_2 = (lines, params) => {
 const test_50_3 = (lines, params) => {
   let errors = [];
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (!letterCheck.test(lines[x])) {
+    if (lines[x] !== '' && !letterCheck.test(lines[x])) {
       errors.push(new Error(
         `Line ${x + 1}: Every line of an SDP file must start with a permitted type letter, as per RFC 4566 Section 5.`));
     }
@@ -157,14 +159,19 @@ const test_50_5 = (lines, params) => {
   let types = lines.map(x => x.slice(0, 1));
   let state = 'session';
   let nextState = {};
-  for ( let x = 1 ; x < types.length ; x++ ) {
-    let movingOn = followedBy[state][types[x - 1]];
+  let previous = types.findIndex(type => type !== '');
+  for ( let x = previous + 1 ; x < types.length ; x++ ) {
+    if (types[x] === '') {
+      continue;
+    }
+    let movingOn = followedBy[state][types[previous]];
     nextState = movingOn ? movingOn : nextState;
     if (Object.keys(nextState).indexOf(types[x]) < 0) {
-      errors.push(new Error(`Line ${x + 1}: A line of type '${types[x - 1]}' must not be followed by a line of type '${types[x]}', as per RFC 4566 Section 5.`));
+      errors.push(new Error(`Line ${x + 1}: A line of type '${types[previous]}' must not be followed by a line of type '${types[x]}', as per RFC 4566 Section 5.`));
     } else {
       state = nextState[types[x]];
     }
+    previous = x;
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5 Test 5 - Lines are in the required order.');
@@ -189,8 +196,9 @@ const test_50_6 = (lines, params) => {
 // RFC 4566 Section 5.1 Test 1 - First line is 'v=0'
 const test_51_1 = (lines, params) => {
   let errors = [];
-  if (!lines[0].startsWith('v=0')) {
-    errors.push(new Error('Line 1: The first line must be \'v=0\', as per RFC 4566 Section 5.1.'));
+  let first = Math.max(lines.findIndex(line => line !== ''), 0);
+  if (!lines[first].startsWith('v=0')) {
+    errors.push(new Error(`Line ${first + 1}: The first line must be 'v=0', as per RFC 4566 Section 5.1.`));
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: RFC 4566 Section 5.1 Test 1 - First line is \'v=0\'.');
