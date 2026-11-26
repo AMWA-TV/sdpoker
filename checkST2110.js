@@ -22,7 +22,7 @@ const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct=(\d+)/g;
 const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct(\s|$)/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
-const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
+const ptpPattern = /^(?:traceable|([0-9a-fA-F]{2}(?:-[0-9a-fA-F]{2}){7})(?::(.+))?)$/;
 const ptpVersions = ['IEEE1588-2002', 'IEEE1588-2008', 'IEEE802.1AS-2011'];
 // The 'ts-refclk' forms of RFC 7273 Section 4.8 other than 'ptp', for devices not referenced to IEEE 1588-2008
 const otherRefclkPattern = /^a=ts-refclk:(?:ntp=(?:\/traceable\/|[^\s/]+)|gps|gal|glonass|local|private(?::traceable)?)$/;
@@ -310,10 +310,6 @@ const test_10_82_3 = (sdp, params) => {
     // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
     if (lines[x].startsWith('a=ts-refclk:ptp=') && isAcceptableAttribute(lines[x])) {
       let ptpDetails = lines[x].slice(16);
-      if (ptpDetails.startsWith('traceable')) {
-        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' must give a PTP version, such as \'IEEE1588-2008:\', before \'traceable\', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.'));
-        continue; // no longer acceptable form
-      }
       let ptpVersion = ptpDetails.split(':')[0];
       if (!ptpVersions.includes(ptpVersion)) {
         errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify PTP version 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', but specifies '${ptpVersion}', as per RFC 7273 Section 4.8.`));
@@ -322,18 +318,14 @@ const test_10_82_3 = (sdp, params) => {
       if (params.should && ptpVersion !== 'IEEE1588-2008') {
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' should specify \'IEEE1588-2008\', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.'));
       }
-      let ptpServer = ptpDetails.slice(ptpVersion.length + 1);
-      if (!ptpPattern.test(ptpServer)) {
-        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' is not an acceptable pattern, which must be of the form \'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable\', as per RFC 7273 Section 4.8.'));
-        continue;
-      }
-      let ptpMatch = ptpServer.match(ptpPattern);
-      if (ptpMatch[5]) {
-        let domainNmbr = +ptpMatch[5];
-        if (domainNmbr < 0 || domainNmbr > 127) {
-          errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[5]}', as per RFC 7273 Section 4.8.`));
+      let ptpMatch = ptpDetails.slice(ptpVersion.length + 1).match(ptpPattern);
+      if (ptpMatch[2]) {
+        // IEEE 1588-2002 identifies a PTP domain by a name, and IEEE 1588-2008 and IEEE 802.1AS-2011 by a number with no leading zeros,
+        // as per RFC 7273 Section 4.8, and the domain of any other version is checked as a number too
+        if (ptpVersion !== 'IEEE1588-2002' && !/^(?:\d|[1-9]\d|1[01]\d|12[0-7])$/.test(ptpMatch[2])) {
+          errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[2]}', as per RFC 7273 Section 4.8.`));
         }
-      } else if (ptpMatch[2] && ptpVersion === 'IEEE1588-2008') {
+      } else if (ptpMatch[1] && ptpVersion === 'IEEE1588-2008') {
         // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not for IEEE 1588-2008
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' shall specify a PTP domain number, as per ST 2110-10 Section 8.2.'));
       }

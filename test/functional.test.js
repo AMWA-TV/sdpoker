@@ -523,6 +523,25 @@ test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced
   t.end();
 });
 
+test('ST 2110-10 Section 8.2 tests check a PTP domain is a name for IEEE 1588-2002 and a number for later versions', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = refclk => runAllChecks(sdp.replace(/a=ts-refclk:[^\r\n]*/, `a=ts-refclk:ptp=${refclk}`)).map(error => error.message);
+  const domainMessage = domain => 'Line 8: Attribute \'ts-refclk\' of type \'ptp\' must specify a PTP domain number in the range 0 to 127 inclusive, ' +
+    `but specifies '${domain}', as per RFC 7273 Section 4.8.`;
+  const gmid = '39-A7-94-FF-FE-07-CB-D0';
+
+  for (const refclk of [`IEEE1588-2008:${gmid}:0`, `IEEE1588-2008:${gmid}:42`, `IEEE1588-2008:${gmid}:119`, `IEEE1588-2008:${gmid}:127`, `IEEE802.1AS-2011:${gmid}:0`,
+    `IEEE1588-2002:${gmid}:_DFLT`, `IEEE1588-2002:${gmid}:200`]) {
+    t.same(messages(refclk), [], `a=ts-refclk:ptp=${refclk} is accepted`);
+  }
+
+  for (const [refclk, domain] of [[`IEEE1588-2008:${gmid}:128`, '128'], [`IEEE1588-2008:${gmid}:007`, '007'], [`IEEE1588-2008:${gmid}:_DFLT`, '_DFLT'],
+    [`IEEE1588-2008:${gmid}:domain-nmbr=1`, 'domain-nmbr=1'], [`IEEE802.1AS-2011:${gmid}:x`, 'x']]) {
+    t.same(messages(refclk), [domainMessage(domain)], `a=ts-refclk:ptp=${refclk} is reported`);
+  }
+  t.end();
+});
+
 test('ST 2110-10:2022 Section 8.7 tests check TSDELAY is an integer number of microseconds', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const messages = tsdelay => checkST2110(sdp.replace('SSN=ST2110-20:2017;', `SSN=ST2110-20:2017; TSMODE=SAMP; ${tsdelay};`), cliDefaults)
