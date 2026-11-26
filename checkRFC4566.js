@@ -168,7 +168,11 @@ const attributes = {
   'ssrc-group': { usage: ['media'], value: valuePattern(`${token}(?: ${zeroBasedInteger})*`), form: 'a=ssrc-group:<semantics>[ <ssrc-id>]*', specification: 'RFC 5576 Section 4.2' },
   // Only the 'IN' network type and its address types are accepted, not any token as in the grammar of RFC 4570
   'source-filter': { usage: ['session', 'media'], value: valuePattern(String.raw` (?:incl|excl) IN (?:IP4|IP6|\*) ${nonWsString}(?: ${nonWsString})+`),
-    form: 'a=source-filter: <filter-mode> <filter-spec>', specification: 'RFC 4570 Section 3' }
+    form: 'a=source-filter: <filter-mode> <filter-spec>', specification: 'RFC 4570 Section 3' },
+  // A space separates the port and the network type, as per RFC 3605 Verified erratum 1050
+  // The connection address is not checked, except that it has no whitespace
+  'rtcp': { usage: ['media'], value: valuePattern(String.raw`\d+(?: ${token} ${token} ${nonWsString})?`),
+    form: 'a=rtcp:<port>[ <network type> <address type> <connection address>]', specification: 'RFC 3605 Section 2.1' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 const attributeNamePattern = new RegExp(`^${token}$`);

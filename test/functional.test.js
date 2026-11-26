@@ -1105,6 +1105,28 @@ test('RFC 4566 Section 6 Test 2 reports an attribute name that is not a token', 
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the level and syntax of the attribute that RFC 3605 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['rtcp:5005', 'rtcp:53020 IN IP4 126.16.64.4', 'rtcp:53020 IN IP6 2001:2345:6789:ABCD:EF01:2345:6789:ABCD']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  t.same(messages(sessionLevel('rtcp:5005')), ['Line 5: Attribute \'rtcp\' must be a media-level attribute, as per RFC 3605 Section 2.1.'],
+    'a=rtcp:5005 is reported at session level');
+
+  for (const attribute of ['rtcp', 'rtcp:', 'rtcp: 5005', 'rtcp:5005 ', 'rtcp:port', 'rtcp:53020IN IP4 126.16.64.4', 'rtcp:53020 IN IP4',
+    'rtcp:53020  IN IP4 126.16.64.4', 'rtcp:53020 IN IP4 126.16.64.4 extra']) {
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'rtcp' is not an acceptable pattern, which must be of the form ` +
+      '\'a=rtcp:<port>[ <network type> <address type> <connection address>]\', as per RFC 3605 Section 2.1.'], `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
 test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
   const message = (line, name, form, section) =>
     `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
