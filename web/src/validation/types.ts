@@ -29,6 +29,7 @@ export interface ValidationOptions {
   unicast: boolean;
   shaping: boolean;
   midLast: boolean;
+  ipmx: boolean;
 }
 
 export type Validator = 'RFC 4566' | 'RFC 4570' | 'ST 2110';

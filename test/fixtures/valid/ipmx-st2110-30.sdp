@@ -1,0 +1,12 @@
+v=0
+o=- 1618348182647029200 1618348303876470900 IN IP4 25.25.30.151
+s=IP audio OUT 1
+t=0 0
+m=audio 10000 RTP/AVP 97
+c=IN IP4 239.30.0.1/128
+a=source-filter: incl IN IP4 239.30.0.1 25.25.30.151
+a=rtpmap:97 L24/48000/8
+a=fmtp:97 channel-order=SMPTE2110.(U08); IPMX; measuredsamplerate=47952
+a=ts-refclk:localmac=00-20-FC-32-2F-40
+a=ptime:0.12
+a=mediaclk:sender

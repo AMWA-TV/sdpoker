@@ -32,4 +32,5 @@ export const defaultOptions: ValidationOptions = {
   unicast: false,
   shaping: true,
   midLast: false,
+  ipmx: false,
 };

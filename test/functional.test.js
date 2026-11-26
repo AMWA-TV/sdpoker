@@ -25,7 +25,7 @@ const cliDefaults = {
   duplicate: false,
   skipRFC4566: false, skipRFC4570: false, skipST2110: false,
   channelOrder: false, useIP4: false, useIP6: false,
-  multicast: false, unicast: false, shaping: true, midLast: false, verbose: false
+  multicast: false, unicast: false, shaping: true, midLast: false, ipmx: false, verbose: false
 };
 const fixturesRoot = path.join(__dirname, 'fixtures');
 const validFixturesDir = path.join(fixturesRoot, 'valid');
@@ -50,6 +50,14 @@ function runAllChecks(sdp, params = cliDefaults) {
 
 function readFixture(relativePath) {
   return fs.readFileSync(path.join(fixturesRoot, relativePath), 'utf8');
+}
+
+// Replace text in an SDP file, and throw if nothing matches, so that a test cannot pass by checking the unchanged file
+function replace(sdp, pattern, replacement) {
+  if (typeof pattern === 'string' ? !sdp.includes(pattern) : sdp.search(pattern) < 0) {
+    throw new Error(`${pattern} does not match`);
+  }
+  return sdp.replace(pattern, replacement);
 }
 
 const validFixtures = fs.readdirSync(validFixturesDir)
@@ -120,15 +128,19 @@ const invalidCases = [
   },
   {
     file: 'invalid/ts-refclk-pattern.sdp',
-    messageIncludes: 'Attribute \'ts-refclk\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'ts-refclk\' is not an acceptable pattern'
   },
   {
     file: 'invalid/source-filter-value-pattern.sdp',
-    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/source-filter-address-type.sdp',
+    messageIncludes: 'attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\''
   },
   {
     file: 'invalid/fmtp-pattern.sdp',
-    messageIncludes: 'attribute \'fmtp\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'fmtp\' must be a list of format specific parameters'
   },
   {
     file: 'invalid/time-pattern.sdp',
@@ -143,16 +155,20 @@ const invalidCases = [
     messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/ptime-pattern.sdp',
+    messageIncludes: 'attribute \'ptime\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/mediaclk-pattern.sdp',
     messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
   },
   {
     file: 'invalid/mediaclk-direct-rate.sdp',
-    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern, which must be of the form \'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]\''
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern, which must be of the form \'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]\''
   },
   {
     file: 'invalid/source-filter-pattern.sdp',
-    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'source-filter\' is not an acceptable pattern'
   },
   {
     file: 'invalid/bad-maxudp.sdp',
@@ -226,7 +242,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/fmtp-payload-type.sdp',
-    messageIncludes: 'payload type \'106\' of attribute \'fmtp\' must be a format of the media description'
+    messageIncludes: 'format \'106\' of attribute \'fmtp\' must be a format of the media description'
   },
   {
     file: 'invalid/missing-rtpmap.sdp',
@@ -395,6 +411,22 @@ test('invalid SDP fixtures are rejected', t => {
   }
 });
 
+test('the tests for an essence are chosen from the first stream whose encoding name is known', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const stream = sdp.slice(sdp.indexOf('m='));
+  const noRtpmap = replace(stream, 'a=rtpmap:97 raw/90000\r\n', '');
+  const messages = variant => runAllChecks(variant, cliDefaults).map(error => error.message);
+
+  const laterRtpmap = messages(replace(sdp, stream, noRtpmap + replace(stream, 'depth=10', 'depth=11')));
+  t.ok(laterRtpmap.includes('Line 16: For stream 2, format parameter \'depth\' shall be \'8\', \'10\', \'12\', \'16\' or \'16f\', but is \'11\', as per ST 2110-20 Section 7.4.2.'),
+    'the ST 2110-20 tests run when only a later stream has an rtpmap');
+  const laterEncoding = messages(replace(sdp, stream, noRtpmap + stream + replace(stream, 'raw/90000', 'jxsv/90000')));
+  t.same(laterEncoding, ['Line 18: For stream 3, the essence \'video/jxsv\' differs from the essence \'video/raw\' of stream 2. ' +
+    'SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.'],
+  'a stream is compared with the first stream whose encoding name is known');
+  t.end();
+});
+
 test('the ST 2110-10:2022 Annex B example is reported only as a copy and for its missing TP parameters', t => {
   const messages = runAllChecks(readFixture('invalid/st2110-10-annex-b.sdp')).map(error => error.message);
   t.same(messages, [
@@ -408,8 +440,8 @@ test('the ST 2110-10:2022 Annex B example is reported only as a copy and for its
 test('an origin or connection data field that is not the IP version requested is reported once', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const messages = (variant, params) => checkRFC4566(variant, { ...cliDefaults, ...params }).map(error => error.message);
-  const origin = sdp.replace(/IN IP4 172\.29\.80\.65/, 'IN IP6 2001:db8::1');
-  const connection = sdp.replace('c=IN IP4 232.80.177.113/32', 'c=IN IP6 ff3e::8000:1');
+  const origin = replace(sdp, /IN IP4 172\.29\.80\.65/, 'IN IP6 2001:db8::1');
+  const connection = replace(sdp, 'c=IN IP4 232.80.177.113/32', 'c=IN IP6 ff3e::8000:1');
 
   t.same(messages(origin, { useIP4: true }), ['Line 2: Origin field (\'o=\') address \'2001:db8::1\' must be an IPv4 address, as requested by --useIP4.']);
   t.same(messages(sdp, { useIP6: true }).filter(message => message.startsWith('Line 2:')),
@@ -423,7 +455,7 @@ test('an origin or connection data field that is not the IP version requested is
 
 test('an origin or connection data address that is not of its address type is reported', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = (from, to) => checkRFC4566(sdp.replace(from, to), cliDefaults).map(error => error.message);
+  const messages = (from, to) => checkRFC4566(replace(sdp, from, to), cliDefaults).map(error => error.message);
   const origin = 'IN IP4 172.29.80.65';
   const connection = 'c=IN IP4 232.80.177.113/32';
 
@@ -448,17 +480,17 @@ test('an origin or connection data address that is not of its address type is re
 
 test('a source filter address that is not of its address type is reported', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = filter => checkRFC4570(sdp.replace(/a=source-filter:[^\r\n]*/, filter), cliDefaults).map(error => error.message);
+  const messages = filter => checkRFC4570(replace(sdp, /a=source-filter:[^\r\n]*/, filter), cliDefaults).map(error => error.message);
 
   t.same(messages('a=source-filter: incl IN IP6 232.80.177.113 172.29.80.65'), [
-    'Line 7: Attribute \'source-filter\' address \'232.80.177.113\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.',
-    'Line 7: Attribute \'source-filter\' address \'172.29.80.65\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.'
+    'Line 7: For stream 1, attribute \'source-filter\' address \'232.80.177.113\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.',
+    'Line 7: For stream 1, attribute \'source-filter\' address \'172.29.80.65\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.'
   ]);
   t.same(messages('a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65 2001:db8::1'),
-    ['Line 7: Attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4570 Section 3.'],
+    ['Line 7: For stream 1, attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4570 Section 3.'],
     'each source address is checked');
   t.same(messages('a=source-filter: incl IN * 232.80.177.113 172.29.80.65'),
-    ['Line 7: Attribute \'source-filter\' destination address \'232.80.177.113\' must be a domain name or \'*\' when the address type is \'*\', as per RFC 4570 Section 3.1.']);
+    ['Line 7: For stream 1, attribute \'source-filter\' destination address \'232.80.177.113\' must be a domain name or \'*\' when the address type is \'*\', as per RFC 4570 Section 3.1.']);
 
   t.same(messages('a=source-filter: incl IN IP4 232.80.177.113 src-1.example.com'), [], 'a domain name source address is accepted');
   t.same(messages('a=source-filter: incl IN IP4 * 172.29.80.65'), [], 'a \'*\' destination address is accepted');
@@ -473,14 +505,14 @@ test('a multicast connection address is reported in quotes when unicast is reque
 
 test('ts-refclk PTP grandmaster identities can use lower-case hex digits', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const variant = sdp.replace(/a=ts-refclk:[^\r\n]*/, 'a=ts-refclk:ptp=IEEE1588-2008:39-a7-94-ff-fe-07-cb-d0:37');
+  const variant = replace(sdp, /a=ts-refclk:[^\r\n]*/, 'a=ts-refclk:ptp=IEEE1588-2008:39-a7-94-ff-fe-07-cb-d0:37');
   t.same(runAllChecks(variant).map(error => error.message), []);
   t.end();
 });
 
 test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced to IEEE 1588-2008', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = refclk => checkST2110(sdp.replace(/a=ts-refclk:[^\r\n]*/, refclk), cliDefaults).map(error => error.message);
+  const messages = refclk => runAllChecks(replace(sdp, /a=ts-refclk:[^\r\n]*/, refclk)).map(error => error.message);
   for (const refclk of [
     'a=ts-refclk:ntp=203.0.113.10',
     'a=ts-refclk:ntp=/traceable/',
@@ -507,7 +539,7 @@ test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced
   }
 
   const should = 'should specify \'IEEE1588-2008\'';
-  const shouldMessages = refclk => checkST2110(sdp.replace(/a=ts-refclk:[^\r\n]*/, refclk), { ...cliDefaults, should: true })
+  const shouldMessages = refclk => checkST2110(replace(sdp, /a=ts-refclk:[^\r\n]*/, refclk), { ...cliDefaults, should: true })
     .map(error => error.message).join(' ');
   t.ok(shouldMessages('a=ts-refclk:ptp=IEEE802.1AS-2011:39-A7-94-FF-FE-07-CB-D0').includes(should), 'IEEE802.1AS-2011 is reported with --should');
   t.ok(shouldMessages('a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0').includes(should), 'IEEE1588-2002 is reported with --should');
@@ -515,9 +547,28 @@ test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced
   t.end();
 });
 
+test('ST 2110-10 Section 8.2 tests check a PTP domain is a name for IEEE 1588-2002 and a number for later versions', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = refclk => runAllChecks(replace(sdp, /a=ts-refclk:[^\r\n]*/, `a=ts-refclk:ptp=${refclk}`)).map(error => error.message);
+  const domainMessage = domain => 'Line 8: Attribute \'ts-refclk\' of type \'ptp\' must specify a PTP domain number in the range 0 to 127 inclusive, ' +
+    `but specifies '${domain}', as per RFC 7273 Section 4.8.`;
+  const gmid = '39-A7-94-FF-FE-07-CB-D0';
+
+  for (const refclk of [`IEEE1588-2008:${gmid}:0`, `IEEE1588-2008:${gmid}:42`, `IEEE1588-2008:${gmid}:119`, `IEEE1588-2008:${gmid}:127`, `IEEE802.1AS-2011:${gmid}:0`,
+    `IEEE1588-2002:${gmid}:_DFLT`, `IEEE1588-2002:${gmid}:200`]) {
+    t.same(messages(refclk), [], `a=ts-refclk:ptp=${refclk} is accepted`);
+  }
+
+  for (const [refclk, domain] of [[`IEEE1588-2008:${gmid}:128`, '128'], [`IEEE1588-2008:${gmid}:007`, '007'], [`IEEE1588-2008:${gmid}:_DFLT`, '_DFLT'],
+    [`IEEE1588-2008:${gmid}:domain-nmbr=1`, 'domain-nmbr=1'], [`IEEE802.1AS-2011:${gmid}:x`, 'x']]) {
+    t.same(messages(refclk), [domainMessage(domain)], `a=ts-refclk:ptp=${refclk} is reported`);
+  }
+  t.end();
+});
+
 test('ST 2110-10:2022 Section 8.7 tests check TSDELAY is an integer number of microseconds', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = tsdelay => checkST2110(sdp.replace('SSN=ST2110-20:2017;', `SSN=ST2110-20:2017; TSMODE=SAMP; ${tsdelay};`), cliDefaults)
+  const messages = tsdelay => checkST2110(replace(sdp, 'SSN=ST2110-20:2017;', `SSN=ST2110-20:2017; TSMODE=SAMP; ${tsdelay};`), cliDefaults)
     .map(error => error.message).join(' ');
   const message = 'format parameter \'TSDELAY\'';
 
@@ -530,18 +581,45 @@ test('ST 2110-10:2022 Section 8.7 tests check TSDELAY is an integer number of mi
   t.end();
 });
 
+test('RFC 8759 Section 11.2 tests check the TTML format parameters charset and profile', t => {
+  const sdp = readFixture('valid/st2110-43.sdp');
+  const messages = parameters => checkST2110(replace(sdp, 'a=fmtp:112 charset=utf-8;codecs=im3t', `a=fmtp:112 ${parameters}`), cliDefaults)
+    .map(error => error.message);
+  const charsetMessage = charset => `Line 10: For stream 1, format parameter 'charset' must be 'UTF-8' or 'UTF-16', but is '${charset}', ` +
+    'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.';
+  const profileMessage = 'Line 10: For stream 1, format parameter \'profile\' must be a profile designator, which is a URI, ' +
+    'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.';
+
+  for (const parameters of ['codecs=im3t', 'charset=UTF-8;codecs=im3t', 'charset=utf-16; codecs=im3t', 'codecs=im3t;charset=Utf-8',
+    'codecs=im3t;profile=http://www.w3.org/ns/ttml/profile/imsc1/text', 'profile=dfxp-presentation;codecs=im3t']) {
+    t.same(messages(parameters), [], `a=fmtp:112 ${parameters} is accepted`);
+  }
+
+  t.same(messages('charset=ISO-8859-1;codecs=im3t'), [charsetMessage('ISO-8859-1')], 'a charset other than UTF-8 or UTF-16 is reported');
+  t.same(messages('charset=utf8;codecs=im3t'), [charsetMessage('utf8')], 'a charset name without a hyphen is reported');
+  t.same(messages('charset;codecs=im3t'), [charsetMessage('')], 'a charset with no value is reported');
+  t.same(messages('codecs=im3t;profile'), [profileMessage], 'a profile with no value is reported');
+  const fmtpMessage = 'Line 10: For stream 1, attribute \'fmtp\' must be a list of format specific parameters separated by semicolons, ' +
+    'each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.';
+  t.same(messages('charset=;codecs=im3t'), [fmtpMessage], 'an empty charset is reported once, by the fmtp pattern test');
+  t.same(messages('codecs=im3t;profile='), [fmtpMessage], 'an empty profile is reported once, by the fmtp pattern test');
+  t.same(messages('CODECS=im3t'), ['Line 10: For stream 1, format parameter \'codecs\' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.'],
+    'format parameter names are read in their canonical case');
+  t.end();
+});
+
 test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const cases = [
     ['a=ts-refclk:ptp=IEEE1588-2008:nottraceablex', 'is not an acceptable pattern'],
     ['a=ts-refclk:ptp=IEEE1588-2008:junk39-A7-94-FF-FE-07-CB-D0:37', 'is not an acceptable pattern'],
     ['a=ts-refclk:localmac=7C-E9-D3-1B-9A-AFjunk', 'shall specify a MAC address of the form'],
-    ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'Attribute \'source-filter\' is not an acceptable pattern']
+    ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'attribute \'source-filter\' is not an acceptable pattern']
   ];
 
   for (const [attribute, message] of cases) {
     const name = attribute.split(':')[0];
-    const variant = sdp.replace(new RegExp(`${name}:[^\\r\\n]*`), attribute);
+    const variant = replace(sdp, new RegExp(`${name}:[^\\r\\n]*`), attribute);
     const messages = runAllChecks(variant).map(error => error.message).join(' ');
     t.ok(messages.includes(message), `'${attribute}' is reported`);
   }
@@ -563,7 +641,7 @@ test('RFC 4566 Section 5.7 tests recognise multicast addresses in IPv4 and IPv6 
 
   for (const [address, isMulticast] of cases) {
     const addressType = address.includes(':') ? 'IP6' : 'IP4';
-    const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN ${addressType} ${address}`), { ...cliDefaults, multicast: true });
+    const errors = checkRFC4566(replace(sdp, /c=IN IP4 \S+/, `c=IN ${addressType} ${address}`), { ...cliDefaults, multicast: true });
     t.equal(
       errors.some(error => error.message.includes('must be a multicast address')),
       !isMulticast,
@@ -591,7 +669,7 @@ test('RFC 4566 Section 5.7 tests recognise IPv6 addresses', t => {
   ];
 
   for (const [address, isIP6] of cases) {
-    const errors = checkRFC4566(sdp.replace(/c=IN IP4 \S+/, `c=IN IP6 ${address}`), { ...cliDefaults, useIP6: true });
+    const errors = checkRFC4566(replace(sdp, /c=IN IP4 \S+/, `c=IN IP6 ${address}`), { ...cliDefaults, useIP6: true });
     t.equal(
       errors.some(error => error.message.includes(`address '${address}' must be an IPv6 address`)),
       !isIP6,
@@ -604,42 +682,42 @@ test('RFC 4566 Section 5.7 tests recognise IPv6 addresses', t => {
 test('ST 2110-10:2022 Section 8.4 tests check each multicast stream has an inclusive source filter', t => {
   const sdp = readFixture('valid/st2110-30.sdp');
   const sourceFilter = 'a=source-filter: incl IN IP4 232.130.55.188 172.29.80.65\r\n';
-  const noSourceFilter = sdp.replace(sourceFilter, '');
+  const noSourceFilter = replace(sdp, sourceFilter, '');
   const ssmMessage = 'For stream 1, destination address \'232.130.55.188\' is in the source-specific multicast range';
   const messages = (variant, params = {}) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message).join(' ');
 
   t.ok(messages(noSourceFilter).includes(ssmMessage), 'a source-specific multicast stream without a source filter is reported');
   t.ok(
-    messages(noSourceFilter.replace(/(c=[^\r\n]*\r\n)/, '$1a=source-filter: excl IN IP4 232.130.55.188 172.29.80.65\r\n')).includes(ssmMessage),
+    messages(replace(noSourceFilter, /(c=[^\r\n]*\r\n)/, '$1a=source-filter: excl IN IP4 232.130.55.188 172.29.80.65\r\n')).includes(ssmMessage),
     'an exclusive source filter is not enough'
   );
   const connection = 'c=IN IP4 232.130.55.188/32\r\n';
   t.same(
-    messages(noSourceFilter.replace(connection, '').replace('t=0 0\r\n', connection + 't=0 0\r\n' + sourceFilter)),
+    messages(replace(replace(noSourceFilter, connection, ''), 't=0 0\r\n', connection + 't=0 0\r\n' + sourceFilter)),
     '',
     'a session-level source filter applies to the stream'
   );
   t.ok(
-    messages(noSourceFilter.replace(connection, connection + 'a=source-filter: excl IN IP4 232.130.55.188 172.29.80.65\r\n').replace('t=0 0\r\n', 't=0 0\r\n' + sourceFilter)).includes(ssmMessage),
+    messages(replace(replace(noSourceFilter, connection, connection + 'a=source-filter: excl IN IP4 232.130.55.188 172.29.80.65\r\n'), 't=0 0\r\n', 't=0 0\r\n' + sourceFilter)).includes(ssmMessage),
     'a media-level source filter replaces the session-level source filter'
   );
 
-  const ipv6 = sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 ff3e::8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1');
+  const ipv6 = replace(replace(sdp, /c=IN IP4 \S+/, 'c=IN IP6 ff3e::8000:1'), /a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1');
   t.same(messages(ipv6), '', 'an IPv6 source-specific multicast stream with a source filter passes');
   t.ok(
-    messages(ipv6.replace(/a=source-filter:[^\r\n]*\r\n/, '')).includes('For stream 1, destination address \'ff3e::8000:1\' is in the source-specific multicast range'),
+    messages(replace(ipv6, /a=source-filter:[^\r\n]*\r\n/, '')).includes('For stream 1, destination address \'ff3e::8000:1\' is in the source-specific multicast range'),
     'an IPv6 source-specific multicast stream without a source filter is reported'
   );
   t.notOk(
-    messages(ipv6.replace('c=IN IP6 ff3e::8000:1', 'c=IN IP6 FF3E::8000:1')).includes('is in the source-specific multicast range'),
+    messages(replace(ipv6, 'c=IN IP6 ff3e::8000:1', 'c=IN IP6 FF3E::8000:1')).includes('is in the source-specific multicast range'),
     'a source filter matches a destination address in a different case'
   );
   t.notOk(
-    messages(ipv6.replace('c=IN IP6 ff3e::8000:1', 'c=IN IP6 ff3e:0:0:0:0:0:8000:1')).includes('is in the source-specific multicast range'),
+    messages(replace(ipv6, 'c=IN IP6 ff3e::8000:1', 'c=IN IP6 ff3e:0:0:0:0:0:8000:1')).includes('is in the source-specific multicast range'),
     'a source filter matches a destination address written in another form'
   );
 
-  const asm = noSourceFilter.replace('c=IN IP4 232.', 'c=IN IP4 239.');
+  const asm = replace(noSourceFilter, 'c=IN IP4 232.', 'c=IN IP4 239.');
   t.same(messages(asm), '', 'another multicast stream without a source filter passes by default');
   t.ok(
     messages(asm, { should: true }).includes('For stream 1, destination address \'239.130.55.188\' is multicast, so an inclusive \'source-filter\' attribute should be included'),
@@ -647,7 +725,7 @@ test('ST 2110-10:2022 Section 8.4 tests check each multicast stream has an inclu
   );
 
   const secondStreamFilter = 'a=source-filter: incl IN IP4 233.252.0.2 198.51.100.1\r\n';
-  const duplicate = readFixture('valid/rfc7104_sep_dest.sdp').replace(secondStreamFilter, '');
+  const duplicate = replace(readFixture('valid/rfc7104_sep_dest.sdp'), secondStreamFilter, '');
   const duplicateMessages = messages(duplicate, { should: true });
   t.ok(duplicateMessages.includes('For stream 2, destination address \'233.252.0.2\''), 'a second stream without a source filter is reported');
   t.notOk(duplicateMessages.includes('For stream 1,'), 'the first stream with a source filter passes');
@@ -657,27 +735,32 @@ test('ST 2110-10:2022 Section 8.4 tests check each multicast stream has an inclu
 test('RFC 4570 Section 3 tests check source filters match a connection address', t => {
   const sdp = readFixture('valid/st2110-30.sdp');
   const sourceFilter = 'a=source-filter: incl IN IP4 232.130.55.188 172.29.80.65\r\n';
-  const sessionLevel = sdp.replace(sourceFilter, '').replace('t=0 0\r\n', 't=0 0\r\n' + sourceFilter);
+  const sessionLevel = replace(replace(sdp, sourceFilter, ''), 't=0 0\r\n', 't=0 0\r\n' + sourceFilter);
   const message = 'Source filter destination addresses must match one or more connection addresses';
   const messages = variant => checkRFC4570(variant, cliDefaults).map(error => error.message).join(' ');
 
   t.same(messages(sessionLevel), '', 'a session-level source filter can match a media-level connection address');
   t.ok(
-    messages(sessionLevel.replace('232.130.55.188 172', '232.130.55.189 172')).includes(message),
+    messages(replace(sessionLevel, '232.130.55.188 172', '232.130.55.189 172')).includes(message),
     'a session-level source filter that matches no connection address is reported'
   );
   t.same(
-    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 FF3E::8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
+    messages(replace(sdp, '232.130.55.188 172', '232.130.55.189 172')),
+    `Line ${sdp.split('\r\n').indexOf(sourceFilter.trim()) + 1}: For stream 1, source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`,
+    'a media-level source filter that matches no connection address is reported for its stream'
+  );
+  t.same(
+    messages(replace(replace(sdp, /c=IN IP4 \S+/, 'c=IN IP6 FF3E::8000:1'), /a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
     '',
     'a source filter matches a connection address in a different case'
   );
   t.same(
-    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 ff3e:0:0:0:0:0:8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
+    messages(replace(replace(sdp, /c=IN IP4 \S+/, 'c=IN IP6 ff3e:0:0:0:0:0:8000:1'), /a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
     '',
     'a source filter matches a connection address written in another form'
   );
   t.same(
-    messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP4 Example.com').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP4 example.com 172.29.80.65')),
+    messages(replace(replace(sdp, /c=IN IP4 \S+/, 'c=IN IP4 Example.com'), /a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP4 example.com 172.29.80.65')),
     '',
     'a source filter matches a connection address domain name in a different case'
   );
@@ -685,7 +768,7 @@ test('RFC 4570 Section 3 tests check source filters match a connection address',
 });
 
 test('ST 2110-22 Section 7.4 tests report fmtp errors', t => {
-  const sdp = readFixture('valid/st2110-22.sdp').replace('a=fmtp:112 ', 'a=fmtp:112 ;');
+  const sdp = replace(readFixture('valid/st2110-22.sdp'), 'a=fmtp:112 ', 'a=fmtp:112 ;');
   const errors = section_22_74(sdp, cliDefaults);
 
   t.ok(errors.length > 0, 'a malformed fmtp is reported');
@@ -695,8 +778,8 @@ test('ST 2110-22 Section 7.4 tests report fmtp errors', t => {
 
 test('BT.2100 signals without RANGE are reported only with --should', t => {
   const cases = [
-    [readFixture('valid/st2110-20.sdp').replace('colorimetry=BT709', 'colorimetry=BT2100'), 'ST 2110-20 Section 7.5'],
-    [readFixture('invalid/st2110-22-range.sdp').replace('RANGE=FULLPROTECT; ', ''), 'RFC 9134 Section 7.1']
+    [replace(readFixture('valid/st2110-20.sdp'), 'colorimetry=BT709', 'colorimetry=BT2100'), 'ST 2110-20 Section 7.5'],
+    [replace(readFixture('invalid/st2110-22-range.sdp'), 'RANGE=FULLPROTECT; ', ''), 'RFC 9134 Section 7.1']
   ];
   const message = 'format parameter \'RANGE\' should be specified when \'colorimetry\' is \'BT2100\', as per';
 
@@ -710,12 +793,12 @@ test('BT.2100 signals without RANGE are reported only with --should', t => {
 
 test('SMPTE channel orders must match the grouping symbols to the end of the value', t => {
   const cases = [
-    [readFixture('valid/st2110-30.sdp').replace('a=rtpmap:102 L24/48000/2', '$&\r\na=fmtp:102 channel-order=SMPTE2110.(ST)'), 'SMPTE2110.(ST)'],
+    [replace(readFixture('valid/st2110-30.sdp'), 'a=rtpmap:102 L24/48000/2', '$&\r\na=fmtp:102 channel-order=SMPTE2110.(ST)'), 'SMPTE2110.(ST)'],
     [readFixture('valid/st2110-31-aes3.sdp'), 'SMPTE2110.(AES3,ST)']
   ];
   for (const [sdp, order] of cases) {
     t.same(runAllChecks(sdp), [], `'${order}' is accepted`);
-    const messages = runAllChecks(sdp.replace(order, `${order}junk`)).map(error => error.message).join(' ');
+    const messages = runAllChecks(replace(sdp, order, `${order}junk`)).map(error => error.message).join(' ');
     t.ok(messages.includes('format parameter \'channel-order\' is not an acceptable pattern'), `'${order}junk' is reported`);
   }
   t.end();
@@ -727,7 +810,7 @@ test('ST 2022-8 Section 7.1 tests check TROFF only when shaping', t => {
 });
 
 test('ST 2110-40:2023 Section 7 tests check TROFF only when shaping', t => {
-  const sdp = readFixture('valid/st2110-40-2023.sdp').replace('SSN=ST2110-40:2023', 'SSN=ST2110-40:2023; TROFF=-1');
+  const sdp = replace(readFixture('valid/st2110-40-2023.sdp'), 'SSN=ST2110-40:2023', 'SSN=ST2110-40:2023; TROFF=-1');
   const message = 'format parameter \'TROFF\'';
 
   t.ok(section_40_2023_7(sdp, cliDefaults).some(error => error.message.includes(message)), 'a negative TROFF is reported by default');
@@ -736,7 +819,7 @@ test('ST 2110-40:2023 Section 7 tests check TROFF only when shaping', t => {
 });
 
 test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --should', t => {
-  const sdp = readFixture('valid/st2110-40-2023.sdp').replace('SSN=ST2110-40:2023', 'SSN=ST2110-40:2021');
+  const sdp = replace(readFixture('valid/st2110-40-2023.sdp'), 'SSN=ST2110-40:2023', 'SSN=ST2110-40:2021');
   const message = 'should be \'ST2110-40:2023\' rather than the equivalent \'ST2110-40:2021\'';
 
   t.same(section_40_2023_7(sdp, cliDefaults), [], 'SSN=ST2110-40:2021 passes by default');
@@ -750,7 +833,7 @@ test('ST 2110-40:2023 Section 7 tests report SSN ST2110-40:2021 only with --shou
 test('RFC 8331 Section 4 tests check VPID_Code is no more than 255', t => {
   const sdp = readFixture('valid/st2110-40-rfc8331.sdp');
   const message = 'format parameter \'VPID_Code\' must be an integer in the range 0 to 255 inclusive';
-  const messages = vpid => section_8331_4(sdp.replace('VPID_Code=132', `VPID_Code=${vpid}`), cliDefaults).map(error => error.message).join(' ');
+  const messages = vpid => section_8331_4(replace(sdp, 'VPID_Code=132', `VPID_Code=${vpid}`), cliDefaults).map(error => error.message).join(' ');
 
   t.notOk(messages(255).includes(message), 'VPID_Code=255 is accepted');
   t.ok(messages(256).includes(message), 'VPID_Code=256 is reported');
@@ -771,7 +854,7 @@ test('ST 2110-10 Section 8.2 tests check each media description has a ts-refclk 
   const mediaRefclk = 'a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:0\r\n';
   // RFC 7273 allows a session-level ts-refclk, but ST 2110-10 Section 8.2 requires one in every stream description
   t.ok(
-    messages(single.replace(mediaRefclk, '').replace('t=0 0\r\n', 't=0 0\r\n' + mediaRefclk)).includes(`Line 6: For stream 1, ${message}`),
+    messages(replace(replace(single, mediaRefclk, ''), 't=0 0\r\n', 't=0 0\r\n' + mediaRefclk)).includes(`Line 6: For stream 1, ${message}`),
     'a session-level ts-refclk is not enough'
   );
   t.end();
@@ -787,9 +870,9 @@ test('a missing attribute, field or format parameter is reported at the media de
     'a missing fmtp in the last stream');
   t.ok(messages(readFixture('invalid/bad-line-format.sdp')).includes('Line 6: For stream 1, format parameter \'TP\' shall be specified'),
     'a missing format parameter of a stream with no fmtp');
-  t.ok(messages(pair.replace('c=IN IP4 224.1.1.1/64\r\n', '')).includes('Line 6: For stream 1, a connection data field (\'c=\') must be present'),
+  t.ok(messages(replace(pair, 'c=IN IP4 224.1.1.1/64\r\n', '')).includes('Line 6: For stream 1, a connection data field (\'c=\') must be present'),
     'a missing connection data field in the first of two streams');
-  t.ok(messages(pair.replace('c=IN IP4 224.101.1.1/64\r\n', '')).includes('Line 15: For stream 2, a connection data field (\'c=\') must be present'),
+  t.ok(messages(replace(pair, 'c=IN IP4 224.101.1.1/64\r\n', '')).includes('Line 15: For stream 2, a connection data field (\'c=\') must be present'),
     'a missing connection data field in the last stream');
   t.ok(messages(readFixture('invalid/st2110-31-missing-ptime.sdp')).includes('Line 5: For stream 1, attribute \'ptime\' shall be specified'),
     'a missing ptime');
@@ -800,7 +883,7 @@ test('a missing attribute, field or format parameter is reported at the media de
 
 test('RFC 4566 Section 5.7 tests check the TTL of IPv4 multicast connection data fields', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = ttl => checkRFC4566(sdp.replace('c=IN IP4 232.80.177.113/32', `c=IN IP4 232.80.177.113${ttl}`), cliDefaults).map(error => error.message).join(' ');
+  const messages = ttl => checkRFC4566(replace(sdp, 'c=IN IP4 232.80.177.113/32', `c=IN IP4 232.80.177.113${ttl}`), cliDefaults).map(error => error.message).join(' ');
   const missing = 'with an IPv4 multicast address must have a TTL value';
   const range = 'Multicast TTL value must be an integer in the range 0 to 255 inclusive';
 
@@ -835,7 +918,9 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.ok(lines.includes('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.'));
   t.ok(logged(jxsv, {}).includes('Test Passed: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example.'));
   t.ok(lines.includes('Test Passed: SDPoker Test 1 - The SDP file describes a single essence.'));
-  t.ok(logged(raw.replace('depth=10', 'depth=10; depth=10'), {}).includes('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.'),
+  t.ok(lines.includes('Test Skipped: SDPoker Test 2 - Each media description has one format. Use --should to test.'));
+  t.ok(logged(raw, { should: true }).includes('Test Passed: SDPoker Test 2 - Each media description has one format.'));
+  t.ok(logged(replace(raw, 'depth=10', 'depth=10; depth=10'), {}).includes('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.'),
     'a repeated format parameter other than TSMODE or TSDELAY does not remove the TSMODE and TSDELAY pass line');
 
   const withoutOptions = logged(raw, { noCopy: false, noMedia: false });
@@ -843,10 +928,13 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10:2022 Annex B Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.'));
   t.ok(logged(jxsv, { noCopy: false }).includes('Test Skipped: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
+  t.ok(lines.includes('Test Skipped: VSF TR-10-1:2024 Section 10.1 Test 1 - Every stream has the \'IPMX\' declaration. Use --ipmx to test.'));
+  t.ok(lines.includes('Test Skipped: VSF TR-10-9:2025 Section 17 Test 1 - IPMX streams do not use the IPv4 multicast addresses 224.0.0.0 to 224.0.1.255. No stream has the \'IPMX\' declaration. Use --ipmx to test.'));
+  t.ok(logged(readFixture('valid/ipmx-st2110-20.sdp'), {}).includes('Test Skipped: VSF TR-10-2:2024 Section 7 Test 2 - IPMX streams have a UDP destination port greater than 5000. Use --should to test.'));
   t.end();
 });
 
-test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose mode', t => {
+test('RFC 4566, RFC 4570 and RFC 6838 tests report each passed or skipped test in verbose mode', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const logged = (variant, params) => {
     const lines = [];
@@ -861,9 +949,9 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     return lines;
   };
 
-  const passed = line => line.startsWith('Test Passed: RFC 4');
+  const passed = line => line.startsWith('Test Passed: RFC ');
   const lines = logged(sdp, {});
-  t.equal(lines.length, 17, 'one line for each test');
+  t.equal(lines.length, 22, 'one line for each test');
   t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
     'Test Skipped: RFC 4566 Section 5 Test 1',
     'Test Skipped: RFC 4566 Section 5.2 Test 2',
@@ -873,21 +961,442 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     'the other tests pass');
 
   const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
-  t.equal(withOptions.length, 17, 'one line for each test with the options set');
+  t.equal(withOptions.length, 22, 'one line for each test with the options set');
   t.ok(withOptions.every(passed), 'every test passes with the options set');
 
-  const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
+  const lfLines = logged(replace(sdp, /\r\n/g, '\n'), { checkEndings: true });
   t.notOk(lfLines.some(line => line.startsWith('Test Passed: RFC 4566 Section 5 Test 1 ')),
     'a test that reports an error does not report that it passed');
   t.end();
 });
 
-test('a repeated format parameter is reported once for every stream format', t => {
-  for (const fixture of ['st2110-20', 'st2110-22', 'st2110-40-2023']) {
-    const sdp = readFixture(`valid/${fixture}.sdp`).replace(/(a=fmtp:\d+ )/, '$1TSMODE=SAMP; TSMODE=SAMP; ');
-    const repeats = runAllChecks(sdp).map(error => error.message).filter(m => m.includes('format parameter \'TSMODE\' is specified more than once'));
-    t.equal(repeats.length, 1, `${fixture} reports a repeated format parameter once`);
+test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 4566 defines', t => {
+  // The media description has the formats of the 'rtpmap' and 'fmtp' attributes below
+  const sdp = replace(readFixture('valid/st2110-20.sdp'), 'RTP/AVP 97', 'RTP/AVP 97 0 96 98');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['cat:foo.bar', 'keywds:SDP session description protocol', 'tool:foobar V3.2', 'recvonly', 'sendrecv',
+    'sendonly', 'inactive', 'type:H332', 'charset:ISO-8859-1', 'sdplang:fr', 'lang:en-GB', 'x-unknown: anything']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
   }
+  for (const attribute of ['ptime:20', 'ptime:0.125', 'maxptime:0.5', 'rtpmap:0 PCMU/8000', 'rtpmap:98 L16/16000/2', 'recvonly',
+    'orient:seascape', 'sdplang:fr', 'lang:de', 'framerate:29.97', 'quality:0', 'quality:10', 'fmtp:96 profile-level-id=42e016',
+    'x-unknown: anything']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['ptime:1', 'rtpmap:96 raw/90000', 'framerate:25']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute '${name}' must be a media-level attribute, as per RFC 4566 Section 6 and RFC 8866 Section 6.${{ ptime: 4, rtpmap: 6, framerate: 13 }[name]}.`],
+      `a=${attribute} is reported at session level`);
+  }
+  for (const attribute of ['cat:foo', 'tool:foo', 'type:test']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute '${name}' must be a session-level attribute, as per RFC 4566 Section 6 and RFC 8866 Section 6.${{ cat: 1, tool: 3, type: 9 }[name]}.`],
+      `a=${attribute} is reported at media level`);
+  }
+
+  for (const attribute of ['cat:foo bar', 'type:Broadcast', 'charset:ISO_8859-1:1987', 'sendrecv:yes', 'lang:en_GB']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(sessionLevel(attribute)).map(message => message.split(', which')[0]), [`Line 5: Attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at session level`);
+  }
+  for (const attribute of ['ptime: 0.125', 'ptime:0', 'ptime:0.0', 'ptime:1.', 'ptime', 'maxptime:', 'rtpmap:96 raw/90000/x', 'rtpmap:096 raw/90000',
+    'rtpmap:96  raw/90000', 'recvonly:', 'orient:Portrait', 'sdplang:fr-', 'framerate:30.', 'quality:05', 'fmtp:', 'fmtp: 96']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the syntax of the attributes that RFC 7273 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const gmid = '39-A7-94-FF-FE-07-CB-D0';
+
+  for (const attribute of ['ts-refclk:local', 'mediaclk:sender']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+  for (const attribute of [`ts-refclk:ptp=IEEE1588-2008:${gmid}:37`, `ts-refclk:ptp=IEEE1588-2008:${gmid}:127`,
+    `ts-refclk:ptp=IEEE1588-2002:${gmid}:_DFLT`, `ts-refclk:ptp=IEEE1588-2008:${gmid.toLowerCase()}`, 'ts-refclk:ptp=IEEE1588-2019:traceable',
+    'ts-refclk:ntp=203.0.113.10:123', 'ts-refclk:ntp=[2001:db8::1]', 'ts-refclk:ntp=ntp.example.com', 'ts-refclk:ntp=/traceable/',
+    'ts-refclk:localmac=7C-E9-D3-1B-9A-AF', 'ts-refclk:gpsx', 'ts-refclk:sundial=noon at the equator',
+    'mediaclk:direct', 'mediaclk:direct=963214424 rate=1000/1001', 'mediaclk:id=src1 direct=0', 'mediaclk:id=src:c3JjMQ== sender',
+    'mediaclk:IEEE1722=38-D6-6D-8E-D2-78-13-2F', 'mediaclk:sampled=at random']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['ts-refclk:', 'ts-refclk:ptp=IEEE1588-2008', `ts-refclk:ptp=IEEE1588-2008:${gmid}:`,
+    `ts-refclk:ptp=IEEE1588-2008:${gmid}:seventeen-chars-x`, `ts-refclk:ptp=IEEE1588-2008:${gmid} :37`, 'ts-refclk:ptp=traceable',
+    'ts-refclk:ntp', 'ts-refclk:ntp=', 'ts-refclk:gps=1', 'ts-refclk:private:untraceable', 'ts-refclk:local ',
+    'mediaclk:', 'mediaclk:direct=0 rate=0/1', 'mediaclk:direct=0  rate=1/1', 'mediaclk:sender=1', 'mediaclk:id=src1  direct=0',
+    'mediaclk:id=src direct=0', 'mediaclk:IEEE1722=38-D6-6D-8E-D2-78-13', 'mediaclk:id=src1']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+
+  const form = attribute => messages(mediaLevel(attribute))[0].match(/of the form '(.*)', as per/)[1];
+  const directForm = 'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]';
+  t.equal(form('mediaclk:direct=0 rate=90000'), directForm, 'a malformed direct reference is given the direct form');
+  t.equal(form('mediaclk:id=src1 direct=abc'), directForm, 'a malformed direct reference after an identifier is given the direct form');
+  t.equal(form('mediaclk:sender=1'), 'a=mediaclk:[id=<media clock identifier> ]<media clock source>', 'another malformed media clock is given the generic form');
+  t.end();
+});
+
+test('a packet time with leading or trailing zeros is reported only with --should', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const messages = (variant, params) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  for (const ptime of ['1.0', '01', '0.1250']) {
+    const variant = replace(sdp, 'a=ptime:1', `a=ptime:${ptime}`);
+    t.same(messages(variant, {}), [], `a=ptime:${ptime} is accepted without --should`);
+    t.same(messages(variant, { should: true }),
+      ['Line 11: For stream 1, attribute \'ptime\' should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.4 does.'],
+      `a=ptime:${ptime} is reported with --should`);
+  }
+  const variant = replace(sdp, 'a=maxptime:1', 'a=maxptime:1.00');
+  t.same(messages(variant, {}), [], 'a=maxptime:1.00 is accepted without --should');
+  t.same(messages(variant, { should: true }),
+    ['Line 12: For stream 1, attribute \'maxptime\' should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.5 does.'],
+    'a=maxptime:1.00 is reported with --should');
+  t.end();
+});
+
+test('an empty format parameters attribute is reported only with --should', t => {
+  const sdp = readFixture('valid/st2110-40.sdp');
+  const messages = (variant, params) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  for (const fmtp of ['a=fmtp:105', 'a=fmtp:105 ']) {
+    const variant = replace(sdp, 'smpte291/90000\r\n', `smpte291/90000\r\n${fmtp}\r\n`);
+    t.same(messages(variant, {}), [], `'${fmtp}' is accepted without --should`);
+    t.same(messages(variant, { should: true }),
+      ['Line 10: For stream 1, attribute \'fmtp\' should not be empty, so it should be omitted when there are no format specific parameters, as per RFC 4566 Section 6 and RFC 8866 Section 6.15.'],
+      `'${fmtp}' is reported with --should`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 5888 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['group:LS', 'group:FID 1 2', 'group:DUP primary secondary']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+  for (const attribute of ['mid:primary', 'mid:S1a', 'mid:audio.1-a']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  t.same(messages(sessionLevel('mid:primary')), ['Line 5: Attribute \'mid\' must be a media-level attribute, as per RFC 5888 Section 4.'],
+    'a=mid:primary is reported at session level');
+  t.same(messages(mediaLevel('group:LS')), [`Line ${lastLine}: For stream 1, attribute 'group' must be a session-level attribute, as per RFC 5888 Section 5.`],
+    'a=group:LS is reported at media level');
+
+  for (const attribute of ['group:', 'group: DUP primary secondary', 'group:DUP  primary secondary', 'group:DUP primary secondary ']) {
+    t.same(messages(sessionLevel(attribute)).map(message => message.split(', which')[0]), ['Line 5: Attribute \'group\' is not an acceptable pattern'],
+      `a=${attribute} is reported at session level`);
+  }
+  for (const attribute of ['mid:', 'mid: primary', 'mid:primary secondary', 'mid:"primary"']) {
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute 'mid' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 5576 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['ssrc:0 cname:nmos@nmos.tv', 'ssrc:4294967295 cname:user@example.com', 'ssrc:1009 previous-ssrc:1008', 'ssrc:1009 recvonly',
+    'ssrc-group:DUP 1009 1010', 'ssrc-group:FID 11111 22222', 'ssrc-group:FEC']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['ssrc:1009 cname:x', 'ssrc-group:DUP 1009 1010']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute '${name}' must be a media-level attribute, as per RFC 5576 Section 4.${{ ssrc: 1, 'ssrc-group': 2 }[name]}.`],
+      `a=${attribute} is reported at session level`);
+  }
+
+  for (const attribute of ['ssrc:', 'ssrc:1009', 'ssrc:1009 ', 'ssrc:1009  cname:x', 'ssrc:01009 cname:x', 'ssrc:-1 cname:x',
+    'ssrc-group:', 'ssrc-group:DUP 1009,1010', 'ssrc-group:DUP 1009  1010', 'ssrc-group:DUP 1009 ']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 4570 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => replace(sdp, /a=source-filter:[^\r\n]*/, `a=${attribute}`);
+  const messages = (check, variant) => check(variant, cliDefaults).map(error => error.message);
+  const form = 'which must be of the form \'a=source-filter: <filter-mode> <filter-spec>\', as per RFC 4570 Section 3.';
+
+  for (const attribute of ['source-filter: incl IN IP4 232.80.177.113 172.29.80.65', 'source-filter: excl IN IP4 232.80.177.113 172.29.80.65 172.29.80.66',
+    'source-filter: incl IN IP4 * 172.29.80.65', 'source-filter: incl IN * src.example.com src-1.example.com']) {
+    t.same(messages(checkRFC4566, mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+    t.same(messages(checkRFC4566, sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+
+  t.same(messages(checkRFC4566, sessionLevel('source-filter:incl IN IP4 232.80.177.113 172.29.80.65')),
+    [`Line 5: Attribute 'source-filter' is not an acceptable pattern, ${form}`], 'a session-level source filter is reported without a stream');
+  for (const attribute of ['source-filter', 'source-filter:', 'source-filter:incl IN IP4 232.80.177.113 172.29.80.65',
+    'source-filter:  incl IN IP4 232.80.177.113 172.29.80.65', 'source-filter: incl\tIN IP4 232.80.177.113 172.29.80.65',
+    'source-filter: incl IN IP4 232.80.177.113', 'source-filter: incl IN IP4 232.80.177.113 172.29.80.65 ',
+    'source-filter: include IN IP4 232.80.177.113 172.29.80.65', 'source-filter: incl ATM IP4 232.80.177.113 172.29.80.65',
+    'source-filter: incl IN IP5 232.80.177.113 172.29.80.65', 'source-filter: incl IN IP6  232.80.177.113 172.29.80.65']) {
+    const variant = mediaLevel(attribute);
+    t.same(messages(checkRFC4566, variant), [`Line 7: For stream 1, attribute 'source-filter' is not an acceptable pattern, ${form}`],
+      `a=${attribute} is reported at media level`);
+    t.same(messages(checkRFC4570, variant), [], `a=${attribute} is not also reported by the RFC 4570 tests`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 Test 2 reports an attribute name that is not a token', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+
+  t.same(messages(replace(sdp, 'a=source-filter:', 'a=source-filter')),
+    ['Line 7: For stream 1, attribute name \'source-filter incl IN IP4 232.80.177.113 172.29.80.65\' must be a token, as per RFC 4566 Section 9.'],
+    'a media-level attribute with a space in place of the colon');
+  t.same(messages(replace(sdp, 't=0 0\r\n', 't=0 0\r\na=:x\r\n')), ['Line 5: Attribute name \'\' must be a token, as per RFC 4566 Section 9.'],
+    'a session-level attribute with an empty name');
+  t.same(messages(replace(sdp, 't=0 0\r\n', 't=0 0\r\na=\r\n')).filter(message => message.includes('must be a token')), [],
+    'an empty attribute line is reported only by RFC 4566 Section 5 Test 2');
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the level and syntax of the attribute that RFC 3605 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['rtcp:5005', 'rtcp:53020 IN IP4 126.16.64.4', 'rtcp:53020 IN IP6 2001:2345:6789:ABCD:EF01:2345:6789:ABCD']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  t.same(messages(sessionLevel('rtcp:5005')), ['Line 5: Attribute \'rtcp\' must be a media-level attribute, as per RFC 3605 Section 2.1.'],
+    'a=rtcp:5005 is reported at session level');
+
+  for (const attribute of ['rtcp', 'rtcp:', 'rtcp: 5005', 'rtcp:5005 ', 'rtcp:port', 'rtcp:53020IN IP4 126.16.64.4', 'rtcp:53020 IN IP4',
+    'rtcp:53020  IN IP4 126.16.64.4', 'rtcp:53020 IN IP4 126.16.64.4 extra']) {
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'rtcp' is not an acceptable pattern, which must be of the form ` +
+      '\'a=rtcp:<port>[ <network type> <address type> <connection address>]\', as per RFC 3605 Section 2.1.'], `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 7197 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const form = '\'a=duplication-delay:<period>[ <period>]*\', as per RFC 7197 Section 3.';
+
+  for (const attribute of ['duplication-delay:100', 'duplication-delay:50 100', 'duplication-delay:0']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['duplication-delay', 'duplication-delay:', 'duplication-delay: 100', 'duplication-delay:100 ', 'duplication-delay:50  100',
+    'duplication-delay:50,100', 'duplication-delay:1.5', 'duplication-delay:-1']) {
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute 'duplication-delay' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at session level`);
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'duplication-delay' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the syntax of the attribute that VSF TR-10-5 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const form = '\'a=hkep:<port> IN <address type> <unicast address> <node id> <port id>\', as per VSF TR-10-5:2026 Section 10.';
+  const nodeId = 'db31de40-19ad-450a-afb9-f4105be7b564';
+
+  for (const attribute of [`hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05`, `hkep:9001 IN IP6 2001:db8::1 ${nodeId.toUpperCase()} 0A-0b-0C-0d-0E`]) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['hkep', 'hkep:', 'hkep:9000', `hkep:9000 IN IP4 192.168.9.142 ${nodeId}`, `hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05-06`,
+    `hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04`, `hkep:9000 IN IP4 192.168.9.142 ${replace(nodeId, /-/g, '')} 01-02-03-04-05`,
+    `hkep:port IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05`, `hkep:9000 ATM NSAP 192.168.9.142 ${nodeId} 01-02-03-04-05`,
+    `hkep:9000 IN IPX 192.168.9.142 ${nodeId} 01-02-03-04-05`, `hkep:9000  IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05`,
+    `hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05 `]) {
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute 'hkep' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at session level`);
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'hkep' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 8285 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => replace(sdp, 't=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const form = '\'a=extmap:<value>[/<direction>] <URI>[ <extension attributes>]\', as per RFC 8285 Section 8.';
+
+  for (const attribute of ['extmap:1 http://example.com/082005/ext.htm#ttime', 'extmap:2/sendrecv http://example.com/082005/ext.htm#xmeta short',
+    'extmap:4096/inactive urn:ietf:params:rtp-hdrext:toffset', 'extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid some attributes  here']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['extmap', 'extmap:', 'extmap:1', 'extmap:1 ', 'extmap: 1 urn:ietf:params:rtp-hdrext:toffset',
+    'extmap:123456 urn:ietf:params:rtp-hdrext:toffset', 'extmap:x urn:ietf:params:rtp-hdrext:toffset', 'extmap:1/send urn:ietf:params:rtp-hdrext:toffset',
+    'extmap:1/sendrecv', 'extmap:1  urn:ietf:params:rtp-hdrext:toffset', 'extmap:1 ext.htm#ttime', 'extmap:1 1urn:ietf:params:rtp-hdrext:toffset']) {
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute 'extmap' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at session level`);
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'extmap' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
+  const message = (line, name, form, section) =>
+    `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
+  const messages = (file, edit = sdp => sdp) => runAllChecks(edit(readFixture(file))).map(error => error.message);
+
+  t.same(messages('invalid/ptime-pattern.sdp'), [message(10, 'ptime', '<packet time>', '6.4')], 'a malformed ptime in an ancillary data stream');
+  t.same(messages('valid/st2110-30.sdp', sdp => replace(sdp, 'a=ptime:1', 'a=ptime: 1')), [message(11, 'ptime', '<packet time>', '6.4')],
+    'a malformed ptime in an ST 2110-30 stream');
+  t.same(messages('valid/st2110-31.sdp', sdp => replace(sdp, 'a=ptime:1', 'a=ptime: 1')), [message(11, 'ptime', '<packet time>', '6.4')],
+    'a malformed ptime in an ST 2110-31 stream');
+  t.same(messages('valid/st2110-30.sdp', sdp => replace(sdp, 'a=maxptime:1', 'a=maxptime:1.')), [message(12, 'maxptime', '<maximum packet time>', '6.5')],
+    'a malformed maxptime in an ST 2110-30 stream');
+  t.same(messages('valid/st2110-30.sdp', sdp => replace(sdp, 'L24/48000/2', 'L24/48000/x')),
+    [message(9, 'rtpmap', '<payload type> <encoding name>/<clock rate>[/<encoding parameters>]', '6.6')],
+    'a malformed rtpmap in an ST 2110-30 stream');
+  t.same(messages('valid/st2110-22.sdp', sdp => replace(replace(sdp, 'exactframerate=60000/1001; ', ''), 'jxsv/90000\r\n', 'jxsv/90000\r\na=framerate:59.940\r\n')),
+    [message(11, 'framerate', '<frame rate>', '6.13')],
+    'a malformed framerate in an ST 2110-22 stream');
+  const refclkMessage = (form, note = '') => `Line 8: For stream 1, attribute 'ts-refclk' is not an acceptable pattern, which must be of the form '${form}', as per RFC 7273 Section 4.8.${note}`;
+  for (const [refclk, expected] of [
+    ['ptp=traceable', refclkMessage('a=ts-refclk:ptp=<ptp version>:traceable', ' An example in the first published ST 2110-10 omits the PTP version.')],
+    ['ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0 :37',
+      refclkMessage('a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable')],
+    ['localmac=', refclkMessage('a=ts-refclk:<clock source>')]
+  ]) {
+    t.same(messages('valid/st2110-20.sdp', sdp => replace(sdp, /a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`)), [expected],
+      `a=ts-refclk:${refclk} in an ST 2110-20 stream`);
+  }
+  t.same(messages('valid/st2110-22.sdp', sdp => replace(sdp, 'a=group:DUP', 'a=group: DUP')),
+    ['Line 5: Attribute \'group\' is not an acceptable pattern, which must be of the form \'a=group:<semantics>[ <identification tag>]*\', as per RFC 5888 Section 5.'],
+    'a malformed group in an SDP file with duplicate streams');
+  t.same(messages('valid/st2110-22.sdp', sdp => replace(sdp, 'a=mid:primary', 'a=mid: primary')),
+    ['Line 14: For stream 1, attribute \'mid\' is not an acceptable pattern, which must be of the form \'a=mid:<identification tag>\', as per RFC 5888 Section 4.'],
+    'a malformed mid in an SDP file with duplicate streams');
+  t.same(messages('valid/rfc7104_sep_source.sdp', sdp => replace(sdp, 'a=ssrc-group:DUP 1009 1010', 'a=ssrc-group:DUP 1009,1010')),
+    ['Line 9: For stream 1, attribute \'ssrc-group\' is not an acceptable pattern, which must be of the form \'a=ssrc-group:<semantics>[ <ssrc-id>]*\', as per RFC 5576 Section 4.2.'],
+    'a malformed ssrc-group in an SDP file with duplicate streams');
+  t.same(messages('valid/rfc7104_sep_source.sdp', sdp => replace(sdp, 'a=ssrc:1010 cname:ch1@example.com', 'a=ssrc:1010')),
+    ['Line 11: For stream 1, attribute \'ssrc\' is not an acceptable pattern, which must be of the form \'a=ssrc:<ssrc-id> <attribute>[:<value>]\', as per RFC 5576 Section 4.1.'],
+    'a malformed ssrc in an SDP file with duplicate streams');
+  t.end();
+});
+
+test('an ssrc-group with semantics other than DUP is not checked as a DUP group', t => {
+  const sdp = replace(readFixture('valid/rfc7104_sep_source.sdp'), 'a=ssrc-group:DUP 1009 1010', 'a=ssrc-group:FID 1009 1010');
+  t.same(runAllChecks(sdp).map(error => error.message), [], 'a=ssrc-group:FID');
+  t.end();
+});
+
+test('RFC 4566 Section 5.14 tests report a media field that is not an acceptable pattern once', t => {
+  const raw = readFixture('valid/st2110-20.sdp');
+  const mLine = raw.split('\r\n').findIndex(line => line.startsWith('m=')) + 1;
+  const messages = (sdp, params = cliDefaults) => runAllChecks(sdp, params).map(error => error.message);
+  const pattern = `Line ${mLine}: Media field ('m=') is not an acceptable pattern, which must be of the form 'm=<media> <port>[/<number of ports>] <proto> <fmt> ...', as per RFC 4566 Section 5.14.`;
+  const payloadType = format => `Line ${mLine}: For stream 1, format '${format}' must be an RTP payload type number in the range 0 to 127 inclusive, as per RFC 4566 Section 5.14, RFC 8866 Section 6.6 and RFC 3550 Section 5.1.`;
+
+  const noFormat = replace(raw, 'RTP/AVP 97', 'RTP/AVP');
+  t.same(messages(noFormat), [pattern], 'a media field with no format is reported once');
+  t.same(messages(noFormat, { ...cliDefaults, skipST2110: true }), [pattern], 'a media field with no format is reported without the ST 2110 tests');
+  t.same(messages(replace(raw, 'RTP/AVP 97', 'RTP/AVP 97 x')), [payloadType('x')], 'an RTP format that is not a number is reported');
+  t.same(messages(replace(raw, 'RTP/AVP 97', 'RTP/AVP 97 128')), [payloadType('128')], 'an RTP format that is not a payload type number is reported');
+  t.same(messages(replace(raw, 'RTP/AVP 97', 'RTP/AVP 97 096')), [payloadType('096')], 'an RTP format with a leading zero is reported');
+  t.same(messages(replace(raw, 'RTP/AVP 97', 'UDP/TLS/RTP/SAVPF 97 128'), { ...cliDefaults, skipST2110: true }), [payloadType('128')],
+    'a format of another RTP profile that is not a payload type number is reported');
+  t.same(messages(replace(raw, 'm=video 27346 RTP/AVP', 'm=video  27346\tRTP/SAVP')), [`Line ${mLine}: For stream 1, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`],
+    'a media field with other whitespace between its subfields is an acceptable pattern');
+  const text = replace(raw, 'm=video', 'm=text');
+  t.same(messages(text), [`Line ${mLine}: Media field ('m=') is not an acceptable pattern, which shall be of the form 'm=<media> <port> RTP/AVP <payload type>', as per ST 2110-10 Section 6.2.`],
+    'a media field that is an acceptable pattern for RFC 4566 but not for ST 2110 is reported by the ST 2110 tests');
+  t.same(messages(text, { ...cliDefaults, skipST2110: true }), [], 'a media type other than audio, video or application is an acceptable pattern for RFC 4566');
+  t.end();
+});
+
+test('SDPoker Test 2 reports a media description with more than one format, with --should', t => {
+  const raw = readFixture('valid/st2110-20.sdp');
+  const mLine = raw.split('\r\n').findIndex(line => line.startsWith('m=')) + 1;
+  const twoFormats = replace(replace(raw, 'RTP/AVP 97', 'RTP/AVP 97 98'), /(a=rtpmap:97 .*\r\n)/, '$1a=rtpmap:98 raw/90000\r\n');
+  const messages = (sdp, params) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message).filter(m => m.includes('should have one format'));
+  t.same(messages(twoFormats, { should: true }), [`Line ${mLine}: For stream 1, the media description should have one format, but has '97 98'. RFC 4566 Section 5.14 allows more than one, but receivers might use only one of them, or only one 'rtpmap' or 'fmtp' attribute, and SDPoker chooses its tests by the encoding name of the first.`],
+    'a media description with two formats is reported');
+  t.same(messages(twoFormats, {}), [], 'a media description with two formats is not reported without --should');
+  t.same(messages(raw, { should: true }), [], 'a media description with one format is not reported');
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests report an rtpmap or fmtp attribute for a format that is not a format of the media description', t => {
+  const messages = (file, params) => runAllChecks(readFixture(file), params).map(error => error.message).filter(m => m.includes('must be a format of the media description'));
+  for (const params of [cliDefaults, { ...cliDefaults, skipST2110: true }]) {
+    t.same(messages('invalid/rtpmap-payload-type.sdp', params), ['Line 10: For stream 1, payload type \'106\' of attribute \'rtpmap\' must be a format of the media description, as per RFC 4566 Section 6.'],
+      `the payload type of an rtpmap attribute is reported${params.skipST2110 ? ' without the ST 2110 tests' : ''}`);
+    t.same(messages('invalid/fmtp-payload-type.sdp', params), ['Line 10: For stream 1, format \'106\' of attribute \'fmtp\' must be a format of the media description, as per RFC 4566 Section 6.'],
+      `the format of an fmtp attribute is reported${params.skipST2110 ? ' without the ST 2110 tests' : ''}`);
+  }
+  const extension = replace(readFixture('valid/st2110-20.sdp'), /(a=rtpmap:[^\r]*\r\n)/, '$1a=rtpmapx:foo\r\na=fmtp-x\r\n');
+  t.same(runAllChecks(extension, cliDefaults).map(error => error.message).filter(m => m.includes('of the media description')), [],
+    'an attribute whose name starts with rtpmap or fmtp is not an rtpmap or fmtp attribute');
+  t.end();
+});
+
+test('RFC 6838 Section 4.3 tests report a repeated format parameter once for every stream format', t => {
+  const repeats = (sdp, params = cliDefaults) => runAllChecks(sdp, params).map(error => error.message).filter(m => m.includes('more than once'));
+  const fmtpLine = sdp => sdp.split('\r\n').findIndex(line => line.startsWith('a=fmtp')) + 1;
+  const message = (sdp, name) => `Line ${fmtpLine(sdp)}: For stream 1, format parameter '${name}' is specified more than once, as per RFC 6838 Section 4.3.`;
+
+  for (const fixture of ['st2110-20', 'st2110-22', 'st2110-40-2023']) {
+    const sdp = replace(readFixture(`valid/${fixture}.sdp`), /(a=fmtp:\d+ )/, '$1TSMODE=SAMP; TSMODE=SAMP; ');
+    t.same(repeats(sdp), [message(sdp, 'TSMODE')], `${fixture} reports a repeated format parameter once`);
+  }
+  const raw = readFixture('valid/st2110-20.sdp');
+  const vc2 = replace(replace(raw, 'raw/90000', 'vc2/90000'), 'depth=10', 'depth=10; depth=10');
+  t.same(repeats(vc2), [message(vc2, 'depth')], 'a repeated format parameter is reported for a vc2 stream');
+  const differentCase = replace(raw, 'depth=10', 'depth=10; DEPTH=10');
+  t.same(repeats(differentCase), [message(differentCase, 'depth')], 'format parameter names that differ only in case are the same parameter');
+  t.same(repeats(differentCase, { ...cliDefaults, skipST2110: true }), [message(differentCase, 'depth')], 'a repeated format parameter is reported without the ST 2110 tests');
+  const anc = replace(readFixture('valid/st2110-40-2023.sdp'), 'DID_SDID={0x61,0x02}', 'DID_SDID={0x61,0x02}; DID_SDID={0x41,0x05}');
+  t.same(repeats(anc), [], 'DID_SDID can be repeated, as per RFC 8331 Section 4');
+  const lowerCase = replace(anc, 'DID_SDID={0x61,0x02}; DID_SDID', 'did_sdid={0x61,0x02}; did_sdid');
+  t.same(repeats(lowerCase), [message(lowerCase, 'did_sdid')], 'only DID_SDID in its canonical case can be repeated');
+  t.same(repeats(differentCase, { ...cliDefaults, skipRFC4566: true }), [], 'a repeated format parameter is not reported without the RFC 4566 tests');
   t.end();
 });
 
@@ -900,7 +1409,7 @@ test('the ST 2110 checks, not the RFC 4566 checks, report an SDP file with no me
 });
 
 test('library callers that do not set noCopy or noMedia get those checks', t => {
-  const copy = readFixture('invalid/st2110-10-annex-b.sdp').replace(/source-filter: incl/g, 'source-filter:incl');
+  const copy = replace(readFixture('invalid/st2110-10-annex-b.sdp'), /source-filter: incl/g, 'source-filter:incl');
   t.ok(checkST2110(copy, {}).some(error => error.message.includes('must not be a copy of the example')),
     'a copy of the example is reported');
   t.ok(checkST2110(readFixture('invalid/missing-media.sdp'), {}).some(error => error.message.includes('shall include at least one media description')),
@@ -929,10 +1438,10 @@ test('line numbers count blank lines, with CRLF, CR or LF line endings', t => {
   const params = { ...cliDefaults, midLast: true };
   const sdp = readFixture('valid/rfc7104_sep_dest.sdp');
   const messages = variant => runAllChecks(variant, params).map(error => error.message);
-  const expected = messages(sdp).map(message => message.replace(/^Line (\d+)/, (_, line) => `Line ${+line + 1}`));
+  const expected = messages(sdp).map(message => replace(message, /^Line (\d+)/, (_, line) => `Line ${+line + 1}`));
   t.ok(expected.length > 0 && expected.every(message => message.startsWith('Line ')), 'the errors give a line');
   for (const [name, ending] of [['CRLF', '\r\n'], ['CR', '\r'], ['LF', '\n']]) {
-    const variant = sdp.replace(/\r\n/g, ending).replace(ending, ending + ending);
+    const variant = replace(replace(sdp, /\r\n/g, ending), ending, ending + ending);
     t.same(messages(variant), ['Line 2: An SDP file must not contain blank lines, as per RFC 4566 Section 5.', ...expected], name);
   }
   t.end();
@@ -942,12 +1451,12 @@ test('blank lines are reported once, at the first blank line, and no other check
   const blank = line => `Line ${line}: An SDP file must not contain blank lines, as per RFC 4566 Section 5.`;
   const messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message);
   for (const fileName of validFixtures) {
-    t.same(messages(readFixture(path.join('valid', fileName)).replace(/\r\n/g, '\r\n\r\n')), [blank(2)], fileName);
+    t.same(messages(replace(readFixture(path.join('valid', fileName)), /\r\n/g, '\r\n\r\n')), [blank(2)], fileName);
   }
   const midLast = readFixture('valid/rfc7104_sep_dest_mid_last.sdp');
-  t.same(messages(midLast.replace(/\r\n/g, '\r\n\r\n'), { midLast: true }), [blank(2)], 'with midLast');
+  t.same(messages(replace(midLast, /\r\n/g, '\r\n\r\n'), { midLast: true }), [blank(2)], 'with midLast');
   t.same(messages('\r\n' + midLast), [blank(1)], 'a blank first line');
-  const copy = readFixture('invalid/st2110-10-annex-b.sdp').replace(/\r\n/g, '\r\n\r\n');
+  const copy = replace(readFixture('invalid/st2110-10-annex-b.sdp'), /\r\n/g, '\r\n\r\n');
   t.ok(messages(copy).some(message => message.includes('must not be a copy of the example')), 'a copy of the example');
   t.end();
 });
@@ -959,10 +1468,10 @@ test('the line ending errors give the line', t => {
   t.same(messages(sdp.slice(0, -2)),
     [`Line ${lastLine}: The last record of an SDP file must end with a newline character, as per RFC 4566 Section 5.`], 'no newline at the end');
   const crlf = 'Every record of an SDP file must end with CRLF (0x0d0a), and CR and LF must not appear separately, as per RFC 4566 Section 5.';
-  const third = ending => sdp.replace(/^((?:[^\r\n]*\r\n){2}[^\r\n]*)\r\n/, `$1${ending}`);
+  const third = ending => replace(sdp, /^((?:[^\r\n]*\r\n){2}[^\r\n]*)\r\n/, `$1${ending}`);
   t.same(messages(third('\n'), { checkEndings: true }), [`Line 3: ${crlf}`], 'LF at the end of line 3');
   t.same(messages(third('\r'), { checkEndings: true }), [`Line 3: ${crlf}`], 'CR at the end of line 3');
-  t.same(messages(sdp.replace(/\r\n/g, '\n'), { checkEndings: true }), [`Line 1: ${crlf}`], 'LF at the end of every line');
+  t.same(messages(replace(sdp, /\r\n/g, '\n'), { checkEndings: true }), [`Line 1: ${crlf}`], 'LF at the end of every line');
   t.end();
 });
 
@@ -1012,7 +1521,7 @@ test('every error that starts with a line number has that line as its line prope
     .filter(file => file.endsWith('.sdp')).map(file => `${dir}/${file}`));
   const paramSets = [
     cliDefaults,
-    { ...cliDefaults, checkEndings: true, should: true, duplicate: true, channelOrder: true, midLast: true, multicast: true, useIP6: true }
+    { ...cliDefaults, checkEndings: true, should: true, duplicate: true, channelOrder: true, midLast: true, multicast: true, useIP6: true, ipmx: true }
   ];
   const errors = files.flatMap(file => paramSets.flatMap(params => runAllChecks(readFixture(file), params)));
   const mismatches = errors.filter(error => {
@@ -1027,9 +1536,7 @@ test('every error that starts with a line number has that line as its line prope
 test('a direct-referenced media clock with no offset or a non-zero offset is reported for any reference clock', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const citation = 'when the media clock is directly referenced, as per ST 2110-10 Section 7.4 [also ST 2110-10:2022 Sections 7.3 and 8.3].';
-  const messages = (mediaclk, refclk) => checkST2110(sdp
-    .replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${mediaclk}`)
-    .replace(/a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`), cliDefaults)
+  const messages = (mediaclk, refclk) => checkST2110(replace(replace(sdp, /a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${mediaclk}`), /a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`), cliDefaults)
     .map(error => error.message).filter(m => m.includes(citation));
   const missing = `Line 5: For stream 1, the 'mediaclk' attribute shall include a zero offset ${citation}`;
   const nonZero = `Line 5: For stream 1, the 'mediaclk' attribute shall have a zero offset, but has '5', ${citation}`;
@@ -1044,19 +1551,19 @@ test('a direct-referenced media clock with no offset or a non-zero offset is rep
 
 test('a direct-referenced media clock must match the RFC 7273 grammar', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const reported = value => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), cliDefaults)
-    .some(error => error.message.includes('attribute \'mediaclk\' is not an acceptable pattern'));
+  const reported = value => runAllChecks(replace(sdp, /a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`))
+    .filter(error => error.message.includes('attribute \'mediaclk\' is not an acceptable pattern')).length;
   for (const value of ['direct=0', 'direct', 'direct=0 rate=1000/1001']) {
-    t.notOk(reported(value), `'${value}' is accepted`);
+    t.equal(reported(value), 0, `'${value}' is accepted`);
   }
   for (const value of ['direct=0 rate=90000', 'direct=0 rate=abc', 'direct=0 rate=0/1001', 'direct=0 rate=01/1', 'direct=abc', 'direct=0rate=1/1']) {
-    t.ok(reported(value), `'${value}' is reported`);
+    t.equal(reported(value), 1, `'${value}' is reported once`);
   }
   t.end();
 });
 
 test('a media clock identifier is reported once with --should, and is not taken as the media clock reference', t => {
-  const sdp = readFixture('valid/st2110-20.sdp').replace(/a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:id=src1 direct=0');
+  const sdp = replace(readFixture('valid/st2110-20.sdp'), /a=mediaclk:direct=0[^\r\n]*/, 'a=mediaclk:id=src1 direct=0');
   const messages = params => checkST2110(sdp, { ...cliDefaults, ...params }).map(error => error.message).filter(m => m.includes('\'mediaclk\''));
   t.same(messages({}), [], 'a=mediaclk:id=src1 direct=0 is accepted');
   t.same(messages({ should: true }),
@@ -1067,7 +1574,7 @@ test('a media clock identifier is reported once with --should, and is not taken 
 
 test('a media clock reference other than direct is reported', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = (value, params) => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), { ...cliDefaults, ...params })
+  const messages = (value, params) => checkST2110(replace(sdp, /a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), { ...cliDefaults, ...params })
     .map(error => error.message).filter(m => m.includes('reference'));
   const stream = 'IEEE1722=38-D6-6D-8E-D2-78-13-2F';
   t.same(messages('sender', {}), [], 'the sender reference is accepted');
@@ -1080,5 +1587,151 @@ test('a media clock reference other than direct is reported', t => {
   t.same(messages(stream, { should: true }),
     ['Line 11: For stream 1, attribute \'mediaclk\' shall use the \'direct\' or \'sender\' reference, not \'IEEE1722\', as per ST 2110-10:2022 Section 8.3.'],
     'with --should, a stream reference is reported once');
+  t.end();
+});
+
+const tr10Messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params })
+  .map(error => error.message).filter(message => message.includes('VSF TR-10'));
+
+test('the VSF TR-10 checks apply to streams with the IPMX declaration, or to every stream with --ipmx', t => {
+  const raw = readFixture('valid/st2110-20.sdp');
+  const ipmx = readFixture('valid/ipmx-st2110-20.sdp');
+  t.same(tr10Messages(raw), [], 'a stream without the declaration is not checked by default');
+  t.same(tr10Messages(raw, { ipmx: true }), [
+    'Line 10: For stream 1, format parameter \'IPMX\' shall be specified, as requested by --ipmx, as per VSF TR-10-1:2024 Section 10.1.',
+    'Line 10: For stream 1, format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' shall be specified, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-9:2025 Section 10.'
+  ], 'with --ipmx, a stream without the declaration is reported');
+  t.same(tr10Messages(replace(ipmx, 'a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0:37')),
+    ['Line 7: For stream 1, attribute \'ts-refclk\' shall use the \'ptp=IEEE1588-2008\' or \'localmac\' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.'],
+    'a stream with the declaration is checked without --ipmx');
+  const malformed = replace(ipmx, 'a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:ptp=IEEE1588-2002');
+  t.same(runAllChecks(malformed, cliDefaults).map(error => error.message).filter(message => message.includes('ts-refclk')),
+    ['Line 7: For stream 1, attribute \'ts-refclk\' is not an acceptable pattern, which must be of the form ' +
+      '\'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable\', as per RFC 7273 Section 4.8.'],
+    'a reference clock that is not an acceptable pattern is reported once');
+  const malformedGroup = replace(ipmx, 't=0 0', 't=0 0\r\na=group:FID  1');
+  t.same(runAllChecks(malformedGroup, cliDefaults).map(error => error.message).filter(message => message.includes('\'group\'')),
+    ['Line 5: Attribute \'group\' is not an acceptable pattern, which must be of the form \'a=group:<semantics>[ <identification tag>]*\', as per RFC 5888 Section 5.'],
+    'a grouping that is not an acceptable pattern is reported once');
+  t.same(tr10Messages(readFixture('valid/ipmx-st2110-30.sdp'), { ipmx: true }), [], 'with --ipmx, a stream with the declaration passes');
+  t.end();
+});
+
+test('the VSF TR-10-1:2024 Section 10 format parameters are reported', t => {
+  const raw = readFixture('valid/ipmx-st2110-20.sdp');
+  const audio = readFixture('valid/ipmx-st2110-30.sdp');
+  const at = message => `Line 11: For stream 1, ${message}`;
+  const cases = [
+    [replace(raw, 'IPMX;', 'IPMX=1;'), [at('the \'IPMX\' declaration shall not have a value, as per VSF TR-10-1:2024 Section 10.1.')], 'a declaration with a value'],
+    [replace(raw, ' IPMX;', ''), [], 'video parameters without the declaration'],
+    [replace(raw, '; htotal=2200', ''),
+      [at('format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' shall be specified together, as per VSF TR-10-1:2024 Section 10.2.')], 'a missing video parameter'],
+    [replace(raw, 'raw/90000', 'H266/90000'), [], 'video parameters for an encoding that is not listed'],
+    [replace(raw, 'vtotal=1125', 'vtotal=1079'),
+      [at('format parameter \'vtotal\' shall be no less than \'height\', because it includes the blanking periods, as per VSF TR-10-1:2024 Section 10.2.')], 'a total less than the active size'],
+    [replace(raw, 'htotal=2200', 'htotal=65536'),
+      [at('format parameter \'htotal\' shall be a positive integer no greater than 65535, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-2:2024 Section 10.')], 'a total too large for the Info Block'],
+    [replace(raw, 'measuredpixclk=148550104', 'measuredpixclk=18446744073709551616'),
+      [at('format parameter \'measuredpixclk\' shall be a positive integer no greater than 18446744073709551615, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-2:2024 Section 10.')], 'a pixel clock too large for the Info Block'],
+    [replace(raw, 'IPMX;', 'IPMX; measuredsamplerate=48000;'),
+      [at('format parameter \'measuredsamplerate\' shall only be specified for an \'L16\', \'L24\' or \'AM824\' audio stream, as per VSF TR-10-1:2024 Section 10.3.')], 'a sample rate for video'],
+    [replace(audio, 'measuredsamplerate=47952', 'measuredsamplerate=0'),
+      ['Line 9: For stream 1, format parameter \'measuredsamplerate\' shall be a positive integer no greater than 4294967295, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-3:2024 Section 11.'], 'a zero sample rate'],
+    [replace(audio, '; IPMX; measuredsamplerate=47952', ''),
+      [], 'audio without the declaration'],
+    [replace(audio, '; measuredsamplerate=47952', ''),
+      ['Line 9: For stream 1, format parameter \'measuredsamplerate\' shall be specified, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.'], 'a missing sample rate'],
+    [replace(audio, 'L24/48000/8', 'AM824/48000/8'), [], 'a sample rate for AES3 audio'],
+    [replace(replace(audio, 'L24/48000/8', 'AM824/48000/8'), '; measuredsamplerate=47952', ''),
+      ['Line 9: For stream 1, format parameter \'measuredsamplerate\' shall be specified, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.'], 'a missing sample rate for AES3 audio'],
+    [replace(audio, 'a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:local'),
+      ['Line 10: For stream 1, attribute \'ts-refclk\' shall use the \'ptp=IEEE1588-2008\' or \'localmac\' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.'], 'another reference clock'],
+    [replace(raw, 't=0 0', 't=0 0\r\na=group:FID 1'),
+      ['Line 5: Attribute \'group\' shall not use the \'FID\' semantics in the SDP file of an IPMX Sender, as per VSF TR-10-1:2024 Section 10.'], 'FID grouping']
+  ];
+  for (const [sdp, expected, name] of cases) {
+    t.same(tr10Messages(sdp), expected, name);
+  }
+  t.same(tr10Messages(replace(raw, ' IPMX;', ''), { should: true }), [
+    at('format parameter \'measuredpixclk\' is defined for IPMX Senders, so the \'IPMX\' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.'),
+    at('format parameter \'vtotal\' is defined for IPMX Senders, so the \'IPMX\' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.'),
+    at('format parameter \'htotal\' is defined for IPMX Senders, so the \'IPMX\' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.')
+  ], 'with --should, video parameters without the declaration');
+  t.end();
+});
+
+test('a PTP version other than IEEE 1588-2008 of an IPMX stream is reported once with --should', t => {
+  const ipmx = replace(readFixture('valid/ipmx-st2110-20.sdp'), 'a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0:37');
+  const messages = sdp => runAllChecks(sdp, { ...cliDefaults, should: true }).map(error => error.message).filter(m => m.includes('\'ts-refclk\''));
+  t.same(messages(ipmx),
+    ['Line 7: For stream 1, attribute \'ts-refclk\' shall use the \'ptp=IEEE1588-2008\' or \'localmac\' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.'],
+    'an IPMX stream is reported as per VSF TR-10-1:2024 Section 10.4');
+  t.same(messages(replace(ipmx, ' IPMX; measuredpixclk=148550104; vtotal=1125; htotal=2200', '')),
+    ['Line 7: Attribute \'ts-refclk\' of type \'ptp\' should specify \'IEEE1588-2008\', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.'],
+    'a stream that is not an IPMX stream is reported as per ST 2110-10:2022');
+  t.end();
+});
+
+test('the UDP destination ports are reported as per Section 7 of VSF TR-10-2:2024, VSF TR-10-3:2024, VSF TR-10-4:2023 and VSF TR-10-11:2024', t => {
+  const raw = readFixture('valid/ipmx-st2110-20.sdp');
+  const port = (sdp, value) => replace(sdp, /^m=(\w+) \d+/m, `m=$1 ${value}`);
+  t.same(tr10Messages(port(raw, 10001)),
+    ['Line 5: For stream 1, UDP destination port \'10001\' shall be even and greater than 1024, as per VSF TR-10-2:2024 Section 7.'], 'an odd port');
+  t.same(tr10Messages(port(raw, 1024)),
+    ['Line 5: For stream 1, UDP destination port \'1024\' shall be even and greater than 1024, as per VSF TR-10-2:2024 Section 7.'], 'port 1024');
+  t.same(tr10Messages(port(raw, 5000)), [], 'port 5000 by default');
+  t.same(tr10Messages(port(raw, 5000), { should: true }),
+    ['Line 5: For stream 1, UDP destination port \'5000\' should be greater than 5000, as per VSF TR-10-2:2024 Section 7.'], 'port 5000 with --should');
+  for (const [fixture, specification] of [
+    ['ipmx-st2110-30', 'VSF TR-10-3:2024 Section 7'],
+    ['ipmx-st2110-40', 'VSF TR-10-4:2023 Section 7'],
+    ['ipmx-st2110-22', 'VSF TR-10-11:2024 Section 7']
+  ]) {
+    t.same(tr10Messages(port(readFixture(`valid/${fixture}.sdp`), 10001)),
+      [`Line 5: For stream 1, UDP destination port '10001' shall be even and greater than 1024, as per ${specification}.`], fixture);
+  }
+  const media = raw.slice(raw.indexOf('m='));
+  const redundant = port(replace(raw, /a=rtpmap:[^\r]*\r\n/, ''), 10001) + replace(replace(media, '239.20.0.1', '239.20.0.2'), '239.20.0.1', '239.20.0.2');
+  t.same(tr10Messages(redundant).filter(m => m.includes('UDP destination port')),
+    ['Line 5: For stream 1, UDP destination port \'10001\' shall be even and greater than 1024, as per VSF TR-10-2:2024 Section 7.'],
+    'the specification is chosen from the first stream whose encoding name is known');
+  t.end();
+});
+
+test('the VSF TR-10-9:2025 Section 10 pixel clock of a Sender that does not convert a Baseband signal is reported', t => {
+  const rgb = readFixture('valid/ipmx-st2110-20-not-baseband.sdp');
+  const jxsv = readFixture('valid/ipmx-st2110-22.sdp');
+  t.same(tr10Messages(replace(rgb, 'measuredpixclk=497664000', 'measuredpixclk=497664001')),
+    ['Line 11: For stream 1, format parameter \'measuredpixclk\' shall be \'497664000\', the product of \'width\', \'height\' and \'exactframerate\', when \'htotal\' and \'vtotal\' are the same as \'width\' and \'height\', as per VSF TR-10-9:2025 Section 10.'],
+    'an integer frame rate');
+  t.same(tr10Messages(replace(jxsv, 'measuredpixclk=124291708', 'measuredpixclk=124291709')), [], 'a fractional frame rate rounded up');
+  t.same(tr10Messages(replace(jxsv, 'measuredpixclk=124291708', 'measuredpixclk=124416000')),
+    ['Line 10: For stream 1, format parameter \'measuredpixclk\' shall be \'124291708\' or \'124291709\', the product of \'width\', \'height\' and \'exactframerate\', when \'htotal\' and \'vtotal\' are the same as \'width\' and \'height\', as per VSF TR-10-9:2025 Section 10.'],
+    'a fractional frame rate');
+  t.same(tr10Messages(replace(rgb, 'measuredpixclk=497664000; vtotal=2160', 'measuredpixclk=500000000; vtotal=2161')), [], 'a Sender that converts a Baseband signal');
+  t.end();
+});
+
+test('the VSF TR-10-9:2025 Section 17 multicast addresses and source filters are reported', t => {
+  const raw = readFixture('valid/ipmx-st2110-20.sdp');
+  const noFilter = replace(raw, /a=source-filter:[^\r\n]*\r\n/, '');
+  t.same(tr10Messages(replace(raw, /239\.20\.0\.1/g, '224.0.1.5')),
+    ['Line 5: For stream 1, destination address \'224.0.1.5\' shall not be in the range 224.0.0.0 to 224.0.1.255, as per VSF TR-10-9:2025 Section 17.'],
+    'an address in 224.0.1.x');
+  t.same(tr10Messages(noFilter),
+    ['Line 5: For stream 1, destination address \'239.20.0.1\' is multicast, so an inclusive \'source-filter\' attribute shall be included, as per VSF TR-10-9:2025 Section 17.'],
+    'a missing source filter');
+  t.notOk(runAllChecks(noFilter, { ...cliDefaults, should: true }).some(error => error.message.includes('ST 2110-10:2022 Section 8.4')),
+    'a missing source filter is not also reported as per ST 2110-10:2022 Section 8.4 with --should');
+  t.end();
+});
+
+test('the sender media clock reference is not reported for IPMX streams with --should', t => {
+  const reported = sdp => checkST2110(sdp, { ...cliDefaults, should: true }).some(error => error.message.includes('should use the \'direct\' reference'));
+  const ipmx = readFixture('valid/ipmx-st2110-20.sdp');
+  const session = replace(replace(ipmx, 'a=mediaclk:sender\r\n', ''), 't=0 0', 't=0 0\r\na=mediaclk:sender');
+  t.notOk(reported(ipmx), 'a media-level attribute of an IPMX stream');
+  t.notOk(reported(session), 'a session-level attribute when every stream is an IPMX stream');
+  t.ok(reported(replace(ipmx, ' IPMX; measuredpixclk=148550104; vtotal=1125; htotal=2200', '')), 'a stream that is not an IPMX stream');
   t.end();
 });

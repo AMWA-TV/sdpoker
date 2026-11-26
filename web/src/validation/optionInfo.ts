@@ -79,6 +79,11 @@ export const optionGroups: { title: string; options: OptionInfo[] }[] = [
         label: 'a=mid last',
         description: 'Check each media description ends with a=mid, as expected by SMPTE RP 2110-23',
       },
+      {
+        key: 'ipmx',
+        label: 'IPMX',
+        description: 'Expect IPMX streams, with the IPMX declaration of VSF TR-10-1:2024',
+      },
     ],
   },
 ];

@@ -17,6 +17,12 @@ This is a fork of the original repository from [Streampunk/sdpoker](https://gith
 
 Recent activity on the project (newest first):
 
+- Added checks of the VSF TR-10 (IPMX) requirements for the SDP files of IPMX streams, and `--ipmx`, to expect IPMX streams
+- Added checks of the level and syntax of the attributes that RFC 3605, RFC 4566, RFC 4570, RFC 5576, RFC 5888, RFC 7197, RFC 7273, RFC 8285 and VSF TR-10-5:2026 define, and of the RFC 8759 `charset` and `profile` format parameters of TTML streams
+- The syntax checks of the attributes that the ST 2110 tests also use, such as `rtpmap`, `ptime` and `mediaclk`, and of `source-filter`, are skipped by `--skipRFC4566`, not by `--skipST2110` or `--skipRFC4570`
+- Repeated format parameters are reported as per RFC 6838 for every stream, so `--skipRFC4566` skips this check, not `--skipST2110`
+- Added checks of media fields (`m=`), and that the format of each `rtpmap` and `fmtp` attribute is a format of its media description, as per RFC 4566
+- With `--should`, each media description with more than one format is reported
 - Released v0.6.0
 - Added `--midLast`, to check that each media description ends with `a=mid`, as expected by SMPTE RP 2110-23
 - The traffic shaping checks of ST 2110-21, ST 2022-8 and ST 2110-40 run by default, and `--no-shaping` skips them
@@ -83,7 +89,7 @@ The value of a fulfilled promise is the contents of an SDP file as a string. SDP
 
 ### Check RFC 4566
 
-The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. This is not an exhaustive SDP file tester.
+The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. The attribute tests also check the level and syntax of some attributes that other specifications define, and each message cites that specification. However, this is not an exhaustive SDP file tester.
 
 For example:
 
@@ -101,7 +107,7 @@ An error found at a line of the SDP file has a `line` property with that line nu
 
 ### Check RFC 4570
 
-The `checkRFC4570(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs source-filter tests relevant to SMPTE ST 2110.
+The `checkRFC4570(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and checks that the addresses of each source filter match its address type and a connection address. `checkRFC4566` checks the syntax of the `source-filter` attribute.
 
 For example:
 
@@ -119,9 +125,13 @@ An error found at a line of the SDP file has a `line` property with that line nu
 
 ### Check ST 2110
 
-The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-31/-40/-43 and ST 2022-8 documents, and referenced standards such as AES67, RFC 8331, RFC 9134 and ST 2022-7, applying appropriate tests.
+The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-31/-40/-43 and ST 2022-8 documents, and referenced standards such as AES67, RFC 8331, RFC 8759, RFC 9134 and ST 2022-7, applying appropriate tests.
 
-The SDP file must describe a single essence, as an ST 2110 sender's SDP file does. It may contain more than one media description only for ST 2022-7 redundant streams, and every media description must have the same media type and encoding name. Otherwise, `checkST2110` reports that and runs no other tests.
+`checkST2110` also runs the tests of the VSF TR-10 (IPMX) Technical Recommendations for each stream whose format parameters have the `IPMX` declaration of VSF TR-10-1:2024. With `ipmx`, it runs them for every stream, and reports any stream without the declaration.
+
+The SDP file must describe a single essence, as an ST 2110 sender's SDP file does. It may contain more than one media description only for ST 2022-7 redundant streams, and every media description must have the same media type and encoding name. Otherwise, `checkST2110` reports that and runs no other tests. When the SDP file does describe a single essence, `checkST2110` chooses its tests by the encoding name of the first format of a media description, and with `should`, it also reports each media description with more than one format.
+
+`checkST2110` reads each media field (`m=`) that `checkRFC4566` accepts. When a media field is not an acceptable pattern for RFC 4566, `checkST2110` runs no tests and reports nothing, so run `checkRFC4566` as well.
 
 For example:
 
@@ -151,6 +161,7 @@ The parameters of the library are binary flags that match the command line optio
 * `channelOrder`: Expect audio with ST 2110-30 channel-order.
 * `shaping`: Check adherence to traffic shaping specification.
 * `midLast`: Check each media description ends with a=mid, as expected by SMPTE RP 2110-23.
+* `ipmx`: Expect IPMX streams, with the IPMX declaration of VSF TR-10-1:2024.
 * `useIP4`: All addresses expressed in IP v4 notation.
 * `useIP6`: All addresses expressed in IP v6 notation.
 * `multicast`: Connection addresses must be multicast.
@@ -199,6 +210,7 @@ The following are some possible enhancements to SDPoker that may be added in the
 * Testing whether advertised clocks are available.
 * Testing that, for AES67 audio streams, the `ptime` attribute matches the sample rate and number of channels.
 * Testing ST 2110-30 audio streams against conformance level.
+* Tests of the IPMX `a=privacy` and `a=infoframe` attributes, and of the `FECPROFILE` format parameter.
 * Ability to run the tests within a framework like [tape](https://www.npmjs.com/package/tape).
 * Retrieval of SDP files over HTTPS.
 

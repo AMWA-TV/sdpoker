@@ -75,6 +75,8 @@ for (const rows of Object.values(followedBy)) {
     }
   }
 }
+// The patterns of the fields accept any whitespace between subfields, where the grammar of RFC 4566 Section 9 has a
+// single space, so that the other tests can still read a field with extra whitespace
 const oPattern = /^o=(\S+)\s+(\d+)\s+(\d+)\s+IN\s+(IP[46])\s+(\S+)$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 const bPattern = /^b=[^\s:]+:\d+$/;
@@ -90,6 +92,194 @@ const addressTypeMismatch = (addrtype, address) => addrtype === 'IP4' ?
   address.includes(':') :
   ip4Pattern.test(address) || (address.includes(':') && !ip6Pattern.test(address));
 const addressTypeName = { IP4: 'an IPv4 address', IP6: 'an IPv6 address' };
+
+// Rules of the SDP grammar, as per RFC 8866 Section 9
+const token = String.raw`[!#-'*+\-.0-9A-Z^-~]+`;
+const integer = String.raw`[1-9]\d*`;
+const zeroBasedInteger = `(?:0|${integer})`;
+const nonZeroIntOrReal = String.raw`(?:${integer}|${zeroBasedInteger}\.\d*[1-9])`;
+const byteString = String.raw`[^\0\r\n]+`;
+const nonWsString = String.raw`[^\x00-\x20\x7f]+`;
+// This form includes every RFC 5646 Language-Tag
+const languageTag = '[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*';
+const valuePattern = value => new RegExp(`^(?:${value})$`);
+// A non-zero decimal number, which unlike non-zero-int-or-real can have leading or trailing zeros
+const paddedNonZeroDecimal = valuePattern(String.raw`(?=.*[1-9])\d+(?:\.\d+)?`);
+// Like the other field patterns, this accepts any whitespace between subfields
+const mPattern = new RegExp(String.raw`^m=(${token})\s+(\d+)(?:/${integer})?\s+(${token}(?:/${token})*)((?:\s+${token})+)$`);
+// The transport protocols in the IANA registry of SDP 'proto' values that use RTP, as per
+// https://www.iana.org/assignments/sdp-parameters/sdp-parameters.xhtml#sdp-parameters-2
+// Their formats are RTP payload type numbers, which have no leading zeros, as per the payload-type rule
+// of RFC 8866 Section 6.6, and are from 0 to 127, because the field is 7 bits, as per RFC 3550 Section 5.1
+const rtpProtos = [
+  'RTP/AVP', 'RTP/SAVP', 'RTP/AVPF', 'RTP/SAVPF',
+  'TCP/RTP/AVP', 'TCP/RTP/SAVP', 'TCP/RTP/AVPF', 'TCP/RTP/SAVPF',
+  'TCP/TLS/RTP/AVP', 'TCP/TLS/RTP/AVPF', 'TCP/DTLS/RTP/SAVP', 'TCP/DTLS/RTP/SAVPF',
+  'UDP/TLS/RTP/SAVP', 'UDP/TLS/RTP/SAVPF',
+  'DCCP/RTP/AVP', 'DCCP/RTP/SAVP', 'DCCP/RTP/AVPF', 'DCCP/RTP/SAVPF',
+  'DCCP/TLS/RTP/SAVP', 'DCCP/TLS/RTP/SAVPF',
+  'UDP/MBMS-FEC/RTP/AVP', 'UDP/MBMS-FEC/RTP/SAVP'
+];
+const isPayloadType = format => valuePattern(zeroBasedInteger).test(format) && +format <= 127;
+
+// Rules of the clock source grammar, as per RFC 7273 Sections 4.8 and 5.4, and Verified erratum 4450,
+// in which a PTP domain has no 'domain-name=' or 'domain-nmbr=' prefix
+const eui64 = '[0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){7}';
+// A host and optional port, as per RFC 3261 Section 25.1, without checking the form of the host name or address
+const hostport = String.raw`(?:[-.0-9A-Za-z]+|\[[.0-9:A-Fa-f]+\])(?::\d+)?`;
+const ptpDomain = String.raw`[\x21-\x7e]{1,16}`;
+const base64 = '(?:[0-9A-Za-z+/]{4})*(?:[0-9A-Za-z+/]{2}==|[0-9A-Za-z+/]{3}=)?';
+// A parameter whose name the grammar defines is checked against that definition, not accepted as an extension
+const extension = names => `(?!(?:${names})(?:[=:]|$))${token}(?:=${byteString})?`;
+const clockSource = [
+  `ntp=(?:${hostport}|/traceable/)`,
+  `ptp=${token}:(?:${eui64}(?::${ptpDomain})?|traceable)`,
+  'gps', 'gal', 'glonass', 'local', 'private(?::traceable)?',
+  extension('ntp|ptp|gps|gal|glonass|local|private')
+].join('|');
+const mediaClockSource = [
+  'sender',
+  `direct(?:=\\d+)?(?: rate=${integer}/${integer})?`,
+  `IEEE1722=${eui64}`,
+  extension('id|sender|direct|IEEE1722')
+].join('|');
+
+// The levels at which each attribute is permitted, as registered with IANA, and the
+// syntax of its value, or no value for a property attribute. A value that is not that
+// syntax but matches 'tolerated' is reported only with --should. Any other value is reported
+// with the first of 'forms' that it matches, or with 'form'.
+const attributes = {
+  'cat': { usage: ['session'], value: valuePattern(nonWsString), form: 'a=cat:<category>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.1' },
+  'keywds': { usage: ['session'], value: valuePattern(byteString), form: 'a=keywds:<keywords>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.2' },
+  'tool': { usage: ['session'], value: valuePattern(byteString), form: 'a=tool:<name and version of tool>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.3' },
+  'ptime': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=ptime:<packet time>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.4',
+    tolerated: { value: paddedNonZeroDecimal, message: 'should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.4 does' } },
+  'maxptime': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=maxptime:<maximum packet time>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.5',
+    tolerated: { value: paddedNonZeroDecimal, message: 'should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.5 does' } },
+  'rtpmap': { usage: ['media'], value: valuePattern(`${zeroBasedInteger} ${token}/${integer}(?:/${integer})?`), form: 'a=rtpmap:<payload type> <encoding name>/<clock rate>[/<encoding parameters>]', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.6' },
+  'recvonly': { usage: ['session', 'media'], form: 'a=recvonly', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.1' },
+  'sendrecv': { usage: ['session', 'media'], form: 'a=sendrecv', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.2' },
+  'sendonly': { usage: ['session', 'media'], form: 'a=sendonly', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.3' },
+  'inactive': { usage: ['session', 'media'], form: 'a=inactive', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.4' },
+  'orient': { usage: ['media'], value: valuePattern('portrait|landscape|seascape'), form: 'a=orient:<orientation>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.8' },
+  'type': { usage: ['session'], value: valuePattern('broadcast|meeting|moderated|test|H332'), form: 'a=type:<conference type>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.9' },
+  // A charset name is a MIME parameter value, as per RFC 2978 Section 2.3, which without quotes is a token
+  'charset': { usage: ['session'], value: valuePattern(token), form: 'a=charset:<character set>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.10' },
+  'sdplang': { usage: ['session', 'media'], value: valuePattern(languageTag), form: 'a=sdplang:<language tag>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.11' },
+  'lang': { usage: ['session', 'media'], value: valuePattern(languageTag), form: 'a=lang:<language tag>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.12' },
+  'framerate': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=framerate:<frame rate>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.13' },
+  'quality': { usage: ['media'], value: valuePattern(zeroBasedInteger), form: 'a=quality:<quality>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.14' },
+  'fmtp': { usage: ['media'], value: valuePattern(`${token} ${byteString}`), form: 'a=fmtp:<format> <format specific parameters>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.15',
+    tolerated: { value: valuePattern(`${token} ?`), message: 'should not be empty, so it should be omitted when there are no format specific parameters, as per RFC 4566 Section 6 and RFC 8866 Section 6.15' } },
+  'ts-refclk': { usage: ['session', 'media'], value: valuePattern(clockSource), form: 'a=ts-refclk:<clock source>', specification: 'RFC 7273 Section 4.8',
+    forms: [
+      { value: /^ptp=traceable$/, form: 'a=ts-refclk:ptp=<ptp version>:traceable', note: 'An example in the first published ST 2110-10 omits the PTP version' },
+      { value: /^ptp=/, form: 'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable' }
+    ] },
+  'mediaclk': { usage: ['session', 'media'], value: valuePattern(`(?:id=(?:src:)?${base64} )?(?:${mediaClockSource})`), form: 'a=mediaclk:[id=<media clock identifier> ]<media clock source>', specification: 'RFC 7273 Section 5.4',
+    forms: [
+      { value: /^(?:id=\S* +)?direct(?:[= ]|$)/, form: 'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]' }
+    ] },
+  'group': { usage: ['session'], value: valuePattern(`${token}(?: ${token})*`), form: 'a=group:<semantics>[ <identification tag>]*', specification: 'RFC 5888 Section 5' },
+  'mid': { usage: ['media'], value: valuePattern(token), form: 'a=mid:<identification tag>', specification: 'RFC 5888 Section 4' },
+  'ssrc': { usage: ['media'], value: valuePattern(`${zeroBasedInteger} ${token}(?::${byteString})?`), form: 'a=ssrc:<ssrc-id> <attribute>[:<value>]', specification: 'RFC 5576 Section 4.1' },
+  'ssrc-group': { usage: ['media'], value: valuePattern(`${token}(?: ${zeroBasedInteger})*`), form: 'a=ssrc-group:<semantics>[ <ssrc-id>]*', specification: 'RFC 5576 Section 4.2' },
+  // Only the 'IN' network type and its address types are accepted, not any token as in the grammar of RFC 4570
+  'source-filter': { usage: ['session', 'media'], value: valuePattern(String.raw` (?:incl|excl) IN (?:IP4|IP6|\*) ${nonWsString}(?: ${nonWsString})+`),
+    form: 'a=source-filter: <filter-mode> <filter-spec>', specification: 'RFC 4570 Section 3' },
+  // A space separates the port and the network type, as per RFC 3605 Verified erratum 1050
+  // The connection address is not checked, except that it has no whitespace
+  'rtcp': { usage: ['media'], value: valuePattern(String.raw`\d+(?: ${token} ${token} ${nonWsString})?`),
+    form: 'a=rtcp:<port>[ <network type> <address type> <connection address>]', specification: 'RFC 3605 Section 2.1' },
+  'duplication-delay': { usage: ['session', 'media'], value: valuePattern(String.raw`\d+(?: \d+)*`), form: 'a=duplication-delay:<period>[ <period>]*', specification: 'RFC 7197 Section 3' },
+  // The extension name is an absolute URI, as per RFC 3986 Section 4.3, but only its scheme is checked
+  'extmap': { usage: ['session', 'media'],
+    value: valuePattern(String.raw`\d{1,5}(?:/(?:sendonly|recvonly|sendrecv|inactive))? [A-Za-z][-+.0-9A-Za-z]*:[^\x00-\x20\x7f]*(?: ${byteString})?`),
+    form: 'a=extmap:<value>[/<direction>] <URI>[ <extension attributes>]', specification: 'RFC 8285 Section 8' },
+  // Not registered with IANA, but permitted at session and media level, as per VSF TR-10-5:2026 Section 17
+  // The unicast address is not checked, except that it has no whitespace
+  'hkep': { usage: ['session', 'media'],
+    value: valuePattern(String.raw`\d+ IN IP[46] ${nonWsString} [0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12} [0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){4}`),
+    form: 'a=hkep:<port> IN <address type> <unicast address> <node id> <port id>', specification: 'VSF TR-10-5:2026 Section 10' }
+};
+const attributePattern = /^a=([^:]*)(?::(.*))?$/;
+const attributeNamePattern = new RegExp(`^${token}$`);
+
+// Whether an attribute line has a token as its name, and is not one of the attributes above, or has a value of the syntax of that attribute
+const isAcceptableAttribute = line => {
+  let [, name, value] = line.match(attributePattern) ?? [];
+  if (!attributeNamePattern.test(name)) {
+    return false;
+  }
+  if (!Object.hasOwn(attributes, name)) {
+    return true;
+  }
+  let pattern = attributes[name].value;
+  return pattern ? value !== undefined && pattern.test(value) : value === undefined;
+};
+
+// A media field is an acceptable pattern when it matches the grammar of RFC 4566 Section 5.14 and, for RTP, each of its
+// formats is a payload type number
+const isAcceptableMedia = line => {
+  let mMatch = line.match(mPattern);
+  return mMatch !== null && (!rtpProtos.includes(mMatch[3]) || mMatch[4].trim().split(/\s+/).every(isPayloadType));
+};
+
+const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
+// A name with no value is allowed, because payload format registrations such as RFC 4175 define them, and whitespace
+// after a semicolon and a semicolon after the last parameter are allowed, because the ST 2110 specifications disagree about them
+const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
+const fmtpSeparator = '(?:;\\s*)';
+const fmtpListPattern = new RegExp('^a=fmtp:(\\S+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
+const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
+// Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
+// extractStreams returns each one that is present as an array of its values, even if it is specified only once.
+const repeatableParams = ['DID_SDID'];
+
+// The media descriptions, numbered in order, each with the media type, port, transport protocol and formats of its media
+// field, as per RFC 4566 Section 5.14, its 'rtpmap' attributes, the encoding names of its RTP payload types that have an
+// 'rtpmap' attribute, and its 'fmtp' attributes. An 'fmtp' attribute that is not a list of format specific parameters
+// has no parameters.
+const extractStreams = sdp => {
+  let streams = [];
+  let lines = splitLines(sdp);
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      let [mediaType, port, proto, ...formats] = lines[x].slice(2).trim().split(/\s+/);
+      streams.push({ streamNumber: streams.length + 1, line: x + 1, mediaType, port: parseInt(port), proto, formats, rtpmap: [], encodingNames: {}, fmtp: [] });
+      continue;
+    }
+    let stream = streams[streams.length - 1];
+    if (!stream) {
+      continue;
+    }
+    if (lines[x].startsWith('a=rtpmap:')) {
+      stream.rtpmap.push({ format: lines[x].match(/^a=rtpmap:(\S+)/)?.[1], line: x + 1 });
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (rtpmapMatch) {
+        stream.encodingNames[rtpmapMatch[1]] = rtpmapMatch[2];
+      }
+    } else if (lines[x].startsWith('a=fmtp:')) {
+      let fmtpMatch = lines[x].match(fmtpListPattern);
+      if (!fmtpMatch) {
+        stream.fmtp.push({ format: lines[x].match(/^a=fmtp:(\S+)/)?.[1], line: x + 1 });
+        continue;
+      }
+      let fmtParams = lines[x].split(/a=fmtp:\S+\s+/)[1];
+      let paramsMatch = [];
+      let paramMatch;
+      while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
+        paramsMatch.push(paramMatch);
+      let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
+      let params = splitParams.reduce((x, y) => {
+        x[y[0]] = repeatableParams.includes(y[0]) ? [...(x[y[0]] ?? []), y[1]] : y[1];
+        return x;
+      }, {});
+      stream.fmtp.push({ format: fmtpMatch[1], line: x + 1, names: splitParams.map(p => p[0]), params });
+    }
+  }
+  return streams;
+};
 
 // RFC 4566 Section 5 Test 1 - Line endings are all CRLF
 const test50_1 = (sdp, params) => {
@@ -430,6 +620,136 @@ const test_59_1 = (sdp, params) => {
   return errors;
 };
 
+// RFC 4566 Section 5.14 Test 1 - Media fields match an acceptable pattern
+const test_514_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  for (let stream of extractStreams(sdp)) {
+    let mMatch = lines[stream.line - 1].match(mPattern);
+    if (!mMatch) {
+      errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which must be of the form \'m=<media> <port>[/<number of ports>] <proto> <fmt> ...\', as per RFC 4566 Section 5.14.'));
+      continue;
+    }
+    if (rtpProtos.includes(mMatch[3])) {
+      for (let format of mMatch[4].trim().split(/\s+/).filter(format => !isPayloadType(format))) {
+        errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, format '${format}' must be an RTP payload type number in the range 0 to 127 inclusive, as per RFC 4566 Section 5.14, RFC 8866 Section 6.6 and RFC 3550 Section 5.1.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 5.14 Test 1 - Media fields match an acceptable pattern.');
+  }
+  return errors;
+};
+
+// RFC 4566 Section 6 Test 1 - Attributes are at a level at which they are permitted
+const test_60_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let name = lines[x].match(attributePattern)?.[1];
+    if (!Object.hasOwn(attributes, name)) {
+      continue;
+    }
+    let { usage, specification } = attributes[name];
+    if (streamCount === 0 && !usage.includes('session')) {
+      errors.push(new LineError(x + 1, `Attribute '${name}' must be a media-level attribute, as per ${specification}.`));
+    } else if (streamCount > 0 && !usage.includes('media')) {
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute '${name}' must be a session-level attribute, as per ${specification}.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 6 Test 1 - Attributes are at a level at which they are permitted.');
+  }
+  return errors;
+};
+
+// RFC 4566 Section 6 Test 2 - Attributes match an acceptable pattern
+const test_60_2 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (lines[x].startsWith('a=') && !isAcceptableAttribute(lines[x])) {
+      let [, name, value] = lines[x].match(attributePattern);
+      let attribute = streamCount ? `For stream ${streamCount}, attribute` : 'Attribute';
+      if (!attributeNamePattern.test(name)) {
+        // A line that is not of the form '<type>=<value>' is reported by RFC 4566 Section 5 Test 2
+        if (linePattern.test(lines[x])) {
+          errors.push(new LineError(x + 1, `${attribute} name '${name}' must be a token, as per RFC 4566 Section 9.`));
+        }
+        continue;
+      }
+      let { form, forms = [], specification, tolerated } = attributes[name];
+      if (tolerated && value !== undefined && tolerated.value.test(value)) {
+        if (params.should) {
+          errors.push(new LineError(x + 1, `${attribute} '${name}' ${tolerated.message}.`));
+        }
+        continue;
+      }
+      let known = forms.find(f => value !== undefined && f.value.test(value)) ?? { form };
+      errors.push(new LineError(x + 1, `${attribute} '${name}' is not an acceptable pattern, which must be of the form '${known.form}', as per ${specification}.${known.note ? ` ${known.note}.` : ''}`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 6 Test 2 - Attributes match an acceptable pattern.');
+  }
+  return errors;
+};
+
+// RFC 4566 Section 6 Test 3 - Formats of 'rtpmap' and 'fmtp' attributes are formats of the media description
+const test_60_3 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  // A media field or attribute that is not an acceptable pattern is reported by RFC 4566 Section 5.14 Test 1 or Section 6 Test 2
+  for (let stream of extractStreams(sdp).filter(stream => isAcceptableMedia(lines[stream.line - 1]))) {
+    let attributes = [...stream.rtpmap.map(rtpmap => ({ name: 'rtpmap', ...rtpmap })), ...stream.fmtp.map(fmtp => ({ name: 'fmtp', ...fmtp }))];
+    for (let { name, format, line } of attributes.sort((a, b) => a.line - b.line)) {
+      if (isAcceptableAttribute(lines[line - 1]) && !stream.formats.includes(format)) {
+        errors.push(new LineError(line, `For stream ${stream.streamNumber}, ${name === 'rtpmap' ? 'payload type' : 'format'} '${format}' of attribute '${name}' must be a format of the media description, as per RFC 4566 Section 6.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 6 Test 3 - Formats of \'rtpmap\' and \'fmtp\' attributes are formats of the media description.');
+  }
+  return errors;
+};
+
+// RFC 6838 Section 4.3 Test 1 - Format parameters are not repeated
+// A payload format copies the parameters of its media type to the 'fmtp' attribute, as per RFC 4855 Section 3, and
+// the names of media type parameters are case-insensitive
+const test_6838_43_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  for (let stream of extractStreams(sdp)) {
+    // An 'fmtp' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    for (let fmtp of stream.fmtp.filter(fmtp => fmtp.params && isAcceptableAttribute(lines[fmtp.line - 1]))) {
+      let names = fmtp.names.map(name => name.toLowerCase());
+      let reported = [];
+      for (let y = 0; y < names.length; y++) {
+        if (!repeatableParams.includes(fmtp.names[y]) && names.indexOf(names[y]) < y && !reported.includes(names[y])) {
+          errors.push(new LineError(fmtp.line, `For stream ${stream.streamNumber}, format parameter '${fmtp.names[names.indexOf(names[y])]}' is specified more than once, as per RFC 6838 Section 4.3.`));
+          reported.push(names[y]);
+        }
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 6838 Section 4.3 Test 1 - Format parameters are not repeated.');
+  }
+  return errors;
+};
+
 const section_50 = (sdp, params) => {
   let endingTests = [ test50_1, test50_1_1 ];
   let lines = splitLines(sdp);
@@ -462,8 +782,23 @@ const section_59 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_514 = (sdp, params) => {
+  let tests = [ test_514_1 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_60 = (sdp, params) => {
+  let tests = [ test_60_1, test_60_2, test_60_3 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_6838_43 = (sdp, params) => {
+  let tests = [ test_6838_43_1 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const allSections = (sdp, params) => {
-  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59 ];
+  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, section_514, section_60, section_6838_43 ];
   return sections.flatMap(s => s(sdp, params));
 };
 
@@ -474,5 +809,15 @@ module.exports = {
   section_52,
   section_57,
   section_58,
-  section_59
+  section_59,
+  section_514,
+  section_60,
+  section_6838_43,
+  isAcceptableAttribute,
+  isAcceptableMedia,
+  extractStreams,
+  rtpmapPattern,
+  fmtpElement,
+  fmtpSeparator,
+  repeatableParams
 };

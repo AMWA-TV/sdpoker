@@ -15,16 +15,14 @@
 */
 
 const { splitLines, LineError } = require('./lines.js');
+const { isAcceptableAttribute, isAcceptableMedia, extractStreams, rtpmapPattern, fmtpElement, fmtpSeparator } = require('./checkRFC4566.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct=(\d+)/g;
 const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct(\s|$)/;
-const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
-const mediaclkDirectTypePattern = /^a=mediaclk:(id=\S+\s+)?direct([=\s]|$)/;
-const mediaclkDirectFormPattern = /^a=mediaclk:(id=\S+\s+)?direct(=\d+)?( rate=[1-9]\d*\/[1-9]\d*)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
-const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
+const ptpPattern = /^(?:traceable|([0-9a-fA-F]{2}(?:-[0-9a-fA-F]{2}){7})(?::(.+))?)$/;
 const ptpVersions = ['IEEE1588-2002', 'IEEE1588-2008', 'IEEE802.1AS-2011'];
 // The 'ts-refclk' forms of RFC 7273 Section 4.8 other than 'ptp', for devices not referenced to IEEE 1588-2008
 const otherRefclkPattern = /^a=ts-refclk:(?:ntp=(?:\/traceable\/|[^\s/]+)|gps|gal|glonass|local|private(?::traceable)?)$/;
@@ -32,18 +30,15 @@ const macPattern = /^(([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2})$/;
 const dupPattern = /[\r\n]m=[\s\S]+a=ssrc-group:DUP|[\r\n]a=group:DUP[\s\S]+m=/;
 const ssrcGroupPattern = /a=ssrc-group:DUP\s+(\d+)\s+(\d+)/;
 const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
-const ssrcPattern = /a=ssrc:(\d+)\s/;
+const ssrcPattern = /^a=ssrc:(\d+)/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
-const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
-const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
-const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
-const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
-const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
+const codecsPattern = /[\s;]codecs=([^\s;]+)/;
+const charsetPattern = /[\s;]charset(?:=([^\s;]*))?(?=[\s;]|$)/;
+const profilePattern = /[\s;]profile(?:=([^\s;]*))?(?=[\s;]|$)/;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
-const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
 const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24)\/([1-9]\d*)\/([1-9]\d*)/;
 const rtpmapAM824 = /^a=rtpmap:(\d+)\s+(AM824)\/([1-9]\d*)\/([1-9]\d*)$/;
@@ -53,7 +48,6 @@ const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[
 const ssmPattern = /^((232(\.(\d\d?\d?)){3})|(ff3[0-9a-f]:(0{1,4})?:[0-9a-f:.]*))$/i;
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
-const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const mediaPattern = /(audio|video|application)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
@@ -65,9 +59,6 @@ const smpteChannelPattern31 =
   new RegExp('^SMPTE2110\\.\\((' + smpteChannelSymbols31 + ')(,(' + smpteChannelSymbols31 + '))*\\)$');
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2'];
-// Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
-// extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
-const repeatableParams = ['DID_SDID'];
 
 // Example SDP data from ST 2110-10 Annex B
 const specExample20 = `v=0
@@ -195,11 +186,43 @@ const test_10_81_1 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct reference
-// Only the sender reference is reported, because ST 2110-10:2022 Section 8.3 Test 1 reports any other
+// Only the sender reference is reported, because ST 2110-10:2022 Section 8.3 Test 1 reports any other.
+// IPMX streams are not reported, because an IPMX Sender uses the sender reference for Async Media, as per VSF TR-10-1:2024 Section 10.5.
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
       console.log('Test Skipped: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference. Use --should to test.');
+    }
+    return [];
+  }
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streams = extractIpmxStreams(sdp, params);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let ipmx = streamCount ? streams[streamCount - 1].ipmx : streams.length > 0 && streams.every(stream => stream.ipmx);
+    let typeMatch = lines[x].match(mediaclkTypePattern);
+    if (typeMatch && typeMatch[1] === 'sender' && !ipmx) {
+      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not 'sender', as per ST 2110-10 Section 8.1.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference.');
+  }
+  return errors;
+};
+
+// ST 2110-10 Section 8.1 Test 3 - Attribute 'mediaclk' has no media clock identifier
+// RFC 7273 allows a media clock identifier, but with --should SDPoker reports one, because receivers might not support it.
+// RFC 4566 Section 6 Test 2 checks that attribute 'mediaclk' matches an acceptable pattern
+const test_10_81_3 = (sdp, params) => {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 3 - Attribute \'mediaclk\' has no media clock identifier. Use --should to test.');
     }
     return [];
   }
@@ -211,41 +234,12 @@ const test_10_81_2 = (sdp, params) => {
       streamCount++;
       continue;
     }
-    let typeMatch = lines[x].match(mediaclkTypePattern);
-    if (typeMatch && typeMatch[1] === 'sender') {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not 'sender', as per ST 2110-10 Section 8.1.`));
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 Test 2 - Attribute \'mediaclk\' uses the direct reference.');
-  }
-  return errors;
-};
-
-// ST 2110-10 Section 8.1 Test 3 - Every 'mediaclk' attribute matches an acceptable pattern
-// RFC 7273 allows a media clock identifier, but with --should SDPoker reports one, because receivers might not support it
-const test_10_81_3 = (sdp, params) => {
-  let errors = [];
-  let lines = splitLines(sdp);
-  let streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      continue;
-    }
-    if (params.should && lines[x].startsWith('a=mediaclk:id=')) {
+    if (lines[x].startsWith('a=mediaclk:id=')) {
       errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should not have a media clock identifier ('id='), which RFC 7273 Section 5.4 allows but receivers might not support.`));
     }
-    if (mediaclkDirectTypePattern.test(lines[x])) {
-      if (!mediaclkDirectFormPattern.test(lines[x])) {
-        errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, which must be of the form 'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]', as per RFC 7273 Section 5.4.`));
-      }
-    } else if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
-    }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 Test 3 - Every \'mediaclk\' attribute matches an acceptable pattern.');
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 3 - Attribute \'mediaclk\' has no media clock identifier.');
   }
   return errors;
 };
@@ -281,7 +275,8 @@ const test_10_2022_82_1 = (sdp, params) => {
       }
       continue;
     }
-    if (lines[x].startsWith('a=ts-refclk')) {
+    // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    if (lines[x].startsWith('a=ts-refclk') && isAcceptableAttribute(lines[x])) {
       if (!lines[x].startsWith('a=ts-refclk:ptp=') &&
         !lines[x].startsWith('a=ts-refclk:localmac') &&
         !otherRefclkPattern.test(lines[x])) {
@@ -297,43 +292,39 @@ const test_10_2022_82_1 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.2 Test 3 - PTP parameters of attribute 'ts-refclk' are acceptable values
+// IPMX streams are not reported with --should for a version other than IEEE 1588-2008, because VSF TR-10-1:2024 Section 10.4 Test 1 reports it.
 const test_10_82_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let mediaLevel = false;
+  let streams = extractIpmxStreams(sdp, params);
+  let streamCount = 0;
   for (let x = 0; x < lines.length; x++) {
-    if (!mediaLevel) {
-      if (lines[x].startsWith('m=')) {
-        mediaLevel = true;
-      }
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
       continue;
     }
-    if (lines[x].startsWith('a=ts-refclk:ptp=')) {
+    if (!streamCount) {
+      continue;
+    }
+    // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    if (lines[x].startsWith('a=ts-refclk:ptp=') && isAcceptableAttribute(lines[x])) {
       let ptpDetails = lines[x].slice(16);
-      if (ptpDetails.startsWith('traceable')) {
-        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' must give a PTP version, such as \'IEEE1588-2008:\', before \'traceable\', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.'));
-        continue; // no longer acceptable form
-      }
       let ptpVersion = ptpDetails.split(':')[0];
       if (!ptpVersions.includes(ptpVersion)) {
         errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify PTP version 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', but specifies '${ptpVersion}', as per RFC 7273 Section 4.8.`));
         continue;
       }
-      if (params.should && ptpVersion !== 'IEEE1588-2008') {
+      if (params.should && ptpVersion !== 'IEEE1588-2008' && !streams[streamCount - 1].ipmx) {
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' should specify \'IEEE1588-2008\', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.'));
       }
-      let ptpServer = ptpDetails.slice(ptpVersion.length + 1);
-      if (!ptpPattern.test(ptpServer)) {
-        errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' is not an acceptable pattern, which must be of the form \'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable\', as per RFC 7273 Section 4.8.'));
-        continue;
-      }
-      let ptpMatch = ptpServer.match(ptpPattern);
-      if (ptpMatch[5]) {
-        let domainNmbr = +ptpMatch[5];
-        if (domainNmbr < 0 || domainNmbr > 127) {
-          errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[5]}', as per RFC 7273 Section 4.8.`));
+      let ptpMatch = ptpDetails.slice(ptpVersion.length + 1).match(ptpPattern);
+      if (ptpMatch[2]) {
+        // IEEE 1588-2002 identifies a PTP domain by a name, and IEEE 1588-2008 and IEEE 802.1AS-2011 by a number with no leading zeros,
+        // as per RFC 7273 Section 4.8, and the domain of any other version is checked as a number too
+        if (ptpVersion !== 'IEEE1588-2002' && !/^(?:\d|[1-9]\d|1[01]\d|12[0-7])$/.test(ptpMatch[2])) {
+          errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify a PTP domain number in the range 0 to 127 inclusive, but specifies '${ptpMatch[2]}', as per RFC 7273 Section 4.8.`));
         }
-      } else if (ptpMatch[2] && ptpVersion === 'IEEE1588-2008') {
+      } else if (ptpMatch[1] && ptpVersion === 'IEEE1588-2008') {
         // RFC 7273 permits ptp-domain to be omitted, but ST 2110-10 does not for IEEE 1588-2008
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' shall specify a PTP domain number, as per ST 2110-10 Section 8.2.'));
       }
@@ -357,7 +348,8 @@ const test_10_82_4 = (sdp, params) => {
       }
       continue;
     }
-    if (lines[x].startsWith('a=ts-refclk:localmac=')) {
+    // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    if (lines[x].startsWith('a=ts-refclk:localmac=') && isAcceptableAttribute(lines[x])) {
       let mac = lines[x].slice(21);
       if (!macPattern.test(mac)) {
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'localmac\' shall specify a MAC address of the form \'XX-XX-XX-XX-XX-XX\', as per ST 2110-10 Section 8.2.'));
@@ -412,8 +404,9 @@ const test_10_83_2 = (sdp, params) => {
     }
     if (lines[x].startsWith('a=ssrc:')) {
       let ssrcMatch = lines[x].match(ssrcPattern);
+      // An 'ssrc' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2,
+      // so one that starts with an SSRC identifier counts as defining it, and that SSRC is not reported again as undefined
       if (!ssrcMatch) {
-        errors.push(new LineError(x + 1, `For ${streamCounter ? 'stream ' + streamCounter : 'all streams'}, attribute 'ssrc' is not an acceptable pattern, which must be of the form 'a=ssrc:<ssrc-id> <attribute>', as per RFC 5576 Section 4.1.`));
         continue;
       }
       ssrcs[streamCounter].push(+ssrcMatch[1]);
@@ -424,12 +417,15 @@ const test_10_83_2 = (sdp, params) => {
     if (lines[x].startsWith('m=')) {
       streamCounter++;
     }
-    if (!lines[x].startsWith('a=ssrc-group') || (streamCounter === 0)) {
+    if (!/^a=ssrc-group:DUP(?:\s|$)/.test(lines[x]) || (streamCounter === 0)) {
       continue;
     }
     let groupMatch = lines[x].match(ssrcGroupPattern);
     if (!groupMatch) {
-      errors.push(new LineError(x + 1, `For stream ${streamCounter}, attribute 'ssrc-group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.2.`));
+      // An 'ssrc-group' that is not an acceptable pattern for any semantics is reported by RFC 4566 Section 6 Test 2
+      if (isAcceptableAttribute(lines[x])) {
+        errors.push(new LineError(x + 1, `For stream ${streamCounter}, attribute 'ssrc-group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.2.`));
+      }
       continue;
     }
     for (let groupID of groupMatch.slice(1, 3)) {
@@ -457,12 +453,19 @@ const test_10_83_3 = (sdp, params) => {
   let lines = splitLines(sdp);
   let errors = [];
   let mids = [];
+  let malformedMid = false;
   let streamCounter = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!mids[streamCounter++]) { mids.push(''); }
     }
     if (lines[x].startsWith('a=mid:')) {
+      // A 'mid' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2,
+      // so an identification tag that matches no 'mid' is not reported again
+      if (!isAcceptableAttribute(lines[x])) {
+        malformedMid = true;
+        continue;
+      }
       let mid = lines[x].slice(6);
       if (mids.indexOf(mid) >= 0) {
         errors.push(new LineError(x + 1, `Media identification '${mid}' must be unique, as per RFC 5888 Section 4.`));
@@ -488,12 +491,18 @@ const test_10_83_3 = (sdp, params) => {
     }
     let groupMatch = lines[x].match(groupPattern);
     if (!groupMatch) {
-      errors.push(new LineError(x + 1, 'Attribute \'group:DUP\' is not an acceptable pattern, as per RFC 7104 Section 3.1.'));
+      // A 'group' that is not an acceptable pattern for any semantics is reported by RFC 4566 Section 6 Test 2,
+      // so it counts as present
+      if (isAcceptableAttribute(lines[x])) {
+        errors.push(new LineError(x + 1, 'Attribute \'group:DUP\' is not an acceptable pattern, as per RFC 7104 Section 3.1.'));
+      } else {
+        doneOne = true;
+      }
       continue;
     }
     doneOne = true;
     for (let groupId of groupMatch.slice(1, 3)) {
-      if (mids.indexOf(groupId) < 0) {
+      if (mids.indexOf(groupId) < 0 && !malformedMid) {
         errors.push(new LineError(x + 1, `Identification tag '${groupId}' in attribute 'group:DUP' must match the 'mid' attribute of a media description, otherwise the group is ignored, as per RFC 5888 Section 6.`));
       }
     }
@@ -567,31 +576,28 @@ const test_10_84_1 = (sdp, params) => {
 const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (!lines[x].startsWith('m=')) {
-      continue;
-    }
-    streamCount++;
-
-    let mediaMatch = lines[x].match(mediaPattern);
+  for (let stream of extractStreams(sdp)) {
+    let mediaMatch = lines[stream.line - 1].match(mediaPattern);
     if (!mediaMatch) {
-      errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
+      // A media field that is not an acceptable pattern for RFC 4566 is reported by RFC 4566 Section 5.14 Test 1
+      if (isAcceptableMedia(lines[stream.line - 1])) {
+        errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2.'));
+      }
       continue;
     }
     // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
     let port = +mediaMatch[2];
     if (isNaN(port) || port < 0 || port > 65535) {
-      errors.push(new LineError(x + 1, `For stream ${streamCount}, port '${port}' shall be a UDP port in the range 0 to 65535 inclusive, as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, port '${port}' shall be a UDP port in the range 0 to 65535 inclusive, as per ST 2110-10 Section 6.2.`));
     }
     // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
     if (mediaMatch[4] === 'RTP/SAVP') {
-      errors.push(new LineError(x + 1, `For stream ${streamCount}, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`));
     }
     // Check dynamic range - assume ST 2110-20 is always dynamic
     let payloadType = +mediaMatch[5];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${mediaMatch[5]}' shall be a dynamic payload type in the range 96 to 127 inclusive, as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, payload type '${mediaMatch[5]}' shall be a dynamic payload type in the range 96 to 127 inclusive, as per ST 2110-10 Section 6.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -600,72 +606,28 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 6.2 Test 2 - Payload types of 'rtpmap' and 'fmtp' attributes are formats of the media description, and each dynamic payload type has an 'rtpmap' attribute
+// ST 2110-10 Section 6.2 Test 2 - Each dynamic payload type has an 'rtpmap' attribute
 /* ST 2110-10 Section 6.2 says:
 All RTP streams shall use dynamic payload types chosen in the range of 96 through 127, signaled as specified in section 6 of IETF RFC 4566 ...
-RFC 4566 Section 6 says of 'rtpmap':
-Up to one rtpmap attribute can be defined for each media format specified.
-and of 'fmtp':
-The format must be one of the formats specified for the media.
 */
 const test_10_62_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let streams = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      let mediaMatch = lines[x].match(mediaPattern);
-      streams.push({
-        line: x + 1,
-        payloadTypes: mediaMatch ? lines[x].trim().split(/\s+/).slice(3).map(Number) : [],
-        rtpmaps: []
-      });
-      continue;
-    }
-    let attributeMatch = lines[x].match(/^a=(rtpmap|fmtp):(\d+)/);
-    if (!attributeMatch || streams.length == 0) {
-      continue;
-    }
-    let stream = streams[streams.length - 1];
-    let payloadType = +attributeMatch[2];
-    if (!stream.payloadTypes.includes(payloadType)) {
-      errors.push(new LineError(x + 1, `For stream ${streams.length}, payload type '${payloadType}' of attribute '${attributeMatch[1]}' must be a format of the media description, as per RFC 4566 Section 6.`));
-    } else if (attributeMatch[1] === 'rtpmap') {
-      stream.rtpmaps.push(payloadType);
-    }
-  }
-  streams.forEach((stream, s) => {
-    for (let payloadType of stream.payloadTypes) {
-      if (payloadType >= 96 && payloadType <= 127 && !stream.rtpmaps.includes(payloadType)) {
-        errors.push(new LineError(stream.line, `For stream ${s + 1}, dynamic payload type '${payloadType}' shall have an 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
+  for (let stream of extractStreams(sdp).filter(stream => mediaPattern.test(lines[stream.line - 1]))) {
+    for (let format of stream.formats) {
+      let payloadType = +format;
+      if (payloadType >= 96 && payloadType <= 127 && !stream.rtpmap.some(rtpmap => +rtpmap.format === payloadType)) {
+        errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, dynamic payload type '${payloadType}' shall have an 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
       }
     }
-  });
+  }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 6.2 Test 2 - Payload types of \'rtpmap\' and \'fmtp\' attributes are formats of the media description, and each dynamic payload type has an \'rtpmap\' attribute.');
+    console.log('Test Passed: ST 2110-10 Section 6.2 Test 2 - Each dynamic payload type has an \'rtpmap\' attribute.');
   }
   return errors;
 };
 
-// ST 2110-10 Section 6.2 Test 3 - Every 'rtpmap' attribute matches an acceptable pattern
-const test_10_62_3 = (sdp, params) => {
-  let errors = [];
-  let lines = splitLines(sdp);
-  let streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      continue;
-    }
-    if (lines[x].startsWith('a=rtpmap') && !rtpmapPattern.test(lines[x])) {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'rtpmap' is not an acceptable pattern, which must be of the form 'a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>]', as per RFC 4566 Section 6.`));
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 6.2 Test 3 - Every \'rtpmap\' attribute matches an acceptable pattern.');
-  }
-  return errors;
-};
+// ST 2110-10 Section 6.2 Test 3 is now RFC 4566 Section 6 Test 2
 
 // Connection and source filter addresses can be written in more than one form. IPv6 addresses can use upper or lower case
 // hexadecimal digits, as per RFC 4566 Section 9, and can omit leading zeros and compress zeros, as per RFC 4291 Section 2.2,
@@ -752,6 +714,7 @@ const test_10_2022_84_1 = (sdp, params) => {
 };
 
 // ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address have an inclusive source filter
+// IPMX streams are reported by VSF TR-10-9:2025 Section 17 Test 2, which requires the source filter
 const test_10_2022_84_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
@@ -759,8 +722,9 @@ const test_10_2022_84_2 = (sdp, params) => {
     }
     return [];
   }
+  let streams = extractIpmxStreams(sdp, params);
   let errors = streamsWithoutSourceFilter(sdp)
-    .filter(stream => !ssmPattern.test(stream.address))
+    .filter(stream => !ssmPattern.test(stream.address) && !streams[stream.streamNumber - 1].ipmx)
     .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute should be included to support source-specific multicast, as per ST 2110-10:2022 Section 8.4.`));
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address have an inclusive source filter.');
@@ -772,9 +736,7 @@ const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
 // ST 2110-10:2022 Section 8.7 Test 1 - Format parameters 'TSMODE' and 'TSDELAY' are acceptable values
 const test_10_2022_87_1 = (sdp, params) => {
-  // This test runs for every stream format, so it also reports any repeated format parameter
-  let [mtParams, dupErrors] = extractMTParams(sdp, { checkDups: true });
-  let errors = [];
+  let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     let keys = Object.keys(stream);
     if (keys.indexOf('TSMODE') >= 0) {
@@ -792,7 +754,7 @@ const test_10_2022_87_1 = (sdp, params) => {
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.');
   }
-  return dupErrors.concat(errors);
+  return errors;
 };
 
 // Function to check that rtpmap has passed in type and clockRate.
@@ -819,7 +781,7 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
       }
       rtpmapInStream = true;
       let rtpmapMatch = lines[x].match(rtpmapPattern);
-      // An 'rtpmap' that is not an acceptable pattern is reported by test_10_62_3
+      // An 'rtpmap' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
       if (!rtpmapMatch) {
         continue;
       }
@@ -903,102 +865,65 @@ const test_20_71_4 = (sdp, params) => {
   return errors;
 };
 
-// Test for duplicate parameters by setting params.checkDups
+// The encoding name of the first format of a stream, which is its default format, as per RFC 4566 Section 5.14,
+// and which the tests of its essence are chosen from
+const encodingNameOf = stream => stream.encodingNames[stream.formats[0]];
+
+// The format parameters of each 'fmtp' attribute, with the stream and format it belongs to, for each stream whose
+// media field is an acceptable pattern
 /** @returns {[object[], Error[]]} */
-const extractMTParams = (sdp, params = {}) => {
+const extractMTParams = sdp => {
   let mtParams = [];
   let errors = [];
   let lines = splitLines(sdp);
-  let streamCount = 0;
-  let payloadType = -1;
-  let payloadTypes = [];
-  let mediaType = -1;
-  let encodingName = -1;
-  let mediaLine = 0;
-
-  // Encoding names by payload type for each media description, as 'rtpmap' and 'fmtp' may be in either order
-  let encodingNames = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      encodingNames.push({});
-    } else if (lines[x].startsWith('a=rtpmap') && encodingNames.length > 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch) {
-        encodingNames[encodingNames.length - 1][+rtpmapMatch[1]] = rtpmapMatch[2];
+  let lastStream;
+  for (let stream of extractStreams(sdp)) {
+    if (!mediaPattern.test(lines[stream.line - 1])) {
+      if (isAcceptableMedia(lines[stream.line - 1])) {
+        errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2.'));
       }
-    }
-  }
-
-  let section = -1;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      section++;
-      let mediaMatch = lines[x].match(mediaPattern);
-      if (mediaMatch) {
-        mediaType = mediaMatch[1];
-        payloadType = +mediaMatch[5];
-        payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
-        encodingName = encodingNames[section][payloadType] ?? -1;
-      }
-      else {
-        errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
-        payloadTypes = [];
-        continue;
-      }
-      streamCount++;
-      mediaLine = x + 1;
       continue;
     }
-    if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
-      let fmtpMatch = lines[x].match(fmtpPattern);
-      if (!fmtpMatch) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which must be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
-        continue;
-      }
-      // A payload type that is not a format of the media description is reported by test_10_62_2
-      let fmtpPayloadType = +fmtpMatch[1];
-      let fmtpEncodingName = encodingNames[section][fmtpPayloadType] ?? -1;
-      if (!payloadTypes.includes(fmtpPayloadType) || skipVideoTypes.includes(fmtpEncodingName)) {
-        continue;
-      }
-      let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
-      let paramsMatch = [];
-      let paramMatch;
-      while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
-        paramsMatch.push(paramMatch);
-      let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
-      if (params.checkDups) {
-        let keys = splitParams.map(p => p[0]);
-        let reported = [];
-        for (let y = 0; y < keys.length; y++) {
-          if (!repeatableParams.includes(keys[y]) && keys.filter(k => keys[y] === k).length >= 2) {
-            if (reported.indexOf(keys[y]) < 0) {
-              errors.push(new LineError(x + 1, `For stream ${streamCount}, format parameter '${keys[y]}' is specified more than once.`));
-              reported.push(keys[y]);
-            }
-          }
+    lastStream = stream;
+    for (let fmtp of stream.fmtp) {
+      if (!fmtp.params) {
+        // An 'fmtp' that is not an acceptable pattern for any format is reported by RFC 4566 Section 6 Test 2
+        if (isAcceptableAttribute(lines[fmtp.line - 1])) {
+          errors.push(new LineError(fmtp.line, `For stream ${stream.streamNumber}, attribute 'fmtp' must be a list of format specific parameters separated by semicolons, each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.`));
         }
+        continue;
       }
-      let paramsObject = splitParams.reduce((x, y) => {
-        x[y[0]] = repeatableParams.includes(y[0]) ? [...(x[y[0]] ?? []), y[1]] : y[1];
-        return x;
-      }, {});
-      paramsObject._payloadType = fmtpPayloadType;
-      paramsObject._line = x + 1;
-      paramsObject._streamNumber = streamCount;
-      paramsObject._mediaType = mediaType;
-      paramsObject._encodingName = fmtpEncodingName;
-      mtParams.push(paramsObject);
+      // A format that is not a format of the media description is reported by RFC 4566 Section 6 Test 3
+      let encodingName = stream.encodingNames[fmtp.format] ?? -1;
+      if (!stream.formats.includes(fmtp.format) || skipVideoTypes.includes(encodingName)) {
+        continue;
+      }
+      mtParams.push({
+        ...fmtp.params,
+        _payloadType: +fmtp.format,
+        _line: fmtp.line,
+        _streamNumber: stream.streamNumber,
+        _mediaType: stream.mediaType,
+        _encodingName: encodingName
+      });
     }
   }
   // If no fmtp parameters still load up the other valid items (audio files for example)
   if (mtParams.length == 0) {
     let paramsObject = [];
-    paramsObject._payloadType = payloadType;
-    paramsObject._line = mediaLine || lines.length;
-    paramsObject._streamNumber = streamCount;
-    paramsObject._mediaType = mediaType;
-    paramsObject._encodingName = encodingName;
+    if (lastStream) {
+      paramsObject._payloadType = +lastStream.formats[0];
+      paramsObject._line = lastStream.line;
+      paramsObject._streamNumber = lastStream.streamNumber;
+      paramsObject._mediaType = lastStream.mediaType;
+      paramsObject._encodingName = encodingNameOf(lastStream) ?? -1;
+    } else {
+      paramsObject._payloadType = -1;
+      paramsObject._line = lines.length;
+      paramsObject._streamNumber = 0;
+      paramsObject._mediaType = -1;
+      paramsObject._encodingName = -1;
+    }
     mtParams.push(paramsObject);
   }
   return [mtParams, errors];
@@ -1403,7 +1328,10 @@ const checkStreamsAudioRtpmap = (sdp, rtpmapPattern, patternMessage, sampleRateS
     if (payloadType >= 0 && lines[x].startsWith('a=rtpmap')) {
       let soundMatch = lines[x].match(rtpmapPattern);
       if (!soundMatch) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, ${patternMessage}`));
+        // An 'rtpmap' that is not an acceptable pattern for any encoding is reported by RFC 4566 Section 6 Test 2
+        if (isAcceptableAttribute(lines[x])) {
+          errors.push(new LineError(x + 1, `For stream ${streamCount}, ${patternMessage}`));
+        }
         continue;
       }
       if (hasRtpmap) {
@@ -1457,7 +1385,7 @@ const test_30_62_1 = (sdp, params) => {
   return errors;
 };
 
-const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
+const checkStreamsPtime = (sdp, ptimeSpecification) => {
   let errors = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
@@ -1477,22 +1405,12 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
       continue;
     }
     if (lines[x].startsWith('a=ptime') && payloadType >= 0) {
-      let ptimeMatch = lines[x].match(ptimePattern);
-      if (!ptimeMatch) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ptime' is not an acceptable pattern, as per ${ptimeSpecification}.`));
-        continue;
-      }
       if (hasPTime) {
         errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ptime' is specified more than once.`));
         continue;
       }
       hasPTime = true;
       // TODO check ptime by sample rate?
-    }
-    if (lines[x].startsWith('a=maxptime')) {
-      if (!maxptimePattern.test(lines[x])) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'maxptime' is not an acceptable pattern, as per ${maxptimeSpecification}.`));
-      }
     }
   }
   if (!hasPTime && payloadType >= 0) {
@@ -1502,13 +1420,12 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
 };
 
 // ST 2110-30 Section 6.2.1 Test 2 is now ST 2110-10 Section 6.2 Test 1
-// ST 2110-30 Section 6.2.1 Test 3 - Attribute 'ptime' is present, and attributes 'ptime' and 'maxptime' match an acceptable pattern
+// ST 2110-30 Section 6.2.1 Test 3 - Attribute 'ptime' is present
+// RFC 4566 Section 6 Test 2 checks that attributes 'ptime' and 'maxptime' match an acceptable pattern
 const test_30_62_3 = (sdp, params) => {
-  let errors = checkStreamsPtime(sdp,
-    'ST 2110-30 Section 6.2.1 and AES67 Section 8.1',
-    'ST 2110-30 Section 6.2.1 and AES67 Section 8.1');
+  let errors = checkStreamsPtime(sdp, 'ST 2110-30 Section 6.2.1 and AES67 Section 8.1');
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 3 - Attribute \'ptime\' is present, and attributes \'ptime\' and \'maxptime\' match an acceptable pattern.');
+    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 3 - Attribute \'ptime\' is present.');
   }
   return errors;
 };
@@ -1604,7 +1521,7 @@ const test_31_61_1 = (sdp, params) => {
 
 // ST 2110-31 Section 6.1 Test 2 - Packet time is signalled
 const test_31_61_2 = (sdp, params) => {
-  let errors = checkStreamsPtime(sdp, 'ST 2110-31 Section 6.1', 'RFC 4566 Section 6');
+  let errors = checkStreamsPtime(sdp, 'ST 2110-31 Section 6.1');
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-31 Section 6.1 Test 2 - Packet time is signalled.');
   }
@@ -2067,14 +1984,9 @@ const test_22_74_1 = (sdp, params) => {
   }
   for (let s = 0; s < streams.length; s++) {
     let lines = splitLines(streams[s]);
-    // Check for session level framerate attribute
+    // RFC 4566 Section 6 Test 1 reports a session-level framerate attribute
     if (s == 0) {
-      for (let x = 0; x < lines.length; x++) {
-        if (lines[x].startsWith('a=framerate')) {
-          errors.push(new LineError(sdpLineNumb, 'Attribute \'framerate\' must be a media-level attribute, as per RFC 4566 Section 6.'));
-        }
-        sdpLineNumb++;
-      }
+      sdpLineNumb += lines.length;
     }
     // Check each stream for one and only one framerate specification
     else {
@@ -2085,13 +1997,9 @@ const test_22_74_1 = (sdp, params) => {
       if (mtParams.some(stream => stream._streamNumber == s && stream.exactframerate != null)) {
         framerateParameterPresent = true;
       }
-      // Now check if it's present as a media level attribute
+      // Now check if it's present as a media level attribute, which RFC 4566 Section 6 Test 2 checks matches an acceptable pattern
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
-          let framerateMatch = lines[x].match(frameRateAttributePattern);
-          if (framerateMatch == null) {
-            errors.push(new LineError(sdpLineNumb, `For stream ${s}, attribute 'framerate' is not an acceptable pattern, which must be a non-zero integer or a decimal with no trailing zeros, as per RFC 8866 Section 6.13.`));
-          }
           framerateAttributePresent = true;
         }
         sdpLineNumb++;
@@ -2343,49 +2251,29 @@ const test_2022_8_71_1 = (sdp, params) => {
 // Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
 // and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
-  let streams = [];
   let lines = splitLines(sdp);
-  let streamCount = 0;
-  let mediaLine = 0;
-  let payloadTypes = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      mediaLine = x + 1;
-      payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
-      continue;
+  return extractStreams(sdp).flatMap(stream => stream.rtpmap.flatMap(rtpmap => {
+    // Payload types that are not formats of the media description are reported by RFC 4566 Section 6 Test 3
+    let rtpmapMatch = lines[rtpmap.line - 1].match(rtpmapPattern);
+    if (!rtpmapMatch || !stream.formats.map(Number).includes(+rtpmapMatch[1]) || rtpmapMatch[2].toLowerCase() !== 'ttml+xml') {
+      return [];
     }
-    // Payload types that are not formats of the media description are reported by test_10_62_2
-    if (lines[x].startsWith('a=rtpmap') && streamCount > 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch && payloadTypes.includes(+rtpmapMatch[1]) && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
-        streams.push({
-          streamNumber: streamCount,
-          mediaLine,
-          payloadType: +rtpmapMatch[1],
-          rtpmapLine: x + 1,
-          clockRate: rtpmapMatch[3],
-          fmtpLine: null,
-          codecs: null
-        });
-      }
-    }
-  }
-  streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      continue;
-    }
-    let fmtpMatch = lines[x].match(/^a=fmtp:(\d+)/);
-    let stream = fmtpMatch && streams.find(s => s.streamNumber === streamCount && s.payloadType === +fmtpMatch[1]);
-    if (stream) {
-      let codecsMatch = lines[x].match(codecsPattern);
-      stream.fmtpLine = x + 1;
-      stream.codecs = codecsMatch ? codecsMatch[1] : null;
-    }
-  }
-  return streams;
+    let fmtp = stream.fmtp.findLast(fmtp => /^\d+$/.test(fmtp.format) && +fmtp.format === +rtpmapMatch[1]);
+    let codecsMatch = fmtp && lines[fmtp.line - 1].match(codecsPattern);
+    let charsetMatch = fmtp && lines[fmtp.line - 1].match(charsetPattern);
+    let profileMatch = fmtp && lines[fmtp.line - 1].match(profilePattern);
+    return [{
+      streamNumber: stream.streamNumber,
+      mediaLine: stream.line,
+      payloadType: +rtpmapMatch[1],
+      rtpmapLine: rtpmap.line,
+      clockRate: rtpmapMatch[3],
+      fmtpLine: fmtp ? fmtp.line : null,
+      codecs: codecsMatch ? codecsMatch[1] : null,
+      charset: charsetMatch ? charsetMatch[1] ?? '' : null,
+      profile: profileMatch ? profileMatch[1] ?? '' : null
+    }];
+  }));
 };
 
 // ST 2110-43:2021 Section 4.1 Test 1 - TTML streams have an 'fmtp' attribute with format parameter 'codecs'
@@ -2421,8 +2309,418 @@ const test_43_2021_42_1 = (sdp, params) => {
   return errors;
 };
 
+// RFC 8759 Section 11.2 Test 1 - TTML format parameters 'charset' and 'profile' have permitted values
+// The 'application/ttml+xml' media type registration defines the optional parameters 'charset' and 'profile'
+const test_8759_112_1 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    // Character set names are case-insensitive
+    if (stream.charset !== null && !/^utf-(?:8|16)$/i.test(stream.charset)) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'charset' must be 'UTF-8' or 'UTF-16', but is '${stream.charset}', ` +
+        'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.'));
+    }
+    if (stream.profile === '') {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'profile' must be a profile designator, which is a URI, ` +
+        'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.'));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 8759 Section 11.2 Test 1 - TTML format parameters \'charset\' and \'profile\' have permitted values.');
+  }
+  return errors;
+};
+
+// The encodings of the video and audio IPMX streams that have the format parameters of VSF TR-10-1:2024 Sections 10.2 and 10.3:
+// 'raw' as per VSF TR-10-2:2024, 'jxsv' as per VSF TR-10-11:2024, 'H264' and 'H265' as per VSF TR-10-7:2024,
+// 'L16' and 'L24' as per VSF TR-10-3:2024, and 'AM824' as per VSF TR-10-12:2023
+const ipmxVideoEncodings = ['raw', 'jxsv', 'H264', 'H265'];
+const ipmxVideoParams = ['measuredpixclk', 'vtotal', 'htotal'];
+const ipmxAudioEncodings = ['L16', 'L24', 'AM824'];
+const ipmxAudioParams = ['measuredsamplerate'];
+// The IPMX Info Block carries the same values, in fields of these sizes, as per VSF TR-10-2:2024 Section 10 and VSF TR-10-3:2024 Section 11
+const ipmxParamMaximums = {
+  measuredpixclk: 2n ** 64n - 1n,
+  vtotal: 2n ** 16n - 1n,
+  htotal: 2n ** 16n - 1n,
+  measuredsamplerate: 2n ** 32n - 1n
+};
+// The document that requires an even UDP destination port greater than 1024 for the IPMX streams of each encoding
+const ipmxPortSpecifications = {
+  raw: 'VSF TR-10-2:2024 Section 7',
+  L16: 'VSF TR-10-3:2024 Section 7',
+  L24: 'VSF TR-10-3:2024 Section 7',
+  smpte291: 'VSF TR-10-4:2023 Section 7',
+  H264: 'VSF TR-10-7:2024 Section 7',
+  H265: 'VSF TR-10-7:2024 Section 7',
+  jxsv: 'VSF TR-10-11:2024 Section 7',
+  AM824: 'VSF TR-10-12:2023 Section 7'
+};
+
+// The media descriptions, with their format parameters, and whether each is checked as an IPMX stream.
+// With --ipmx, every stream is. Otherwise, a stream is when its format parameters have the 'IPMX' declaration,
+// which identifies an IPMX Sender, as per VSF TR-10-9:2025 Section 11.
+const extractIpmxStreams = (sdp, params) => {
+  return extractStreams(sdp).map(stream => {
+    let fmtp = stream.fmtp.find(fmtp => fmtp.params && fmtp.format === stream.formats[0]);
+    let declared = fmtp !== undefined && Object.hasOwn(fmtp.params, 'IPMX');
+    return {
+      streamNumber: stream.streamNumber,
+      line: stream.line,
+      port: stream.port,
+      encodingName: encodingNameOf(stream),
+      fmtp: fmtp?.params ?? {},
+      // A missing format parameter is reported at the 'fmtp' attribute, or at the media description when there is none
+      fmtpLine: fmtp?.line ?? stream.line,
+      declared,
+      ipmx: params.ipmx === true || declared
+    };
+  });
+};
+
+const skipWithoutIpmx = (streams, params, test) => {
+  if (streams.some(stream => stream.ipmx)) {
+    return false;
+  }
+  if (params.verbose) {
+    console.log(`Test Skipped: ${test}. No stream has the 'IPMX' declaration. Use --ipmx to test.`);
+  }
+  return true;
+};
+
+// VSF TR-10-1:2024 Section 10 Test 1 - IPMX streams are not grouped with the 'FID' semantics
+// A 'group' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+const test_tr10_1_10_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10 Test 1 - IPMX streams are not grouped with the \'FID\' semantics';
+  if (skipWithoutIpmx(extractIpmxStreams(sdp, params), params, test)) {
+    return [];
+  }
+  let errors = splitLines(sdp).flatMap((line, x) => /^a=group:FID(\s|$)/.test(line) && isAcceptableAttribute(line) ?
+    [new LineError(x + 1, 'Attribute \'group\' shall not use the \'FID\' semantics in the SDP file of an IPMX Sender, as per VSF TR-10-1:2024 Section 10.')] : []);
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.1 Test 1 - Every stream has the 'IPMX' declaration, as requested by --ipmx
+const test_tr10_1_101_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.1 Test 1 - Every stream has the \'IPMX\' declaration';
+  if (!params.ipmx) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test}. Use --ipmx to test.`);
+    }
+    return [];
+  }
+  let errors = extractIpmxStreams(sdp, params)
+    .filter(stream => !stream.declared)
+    .map(stream => new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'IPMX' shall be specified, as requested by --ipmx, as per VSF TR-10-1:2024 Section 10.1.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.1 Test 2 - The 'IPMX' declaration has no value
+const test_tr10_1_101_2 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.1 Test 2 - The \'IPMX\' declaration has no value';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = streams
+    .filter(stream => stream.declared && stream.fmtp.IPMX !== '')
+    .map(stream => new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, the 'IPMX' declaration shall not have a value, as per VSF TR-10-1:2024 Section 10.1.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.1 Test 3 - Streams with the IPMX format parameters have the 'IPMX' declaration
+// VSF TR-10-1:2024 does not forbid these parameters without the declaration, but they suggest an IPMX Sender, which shall include it
+const test_tr10_1_101_3 = (sdp, params) => {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: VSF TR-10-1:2024 Section 10.1 Test 3 - Streams with the IPMX format parameters have the \'IPMX\' declaration. Use --should to test.');
+    }
+    return [];
+  }
+  let errors = [];
+  for (let stream of extractIpmxStreams(sdp, params).filter(stream => !stream.ipmx)) {
+    for (let param of ipmxVideoParams) {
+      if (Object.hasOwn(stream.fmtp, param)) {
+        errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${param}' is defined for IPMX Senders, so the 'IPMX' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.`));
+      }
+    }
+    for (let param of ipmxAudioParams) {
+      if (Object.hasOwn(stream.fmtp, param)) {
+        errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${param}' is defined for IPMX Senders, so the 'IPMX' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.3.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: VSF TR-10-1:2024 Section 10.1 Test 3 - Streams with the IPMX format parameters have the \'IPMX\' declaration.');
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.2 Test 1 - Format parameters 'measuredpixclk', 'vtotal' and 'htotal' are specified together
+const test_tr10_1_102_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.2 Test 1 - Format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' are specified together';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx)) {
+    let present = ipmxVideoParams.filter(param => Object.hasOwn(stream.fmtp, param));
+    if (present.length > 0 && present.length < ipmxVideoParams.length) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameters 'measuredpixclk', 'vtotal' and 'htotal' shall be specified together, as per VSF TR-10-1:2024 Section 10.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// Check that a format parameter of VSF TR-10-1:2024 Sections 10.2 and 10.3 is a positive integer that fits its IPMX Info Block field
+const checkIpmxParam = (stream, param, specification) => {
+  let value = stream.fmtp[param];
+  if (!integerPattern.test(value) || BigInt(value) > ipmxParamMaximums[param]) {
+    return [new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${param}' shall be a positive integer no greater than ${ipmxParamMaximums[param]}, as per ${specification}.`)];
+  }
+  return [];
+};
+
+// VSF TR-10-1:2024 Section 10.2 Test 2 - Format parameters 'measuredpixclk', 'vtotal' and 'htotal' have acceptable values
+const test_tr10_1_102_2 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.2 Test 2 - Format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' have acceptable values';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && ipmxVideoEncodings.includes(stream.encodingName))) {
+    for (let param of ipmxVideoParams.filter(param => Object.hasOwn(stream.fmtp, param))) {
+      errors.push(...checkIpmxParam(stream, param, 'VSF TR-10-1:2024 Section 10.2 and VSF TR-10-2:2024 Section 10'));
+    }
+    // The totals include the blanking periods as well as the active picture
+    for (let [total, active] of [['htotal', 'width'], ['vtotal', 'height']]) {
+      if (integerPattern.test(stream.fmtp[total]) && integerPattern.test(stream.fmtp[active]) &&
+        BigInt(stream.fmtp[total]) < BigInt(stream.fmtp[active])) {
+        errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${total}' shall be no less than '${active}', because it includes the blanking periods, as per VSF TR-10-1:2024 Section 10.2.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.3 Test 1 - Format parameter 'measuredsamplerate' is specified for audio, with an acceptable value
+const test_tr10_1_103_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.3 Test 1 - Format parameter \'measuredsamplerate\' is specified for audio, with an acceptable value';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && Object.hasOwn(stream.fmtp, 'measuredsamplerate'))) {
+    if (!ipmxAudioEncodings.includes(stream.encodingName)) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'measuredsamplerate' shall only be specified for an 'L16', 'L24' or 'AM824' audio stream, as per VSF TR-10-1:2024 Section 10.3.`));
+    } else {
+      errors.push(...checkIpmxParam(stream, 'measuredsamplerate', 'VSF TR-10-1:2024 Section 10.3 and VSF TR-10-3:2024 Section 11'));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.4 Test 1 - IPMX streams use the 'ptp=IEEE1588-2008' or 'localmac' reference clock
+// An IPMX Sender uses the IEEE 1588-2008 Common Reference Clock when there is one, as per VSF TR-10-1:2024 Section 7.2,
+// and its Internal Clock otherwise. Forms that are not acceptable patterns are reported by RFC 4566 Section 6 Test 2
+// and ST 2110-10:2022 Section 8.2 Test 1.
+const test_tr10_1_104_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.4 Test 1 - IPMX streams use the \'ptp=IEEE1588-2008\' or \'localmac\' reference clock';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (streamCount > 0 && streams[streamCount - 1].ipmx && isAcceptableAttribute(lines[x]) &&
+      (/^a=ts-refclk:ptp=(?:IEEE1588-2002|IEEE802\.1AS-2011)(?::|$)/.test(lines[x]) || otherRefclkPattern.test(lines[x]))) {
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ts-refclk' shall use the 'ptp=IEEE1588-2008' or 'localmac' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// Check the UDP destination ports of the IPMX streams, citing the document for the encoding of the streams, from ipmxPortSpecifications
+const checkIpmxPorts = (sdp, params, testNumber) => {
+  let streams = extractIpmxStreams(sdp, params);
+  let specification = ipmxPortSpecifications[streams.find(stream => stream.encodingName !== undefined)?.encodingName];
+  if (!specification) {
+    return [];
+  }
+  const test = testNumber == 1 ?
+    `${specification} Test 1 - IPMX streams have an even UDP destination port greater than 1024` :
+    `${specification} Test 2 - IPMX streams have a UDP destination port greater than 5000`;
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  if (testNumber == 2 && !params.should) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test}. Use --should to test.`);
+    }
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && stream.port !== undefined)) {
+    if (testNumber == 1 && (stream.port % 2 != 0 || stream.port <= 1024)) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, UDP destination port '${stream.port}' shall be even and greater than 1024, as per ${specification}.`));
+    } else if (testNumber == 2 && stream.port > 1024 && stream.port <= 5000) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, UDP destination port '${stream.port}' should be greater than 5000, as per ${specification}.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-2:2024, VSF TR-10-3:2024, VSF TR-10-4:2023, VSF TR-10-7:2024, VSF TR-10-11:2024 and VSF TR-10-12:2023
+// Section 7 Test 1 - IPMX streams have an even UDP destination port greater than 1024
+const test_tr10_x_7_1 = (sdp, params) => checkIpmxPorts(sdp, params, 1);
+
+// VSF TR-10-2:2024, VSF TR-10-3:2024, VSF TR-10-4:2023, VSF TR-10-7:2024, VSF TR-10-11:2024 and VSF TR-10-12:2023
+// Section 7 Test 2 - IPMX streams have a UDP destination port greater than 5000
+const test_tr10_x_7_2 = (sdp, params) => checkIpmxPorts(sdp, params, 2);
+
+// VSF TR-10-9:2025 Section 10 Test 1 - IPMX video and audio streams have the measured format parameters
+// VSF TR-10-1:2024 requires them for a Sender that converts a Baseband signal, and VSF TR-10-9:2025 gives the values for any other Sender
+const test_tr10_9_10_1 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 10 Test 1 - IPMX video and audio streams have the measured format parameters';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx)) {
+    // Some, but not all, of the video parameters are reported by VSF TR-10-1:2024 Section 10.2 Test 1
+    if (ipmxVideoEncodings.includes(stream.encodingName) && !ipmxVideoParams.some(param => Object.hasOwn(stream.fmtp, param))) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameters 'measuredpixclk', 'vtotal' and 'htotal' shall be specified, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-9:2025 Section 10.`));
+    } else if (ipmxAudioEncodings.includes(stream.encodingName) && !Object.hasOwn(stream.fmtp, 'measuredsamplerate')) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'measuredsamplerate' shall be specified, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-9:2025 Section 10 Test 2 - Format parameter 'measuredpixclk' of a Sender that does not convert a Baseband signal has an acceptable value
+// A Baseband signal has blanking periods, so 'htotal' and 'vtotal' are the same as 'width' and 'height' only for a Sender that does not convert one.
+// VSF TR-10-9:2025 does not say how to round the product for a fractional frame rate, so it can be rounded either way.
+const test_tr10_9_10_2 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 10 Test 2 - Format parameter \'measuredpixclk\' of a Sender that does not convert a Baseband signal has an acceptable value';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && ipmxVideoEncodings.includes(stream.encodingName))) {
+    let { width, height, htotal, vtotal, measuredpixclk, exactframerate } = stream.fmtp;
+    let rateMatch = frameRatePattern.exec(exactframerate);
+    if (!integerPattern.test(width) || !integerPattern.test(height) || htotal !== width || vtotal !== height ||
+      !integerPattern.test(measuredpixclk) || !rateMatch) {
+      continue;
+    }
+    let product = BigInt(width) * BigInt(height) * BigInt(rateMatch[1]);
+    let denominator = BigInt(rateMatch[2] ?? 1);
+    let floor = product / denominator;
+    let ceiling = (product + denominator - 1n) / denominator;
+    if (BigInt(measuredpixclk) !== floor && BigInt(measuredpixclk) !== ceiling) {
+      let expected = floor === ceiling ? `'${floor}'` : `'${floor}' or '${ceiling}'`;
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'measuredpixclk' shall be ${expected}, the product of 'width', 'height' and 'exactframerate', when 'htotal' and 'vtotal' are the same as 'width' and 'height', as per VSF TR-10-9:2025 Section 10.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-9:2025 Section 17 Test 1 - IPMX streams do not use the IPv4 multicast addresses 224.0.0.0 to 224.0.1.255
+const test_tr10_9_17_1 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 17 Test 1 - IPMX streams do not use the IPv4 multicast addresses 224.0.0.0 to 224.0.1.255';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  let lines = splitLines(sdp);
+  let sessionAddress;
+  let streamCount = 0;
+  let addresses = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      addresses[streamCount - 1] = sessionAddress;
+    } else if (lines[x].startsWith('c=')) {
+      let cMatch = lines[x].match(cPattern);
+      if (cMatch && streamCount == 0) {
+        sessionAddress = cMatch[2];
+      } else if (cMatch) {
+        addresses[streamCount - 1] = cMatch[2];
+      }
+    }
+  }
+  for (let stream of streams.filter(stream => stream.ipmx)) {
+    let address = addresses[stream.streamNumber - 1];
+    if (/^224\.0\.[01]\.\d{1,3}$/.test(address ?? '')) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${address}' shall not be in the range 224.0.0.0 to 224.0.1.255, as per VSF TR-10-9:2025 Section 17.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-9:2025 Section 17 Test 2 - IPMX streams with a multicast destination address have an inclusive source filter
+// Streams with a source-specific multicast destination address are reported by ST 2110-10:2022 Section 8.4 Test 1
+const test_tr10_9_17_2 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 17 Test 2 - IPMX streams with a multicast destination address have an inclusive source filter';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = streamsWithoutSourceFilter(sdp)
+    .filter(stream => streams[stream.streamNumber - 1].ipmx && !ssmPattern.test(stream.address))
+    .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute shall be included, as per VSF TR-10-9:2025 Section 17.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
 const section_10_62 = (sdp, params) => {
-  let tests = [test_10_62_1, test_10_62_2, test_10_62_3];
+  let tests = [test_10_62_1, test_10_62_2];
   return tests.flatMap(t => t(sdp, params));
 };
 
@@ -2599,6 +2897,63 @@ const section_43_2021_42 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_8759_112 = (sdp, params) => {
+  let tests = [test_8759_112_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_10 = (sdp, params) => {
+  let tests = [test_tr10_1_10_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_101 = (sdp, params) => {
+  let tests = [test_tr10_1_101_1, test_tr10_1_101_2, test_tr10_1_101_3];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_102 = (sdp, params) => {
+  let tests = [test_tr10_1_102_1, test_tr10_1_102_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_103 = (sdp, params) => {
+  let tests = [test_tr10_1_103_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_104 = (sdp, params) => {
+  let tests = [test_tr10_1_104_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_x_7 = (sdp, params) => {
+  let tests = [test_tr10_x_7_1, test_tr10_x_7_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_9_10 = (sdp, params) => {
+  let tests = [test_tr10_9_10_1, test_tr10_9_10_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_9_17 = (sdp, params) => {
+  let tests = [test_tr10_9_17_1, test_tr10_9_17_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+// The VSF TR-10 (IPMX) tests run for every essence, and check the streams that have the 'IPMX' declaration, or every stream with --ipmx
+const tr10_sections = [
+  section_tr10_1_10,
+  section_tr10_1_101,
+  section_tr10_1_102,
+  section_tr10_1_103,
+  section_tr10_1_104,
+  section_tr10_x_7,
+  section_tr10_9_10,
+  section_tr10_9_17,
+];
+
 const no_copy = (sdp, params, specSDP, test, example) => {
   if (params.noCopy === false) {
     if (params.verbose) {
@@ -2666,6 +3021,24 @@ const no_media = (sdp, params) => {
   return [];
 };
 
+// SDPoker Test 2 - Each media description has one format
+const single_format = (sdp, params) => {
+  const test = 'SDPoker Test 2 - Each media description has one format';
+  if (!params.should) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test}. Use --should to test.`);
+    }
+    return [];
+  }
+  let errors = extractStreams(sdp)
+    .filter(stream => stream.formats.length > 1)
+    .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, the media description should have one format, but has '${stream.formats.join(' ')}'. RFC 4566 Section 5.14 allows more than one, but receivers might use only one of them, or only one 'rtpmap' or 'fmtp' attribute, and SDPoker chooses its tests by the encoding name of the first.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
 const st2110_10_sections = [
   section_10_62,
   section_10_74,
@@ -2678,34 +3051,26 @@ const st2110_10_sections = [
   section_10_2022_87,
   section_23_53,
   no_media,
+  single_format,
 ];
 
+// The stream that the tests of the essence are chosen from, which is the first stream whose encoding name is known
+const essenceStreamOf = streams => streams.find(stream => encodingNameOf(stream) !== undefined) ?? streams[0];
+
 // SDPoker Test 1 - The SDP file describes a single essence
-// The tests for each essence are chosen from the first media description, so further
+// The tests for each essence are chosen from the media description that essenceStreamOf finds, so further
 // media descriptions are only supported as ST 2022-7 redundant streams of the same essence
 const checkSingleEssence = (sdp, params) => {
   let errors = [];
-  let lines = splitLines(sdp);
-  let streams = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      let mediaMatch = lines[x].match(mediaPattern);
-      streams.push({ line: x + 1, mediaType: mediaMatch[1], payloadType: +mediaMatch[5] });
-    } else if (lines[x].startsWith('a=rtpmap') && streams.length > 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      let stream = streams[streams.length - 1];
-      if (rtpmapMatch && +rtpmapMatch[1] === stream.payloadType) {
-        stream.encodingName = rtpmapMatch[2];
-      }
-    }
-  }
-  let essence = stream => stream.encodingName ? `${stream.mediaType}/${stream.encodingName}` : stream.mediaType;
-  for (let s = 1; s < streams.length; s++) {
+  let streams = extractStreams(sdp);
+  let reference = essenceStreamOf(streams);
+  let essence = stream => encodingNameOf(stream) ? `${stream.mediaType}/${encodingNameOf(stream)}` : stream.mediaType;
+  for (let stream of streams.filter(stream => stream !== reference)) {
     // Encoding names are case-insensitive, as per RFC 4855 Section 3
-    if (streams[s].mediaType !== streams[0].mediaType ||
-      (streams[s].encodingName && streams[0].encodingName &&
-        streams[s].encodingName.toLowerCase() !== streams[0].encodingName.toLowerCase())) {
-      errors.push(new LineError(streams[s].line, `For stream ${s + 1}, the essence '${essence(streams[s])}' differs from the essence '${essence(streams[0])}' of stream 1. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
+    if (stream.mediaType !== reference.mediaType ||
+      (encodingNameOf(stream) && encodingNameOf(reference) &&
+        encodingNameOf(stream).toLowerCase() !== encodingNameOf(reference).toLowerCase())) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, the essence '${essence(stream)}' differs from the essence '${essence(reference)}' of stream ${reference.streamNumber}. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2717,8 +3082,13 @@ const checkSingleEssence = (sdp, params) => {
 const allSections = (sdp, params) => {
   // The array of test functions, defaulting to ST 2110-10 tests. May be overridden below.
   let sections = st2110_10_sections;
+  // The tests cannot read a media field that is not an acceptable pattern, which is reported by RFC 4566 Section 5.14 Test 1
+  let lines = splitLines(sdp);
+  if (extractStreams(sdp).some(stream => !isAcceptableMedia(lines[stream.line - 1]))) {
+    return [];
+  }
   // Pull out the media type
-  let [mtParams, errors] = extractMTParams(sdp, params);
+  let [, errors] = extractMTParams(sdp, params);
   if (errors.length != 0) {
     return errors;
   }
@@ -2727,30 +3097,33 @@ const allSections = (sdp, params) => {
     return errors;
   }
   // Load tests for video, audio or application mediaTypes
-  if (mtParams[0]._mediaType == 'video') {
+  let stream = essenceStreamOf(extractStreams(sdp));
+  let mediaType = stream?.mediaType;
+  let encodingName = stream && encodingNameOf(stream);
+  if (mediaType == 'video') {
     // Load tests based on encoding name
-    if (mtParams[0]._encodingName == 'jxsv') {
+    if (encodingName == 'jxsv') {
       sections = [
         ...st2110_10_sections,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72,
         section_9134_71, no_copy_22];
-    } else if (mtParams[0]._encodingName == 'raw') {
+    } else if (encodingName == 'raw') {
       sections = [
         ...st2110_10_sections,
         section_20_71, section_20_72, section_20_73, section_20_74,
         section_20_75, section_20_76, section_21_81, section_21_82, no_copy_20, no_copy_20_2022];
-    } else if (mtParams[0]._encodingName == 'smpte291') {
+    } else if (encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,
         section_40_2023_53, section_40_2023_7, section_8331_4];
-    } else if (mtParams[0]._encodingName == 'SMPTE2022-6') {
+    } else if (encodingName == 'SMPTE2022-6') {
       sections = [
         ...st2110_10_sections,
         section_2022_8_53, section_2022_8_60, section_2022_8_71];
     }
-  } else if (mtParams[0]._mediaType == 'audio') {
-    if (mtParams[0]._encodingName == 'AM824') {
+  } else if (mediaType == 'audio') {
+    if (encodingName == 'AM824') {
       sections = [
         ...st2110_10_sections,
         section_31_61, section_31_62];
@@ -2759,17 +3132,16 @@ const allSections = (sdp, params) => {
         ...st2110_10_sections,
         section_30_62];
     }
-  } else if (mtParams[0]._mediaType == 'application') {
+  } else if (mediaType == 'application') {
     // Encoding names are case-insensitive, as per RFC 4855 Section 3
-    let encodingName = mtParams[0]._encodingName;
     if (typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml') {
       sections = [
         ...st2110_10_sections,
-        section_43_2021_41, section_43_2021_42];
+        section_43_2021_41, section_43_2021_42, section_8759_112];
     }
   }
 
-  return sections.flatMap(s => s(sdp, params));
+  return [...sections, ...tr10_sections].flatMap(s => s(sdp, params));
 };
 
 module.exports = {
@@ -2807,5 +3179,14 @@ module.exports = {
   section_2022_8_71,
   section_43_2021_41,
   section_43_2021_42,
-  section_23_53
+  section_8759_112,
+  section_23_53,
+  section_tr10_1_10,
+  section_tr10_1_101,
+  section_tr10_1_102,
+  section_tr10_1_103,
+  section_tr10_1_104,
+  section_tr10_x_7,
+  section_tr10_9_10,
+  section_tr10_9_17
 };
