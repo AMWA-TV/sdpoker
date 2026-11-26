@@ -104,9 +104,32 @@ const valuePattern = value => new RegExp(`^(?:${value})$`);
 // A non-zero decimal number, which unlike non-zero-int-or-real can have leading or trailing zeros
 const paddedNonZeroDecimal = valuePattern(String.raw`(?=.*[1-9])\d+(?:\.\d+)?`);
 
+// Rules of the clock source grammar, as per RFC 7273 Sections 4.8 and 5.4, and Verified erratum 4450,
+// in which a PTP domain has no 'domain-name=' or 'domain-nmbr=' prefix
+const eui64 = '[0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){7}';
+// A host and optional port, as per RFC 3261 Section 25.1, without checking the form of the host name or address
+const hostport = String.raw`(?:[-.0-9A-Za-z]+|\[[.0-9:A-Fa-f]+\])(?::\d+)?`;
+const ptpDomain = String.raw`[\x21-\x7e]{1,16}`;
+const base64 = '(?:[0-9A-Za-z+/]{4})*(?:[0-9A-Za-z+/]{2}==|[0-9A-Za-z+/]{3}=)?';
+// A parameter whose name the grammar defines is checked against that definition, not accepted as an extension
+const extension = names => `(?!(?:${names})(?:[=:]|$))${token}(?:=${byteString})?`;
+const clockSource = [
+  `ntp=(?:${hostport}|/traceable/)`,
+  `ptp=${token}:(?:${eui64}(?::${ptpDomain})?|traceable)`,
+  'gps', 'gal', 'glonass', 'local', 'private(?::traceable)?',
+  extension('ntp|ptp|gps|gal|glonass|local|private')
+].join('|');
+const mediaClockSource = [
+  'sender',
+  `direct(?:=\\d+)?(?: rate=${integer}/${integer})?`,
+  `IEEE1722=${eui64}`,
+  extension('id|sender|direct|IEEE1722')
+].join('|');
+
 // The levels at which each attribute is permitted, as registered with IANA, and the
 // syntax of its value, or no value for a property attribute. A value that is not that
-// syntax but matches 'tolerated' is reported only with --should.
+// syntax but matches 'tolerated' is reported only with --should. Any other value is reported
+// with the first of 'forms' that it matches, or with 'form'.
 const attributes = {
   'cat': { usage: ['session'], value: valuePattern(nonWsString), form: 'a=cat:<category>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.1' },
   'keywds': { usage: ['session'], value: valuePattern(byteString), form: 'a=keywds:<keywords>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.2' },
@@ -129,7 +152,16 @@ const attributes = {
   'framerate': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=framerate:<frame rate>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.13' },
   'quality': { usage: ['media'], value: valuePattern(zeroBasedInteger), form: 'a=quality:<quality>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.14' },
   'fmtp': { usage: ['media'], value: valuePattern(`${token} ${byteString}`), form: 'a=fmtp:<format> <format specific parameters>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.15',
-    tolerated: { value: valuePattern(`${token} ?`), message: 'should not be empty, so it should be omitted when there are no format specific parameters, as per RFC 4566 Section 6 and RFC 8866 Section 6.15' } }
+    tolerated: { value: valuePattern(`${token} ?`), message: 'should not be empty, so it should be omitted when there are no format specific parameters, as per RFC 4566 Section 6 and RFC 8866 Section 6.15' } },
+  'ts-refclk': { usage: ['session', 'media'], value: valuePattern(clockSource), form: 'a=ts-refclk:<clock source>', specification: 'RFC 7273 Section 4.8',
+    forms: [
+      { value: /^ptp=traceable$/, form: 'a=ts-refclk:ptp=<ptp version>:traceable', note: 'An example in the first published ST 2110-10 omits the PTP version' },
+      { value: /^ptp=/, form: 'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable' }
+    ] },
+  'mediaclk': { usage: ['session', 'media'], value: valuePattern(`(?:id=(?:src:)?${base64} )?(?:${mediaClockSource})`), form: 'a=mediaclk:[id=<media clock identifier> ]<media clock source>', specification: 'RFC 7273 Section 5.4',
+    forms: [
+      { value: /^(?:id=\S* +)?direct(?:[= ]|$)/, form: 'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]' }
+    ] }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 
@@ -521,7 +553,7 @@ const test_60_2 = (sdp, params) => {
     }
     if (lines[x].startsWith('a=') && !isAcceptableAttribute(lines[x])) {
       let [, name, value] = lines[x].match(attributePattern);
-      let { form, specification, tolerated } = attributes[name];
+      let { form, forms = [], specification, tolerated } = attributes[name];
       let attribute = streamCount ? `For stream ${streamCount}, attribute` : 'Attribute';
       if (tolerated && value !== undefined && tolerated.value.test(value)) {
         if (params.should) {
@@ -529,7 +561,8 @@ const test_60_2 = (sdp, params) => {
         }
         continue;
       }
-      errors.push(new LineError(x + 1, `${attribute} '${name}' is not an acceptable pattern, which must be of the form '${form}', as per ${specification}.`));
+      let known = forms.find(f => value !== undefined && f.value.test(value)) ?? { form };
+      errors.push(new LineError(x + 1, `${attribute} '${name}' is not an acceptable pattern, which must be of the form '${known.form}', as per ${specification}.${known.note ? ` ${known.note}.` : ''}`));
     }
   }
   if (params.verbose && errors.length == 0) {

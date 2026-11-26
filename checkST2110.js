@@ -21,9 +21,6 @@ const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
 const mediaclkDirectPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct=(\d+)/g;
 const mediaclkNoOffsetPattern = /[\r\n]a=mediaclk:(?:id=\S+\s+)?direct(\s|$)/;
-const mediaclkSourcePattern = /^a=mediaclk:(id=\S+\s+)?[^\s=]+(=.+)?$/;
-const mediaclkDirectTypePattern = /^a=mediaclk:(id=\S+\s+)?direct([=\s]|$)/;
-const mediaclkDirectFormPattern = /^a=mediaclk:(id=\S+\s+)?direct(=\d+)?( rate=[1-9]\d*\/[1-9]\d*)?$/;
 const tsrefclkPattern = /[\r\n]a=ts-refclk/;
 const ptpPattern = /^(?:traceable|((([0-9a-fA-F]{2}-){7}[0-9a-fA-F]{2})(:(\d+))?))$/;
 const ptpVersions = ['IEEE1588-2002', 'IEEE1588-2008', 'IEEE802.1AS-2011'];
@@ -221,9 +218,16 @@ const test_10_81_2 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 8.1 Test 3 - Every 'mediaclk' attribute matches an acceptable pattern
-// RFC 7273 allows a media clock identifier, but with --should SDPoker reports one, because receivers might not support it
+// ST 2110-10 Section 8.1 Test 3 - Attribute 'mediaclk' has no media clock identifier
+// RFC 7273 allows a media clock identifier, but with --should SDPoker reports one, because receivers might not support it.
+// RFC 4566 Section 6 Test 2 checks that attribute 'mediaclk' matches an acceptable pattern
 const test_10_81_3 = (sdp, params) => {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: ST 2110-10 Section 8.1 Test 3 - Attribute \'mediaclk\' has no media clock identifier. Use --should to test.');
+    }
+    return [];
+  }
   let errors = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
@@ -232,19 +236,12 @@ const test_10_81_3 = (sdp, params) => {
       streamCount++;
       continue;
     }
-    if (params.should && lines[x].startsWith('a=mediaclk:id=')) {
+    if (lines[x].startsWith('a=mediaclk:id=')) {
       errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should not have a media clock identifier ('id='), which RFC 7273 Section 5.4 allows but receivers might not support.`));
-    }
-    if (mediaclkDirectTypePattern.test(lines[x])) {
-      if (!mediaclkDirectFormPattern.test(lines[x])) {
-        errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, which must be of the form 'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]', as per RFC 7273 Section 5.4.`));
-      }
-    } else if (lines[x].startsWith('a=mediaclk') && !mediaclkSourcePattern.test(lines[x])) {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' is not an acceptable pattern, as per RFC 7273 Section 5.4.`));
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 8.1 Test 3 - Every \'mediaclk\' attribute matches an acceptable pattern.');
+    console.log('Test Passed: ST 2110-10 Section 8.1 Test 3 - Attribute \'mediaclk\' has no media clock identifier.');
   }
   return errors;
 };
@@ -280,7 +277,8 @@ const test_10_2022_82_1 = (sdp, params) => {
       }
       continue;
     }
-    if (lines[x].startsWith('a=ts-refclk')) {
+    // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    if (lines[x].startsWith('a=ts-refclk') && isAcceptableAttribute(lines[x])) {
       if (!lines[x].startsWith('a=ts-refclk:ptp=') &&
         !lines[x].startsWith('a=ts-refclk:localmac') &&
         !otherRefclkPattern.test(lines[x])) {
@@ -307,7 +305,8 @@ const test_10_82_3 = (sdp, params) => {
       }
       continue;
     }
-    if (lines[x].startsWith('a=ts-refclk:ptp=')) {
+    // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    if (lines[x].startsWith('a=ts-refclk:ptp=') && isAcceptableAttribute(lines[x])) {
       let ptpDetails = lines[x].slice(16);
       if (ptpDetails.startsWith('traceable')) {
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' must give a PTP version, such as \'IEEE1588-2008:\', before \'traceable\', as per RFC 7273 Section 4.8 and ST 2110-10:2022 Section 8.2.'));
@@ -356,7 +355,8 @@ const test_10_82_4 = (sdp, params) => {
       }
       continue;
     }
-    if (lines[x].startsWith('a=ts-refclk:localmac=')) {
+    // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    if (lines[x].startsWith('a=ts-refclk:localmac=') && isAcceptableAttribute(lines[x])) {
       let mac = lines[x].slice(21);
       if (!macPattern.test(mac)) {
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'localmac\' shall specify a MAC address of the form \'XX-XX-XX-XX-XX-XX\', as per ST 2110-10 Section 8.2.'));

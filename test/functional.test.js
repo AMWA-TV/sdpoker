@@ -120,7 +120,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/ts-refclk-pattern.sdp',
-    messageIncludes: 'Attribute \'ts-refclk\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'ts-refclk\' is not an acceptable pattern'
   },
   {
     file: 'invalid/source-filter-value-pattern.sdp',
@@ -152,7 +152,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/mediaclk-direct-rate.sdp',
-    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern, which must be of the form \'a=mediaclk:direct[=<offset>] [rate=<numerator>/<denominator>]\''
+    messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern, which must be of the form \'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]\''
   },
   {
     file: 'invalid/source-filter-pattern.sdp',
@@ -484,7 +484,7 @@ test('ts-refclk PTP grandmaster identities can use lower-case hex digits', t => 
 
 test('ts-refclk attributes can use the RFC 7273 forms for devices not referenced to IEEE 1588-2008', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const messages = refclk => checkST2110(sdp.replace(/a=ts-refclk:[^\r\n]*/, refclk), cliDefaults).map(error => error.message);
+  const messages = refclk => runAllChecks(sdp.replace(/a=ts-refclk:[^\r\n]*/, refclk)).map(error => error.message);
   for (const refclk of [
     'a=ts-refclk:ntp=203.0.113.10',
     'a=ts-refclk:ntp=/traceable/',
@@ -928,6 +928,44 @@ test('RFC 4566 Section 6 tests check the level and syntax of the attributes that
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the syntax of the attributes that RFC 7273 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const gmid = '39-A7-94-FF-FE-07-CB-D0';
+
+  for (const attribute of ['ts-refclk:local', 'mediaclk:sender']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+  for (const attribute of [`ts-refclk:ptp=IEEE1588-2008:${gmid}:37`, `ts-refclk:ptp=IEEE1588-2008:${gmid}:127`,
+    `ts-refclk:ptp=IEEE1588-2002:${gmid}:_DFLT`, `ts-refclk:ptp=IEEE1588-2008:${gmid.toLowerCase()}`, 'ts-refclk:ptp=IEEE1588-2019:traceable',
+    'ts-refclk:ntp=203.0.113.10:123', 'ts-refclk:ntp=[2001:db8::1]', 'ts-refclk:ntp=ntp.example.com', 'ts-refclk:ntp=/traceable/',
+    'ts-refclk:localmac=7C-E9-D3-1B-9A-AF', 'ts-refclk:gpsx', 'ts-refclk:sundial=noon at the equator',
+    'mediaclk:direct', 'mediaclk:direct=963214424 rate=1000/1001', 'mediaclk:id=src1 direct=0', 'mediaclk:id=src:c3JjMQ== sender',
+    'mediaclk:IEEE1722=38-D6-6D-8E-D2-78-13-2F', 'mediaclk:sampled=at random']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['ts-refclk:', 'ts-refclk:ptp=IEEE1588-2008', `ts-refclk:ptp=IEEE1588-2008:${gmid}:`,
+    `ts-refclk:ptp=IEEE1588-2008:${gmid}:seventeen-chars-x`, `ts-refclk:ptp=IEEE1588-2008:${gmid} :37`, 'ts-refclk:ptp=traceable',
+    'ts-refclk:ntp', 'ts-refclk:ntp=', 'ts-refclk:gps=1', 'ts-refclk:private:untraceable', 'ts-refclk:local ',
+    'mediaclk:', 'mediaclk:direct=0 rate=0/1', 'mediaclk:direct=0  rate=1/1', 'mediaclk:sender=1', 'mediaclk:id=src1  direct=0',
+    'mediaclk:id=src direct=0', 'mediaclk:IEEE1722=38-D6-6D-8E-D2-78-13', 'mediaclk:id=src1']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+
+  const form = attribute => messages(mediaLevel(attribute))[0].match(/of the form '(.*)', as per/)[1];
+  const directForm = 'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]';
+  t.equal(form('mediaclk:direct=0 rate=90000'), directForm, 'a malformed direct reference is given the direct form');
+  t.equal(form('mediaclk:id=src1 direct=abc'), directForm, 'a malformed direct reference after an identifier is given the direct form');
+  t.equal(form('mediaclk:sender=1'), 'a=mediaclk:[id=<media clock identifier> ]<media clock source>', 'another malformed media clock is given the generic form');
+  t.end();
+});
+
 test('a packet time with leading or trailing zeros is reported only with --should', t => {
   const sdp = readFixture('valid/st2110-30.sdp');
   const messages = (variant, params) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message);
@@ -977,6 +1015,16 @@ test('an attribute that the ST 2110 checks also use is reported once if it is no
   t.same(messages('valid/st2110-22.sdp', sdp => sdp.replace('exactframerate=60000/1001; ', '').replace('jxsv/90000\r\n', 'jxsv/90000\r\na=framerate:59.940\r\n')),
     [message(11, 'framerate', '<frame rate>', '6.13')],
     'a malformed framerate in an ST 2110-22 stream');
+  const refclkMessage = (form, note = '') => `Line 8: For stream 1, attribute 'ts-refclk' is not an acceptable pattern, which must be of the form '${form}', as per RFC 7273 Section 4.8.${note}`;
+  for (const [refclk, expected] of [
+    ['ptp=traceable', refclkMessage('a=ts-refclk:ptp=<ptp version>:traceable', ' An example in the first published ST 2110-10 omits the PTP version.')],
+    ['ptp=IEEE1588-2008:39-A7-94-FF-FE-07-CB-D0 :37',
+      refclkMessage('a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable')],
+    ['localmac=', refclkMessage('a=ts-refclk:<clock source>')]
+  ]) {
+    t.same(messages('valid/st2110-20.sdp', sdp => sdp.replace(/a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`)), [expected],
+      `a=ts-refclk:${refclk} in an ST 2110-20 stream`);
+  }
   t.end();
 });
 
@@ -1142,13 +1190,13 @@ test('a direct-referenced media clock with no offset or a non-zero offset is rep
 
 test('a direct-referenced media clock must match the RFC 7273 grammar', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
-  const reported = value => checkST2110(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`), cliDefaults)
-    .some(error => error.message.includes('attribute \'mediaclk\' is not an acceptable pattern'));
+  const reported = value => runAllChecks(sdp.replace(/a=mediaclk:direct=0[^\r\n]*/, `a=mediaclk:${value}`))
+    .filter(error => error.message.includes('attribute \'mediaclk\' is not an acceptable pattern')).length;
   for (const value of ['direct=0', 'direct', 'direct=0 rate=1000/1001']) {
-    t.notOk(reported(value), `'${value}' is accepted`);
+    t.equal(reported(value), 0, `'${value}' is accepted`);
   }
   for (const value of ['direct=0 rate=90000', 'direct=0 rate=abc', 'direct=0 rate=0/1001', 'direct=0 rate=01/1', 'direct=abc', 'direct=0rate=1/1']) {
-    t.ok(reported(value), `'${value}' is reported`);
+    t.equal(reported(value), 1, `'${value}' is reported once`);
   }
   t.end();
 });
