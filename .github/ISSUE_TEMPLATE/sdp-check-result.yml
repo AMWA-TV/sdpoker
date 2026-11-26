@@ -1,0 +1,62 @@
+name: Incorrect SDP check result
+description: SDPoker misses an error that the SDP file has, reports an error that it does not have, or reports an error in a wrong or unclear way.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when you think SDPoker is wrong about an SDP file. Each confirmed report can become a test case, so please include the SDP file and the section of the specification that applies.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong?
+      options:
+        - No error for invalid SDP
+        - Error for valid SDP
+        - Wrong or unclear error
+    validations:
+      required: true
+  - type: textarea
+    id: sdp
+    attributes:
+      label: SDP file
+      description: Paste the whole SDP file.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Public information
+      options:
+        - label: The SDP file contains no addresses or other details that I cannot share publicly.
+          required: true
+  - type: input
+    id: how-run
+    attributes:
+      label: How SDPoker was run
+      description: The command line, including the options, for example `sdpoker --should --duplicate stream.sdp`, or the web application and the options selected.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SDPoker version
+      description: The output of `sdpoker --version`, or the commit. For the web application, the version and commit shown at the bottom of the page.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What SDPoker reported
+      description: Paste the complete output.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected and why
+      description: Name the specification, its edition or version, and the section, for example "ST 2110-20:2022 section 7.3", and quote the requirement if you can. If line endings matter, also attach the SDP file here, renamed to end in .txt, because the pasted copy may not keep them.
+    validations:
+      required: true
