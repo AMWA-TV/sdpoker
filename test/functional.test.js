@@ -132,7 +132,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/fmtp-pattern.sdp',
-    messageIncludes: 'attribute \'fmtp\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'fmtp\' must be a list of format specific parameters'
   },
   {
     file: 'invalid/time-pattern.sdp',
@@ -575,8 +575,8 @@ test('RFC 8759 Section 11.2 tests check the TTML format parameters charset and p
   t.same(messages('charset=utf8;codecs=im3t'), [charsetMessage('utf8')], 'a charset name without a hyphen is reported');
   t.same(messages('charset;codecs=im3t'), [charsetMessage('')], 'a charset with no value is reported');
   t.same(messages('codecs=im3t;profile'), [profileMessage], 'a profile with no value is reported');
-  const fmtpMessage = 'Line 10: For stream 1, attribute \'fmtp\' is not an acceptable pattern, ' +
-    'which must be of the form \'a=fmtp:<format> parameter1=value1; parameter2=value2; ...\', as per RFC 4566 Section 6.';
+  const fmtpMessage = 'Line 10: For stream 1, attribute \'fmtp\' must be a list of format specific parameters separated by semicolons, ' +
+    'each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.';
   t.same(messages('charset=;codecs=im3t'), [fmtpMessage], 'an empty charset is reported once, by the fmtp pattern test');
   t.same(messages('codecs=im3t;profile='), [fmtpMessage], 'an empty profile is reported once, by the fmtp pattern test');
   t.end();

@@ -34,6 +34,8 @@ const ssrcPattern = /^a=ssrc:(\d+)/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
+// A name with no value is allowed, because payload format registrations such as RFC 4175 define them, and whitespace
+// after a semicolon and a semicolon after the last parameter are allowed, because the ST 2110 specifications disagree about them
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
@@ -946,7 +948,7 @@ const extractMTParams = (sdp, params = {}) => {
       if (!fmtpMatch) {
         // An 'fmtp' that is not an acceptable pattern for any format is reported by RFC 4566 Section 6 Test 2
         if (isAcceptableAttribute(lines[x])) {
-          errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which must be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
+          errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' must be a list of format specific parameters separated by semicolons, each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.`));
         }
         continue;
       }
