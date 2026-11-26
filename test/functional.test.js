@@ -997,6 +997,36 @@ test('an empty format parameters attribute is reported only with --should', t =>
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 5888 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['group:LS', 'group:FID 1 2', 'group:DUP primary secondary']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+  for (const attribute of ['mid:primary', 'mid:S1a', 'mid:audio.1-a']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  t.same(messages(sessionLevel('mid:primary')), ['Line 5: Attribute \'mid\' must be a media-level attribute, as per RFC 5888 Section 4.'],
+    'a=mid:primary is reported at session level');
+  t.same(messages(mediaLevel('group:LS')), [`Line ${lastLine}: For stream 1, attribute 'group' must be a session-level attribute, as per RFC 5888 Section 5.`],
+    'a=group:LS is reported at media level');
+
+  for (const attribute of ['group:', 'group: DUP primary secondary', 'group:DUP  primary secondary', 'group:DUP primary secondary ']) {
+    t.same(messages(sessionLevel(attribute)).map(message => message.split(', which')[0]), ['Line 5: Attribute \'group\' is not an acceptable pattern'],
+      `a=${attribute} is reported at session level`);
+  }
+  for (const attribute of ['mid:', 'mid: primary', 'mid:primary secondary', 'mid:"primary"']) {
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute 'mid' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
 test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
   const message = (line, name, form, section) =>
     `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
@@ -1025,6 +1055,12 @@ test('an attribute that the ST 2110 checks also use is reported once if it is no
     t.same(messages('valid/st2110-20.sdp', sdp => sdp.replace(/a=ts-refclk:[^\r\n]*/, `a=ts-refclk:${refclk}`)), [expected],
       `a=ts-refclk:${refclk} in an ST 2110-20 stream`);
   }
+  t.same(messages('valid/st2110-22.sdp', sdp => sdp.replace('a=group:DUP', 'a=group: DUP')),
+    ['Line 5: Attribute \'group\' is not an acceptable pattern, which must be of the form \'a=group:<semantics>[ <identification tag>]*\', as per RFC 5888 Section 5.'],
+    'a malformed group in an SDP file with duplicate streams');
+  t.same(messages('valid/st2110-22.sdp', sdp => sdp.replace('a=mid:primary', 'a=mid: primary')),
+    ['Line 14: For stream 1, attribute \'mid\' is not an acceptable pattern, which must be of the form \'a=mid:<identification tag>\', as per RFC 5888 Section 4.'],
+    'a malformed mid in an SDP file with duplicate streams');
   t.end();
 });
 

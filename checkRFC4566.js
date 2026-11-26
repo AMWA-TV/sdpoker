@@ -161,7 +161,9 @@ const attributes = {
   'mediaclk': { usage: ['session', 'media'], value: valuePattern(`(?:id=(?:src:)?${base64} )?(?:${mediaClockSource})`), form: 'a=mediaclk:[id=<media clock identifier> ]<media clock source>', specification: 'RFC 7273 Section 5.4',
     forms: [
       { value: /^(?:id=\S* +)?direct(?:[= ]|$)/, form: 'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]' }
-    ] }
+    ] },
+  'group': { usage: ['session'], value: valuePattern(`${token}(?: ${token})*`), form: 'a=group:<semantics>[ <identification tag>]*', specification: 'RFC 5888 Section 5' },
+  'mid': { usage: ['media'], value: valuePattern(token), form: 'a=mid:<identification tag>', specification: 'RFC 5888 Section 4' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 

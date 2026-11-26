@@ -456,12 +456,19 @@ const test_10_83_3 = (sdp, params) => {
   let lines = splitLines(sdp);
   let errors = [];
   let mids = [];
+  let malformedMid = false;
   let streamCounter = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       if (!mids[streamCounter++]) { mids.push(''); }
     }
     if (lines[x].startsWith('a=mid:')) {
+      // A 'mid' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2,
+      // so an identification tag that matches no 'mid' is not reported again
+      if (!isAcceptableAttribute(lines[x])) {
+        malformedMid = true;
+        continue;
+      }
       let mid = lines[x].slice(6);
       if (mids.indexOf(mid) >= 0) {
         errors.push(new LineError(x + 1, `Media identification '${mid}' must be unique, as per RFC 5888 Section 4.`));
@@ -487,12 +494,18 @@ const test_10_83_3 = (sdp, params) => {
     }
     let groupMatch = lines[x].match(groupPattern);
     if (!groupMatch) {
-      errors.push(new LineError(x + 1, 'Attribute \'group:DUP\' is not an acceptable pattern, as per RFC 7104 Section 3.1.'));
+      // A 'group' that is not an acceptable pattern for any semantics is reported by RFC 4566 Section 6 Test 2,
+      // so it counts as present
+      if (isAcceptableAttribute(lines[x])) {
+        errors.push(new LineError(x + 1, 'Attribute \'group:DUP\' is not an acceptable pattern, as per RFC 7104 Section 3.1.'));
+      } else {
+        doneOne = true;
+      }
       continue;
     }
     doneOne = true;
     for (let groupId of groupMatch.slice(1, 3)) {
-      if (mids.indexOf(groupId) < 0) {
+      if (mids.indexOf(groupId) < 0 && !malformedMid) {
         errors.push(new LineError(x + 1, `Identification tag '${groupId}' in attribute 'group:DUP' must match the 'mid' attribute of a media description, otherwise the group is ignored, as per RFC 5888 Section 6.`));
       }
     }
