@@ -538,6 +538,31 @@ test('ST 2110-10:2022 Section 8.7 tests check TSDELAY is an integer number of mi
   t.end();
 });
 
+test('RFC 8759 Section 11.2 tests check the TTML format parameters charset and profile', t => {
+  const sdp = readFixture('valid/st2110-43.sdp');
+  const messages = parameters => checkST2110(sdp.replace('a=fmtp:112 charset=utf-8;codecs=im3t', `a=fmtp:112 ${parameters}`), cliDefaults)
+    .map(error => error.message);
+  const charsetMessage = charset => `Line 10: For stream 1, format parameter 'charset' must be 'UTF-8' or 'UTF-16', but is '${charset}', ` +
+    'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.';
+  const profileMessage = 'Line 10: For stream 1, format parameter \'profile\' must be a profile designator, which is a URI, ' +
+    'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.';
+
+  for (const parameters of ['codecs=im3t', 'charset=UTF-8;codecs=im3t', 'charset=utf-16; codecs=im3t', 'codecs=im3t;charset=Utf-8',
+    'codecs=im3t;profile=http://www.w3.org/ns/ttml/profile/imsc1/text', 'profile=dfxp-presentation;codecs=im3t']) {
+    t.same(messages(parameters), [], `a=fmtp:112 ${parameters} is accepted`);
+  }
+
+  t.same(messages('charset=ISO-8859-1;codecs=im3t'), [charsetMessage('ISO-8859-1')], 'a charset other than UTF-8 or UTF-16 is reported');
+  t.same(messages('charset=utf8;codecs=im3t'), [charsetMessage('utf8')], 'a charset name without a hyphen is reported');
+  t.same(messages('charset;codecs=im3t'), [charsetMessage('')], 'a charset with no value is reported');
+  t.same(messages('codecs=im3t;profile'), [profileMessage], 'a profile with no value is reported');
+  const fmtpMessage = 'Line 10: For stream 1, attribute \'fmtp\' is not an acceptable pattern, ' +
+    'which must be of the form \'a=fmtp:<format> parameter1=value1; parameter2=value2; ...\', as per RFC 4566 Section 6.';
+  t.same(messages('charset=;codecs=im3t'), [fmtpMessage], 'an empty charset is reported once, by the fmtp pattern test');
+  t.same(messages('codecs=im3t;profile='), [fmtpMessage], 'an empty profile is reported once, by the fmtp pattern test');
+  t.end();
+});
+
 test('ts-refclk and source-filter attributes must match a pattern to the end of the line', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const cases = [

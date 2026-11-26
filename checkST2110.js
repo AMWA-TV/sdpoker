@@ -39,6 +39,8 @@ const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
 const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
+const charsetPattern = /[\s;]charset(?:=([^\s;]*))?(?=[\s;]|$)/i;
+const profilePattern = /[\s;]profile(?:=([^\s;]*))?(?=[\s;]|$)/i;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
@@ -2350,7 +2352,9 @@ const extractTTMLStreams = sdp => {
           rtpmapLine: x + 1,
           clockRate: rtpmapMatch[3],
           fmtpLine: null,
-          codecs: null
+          codecs: null,
+          charset: null,
+          profile: null
         });
       }
     }
@@ -2365,8 +2369,12 @@ const extractTTMLStreams = sdp => {
     let stream = fmtpMatch && streams.find(s => s.streamNumber === streamCount && s.payloadType === +fmtpMatch[1]);
     if (stream) {
       let codecsMatch = lines[x].match(codecsPattern);
+      let charsetMatch = lines[x].match(charsetPattern);
+      let profileMatch = lines[x].match(profilePattern);
       stream.fmtpLine = x + 1;
       stream.codecs = codecsMatch ? codecsMatch[1] : null;
+      stream.charset = charsetMatch ? charsetMatch[1] ?? '' : null;
+      stream.profile = profileMatch ? profileMatch[1] ?? '' : null;
     }
   }
   return streams;
@@ -2401,6 +2409,27 @@ const test_43_2021_42_1 = (sdp, params) => {
   }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-43:2021 Section 4.2 Test 1 - TTML streams have a 90 kHz RTP clock.');
+  }
+  return errors;
+};
+
+// RFC 8759 Section 11.2 Test 1 - TTML format parameters 'charset' and 'profile' have permitted values
+// The 'application/ttml+xml' media type registration defines the optional parameters 'charset' and 'profile'
+const test_8759_112_1 = (sdp, params) => {
+  let errors = [];
+  for (let stream of extractTTMLStreams(sdp)) {
+    // Character set names are case-insensitive
+    if (stream.charset !== null && !/^utf-(?:8|16)$/i.test(stream.charset)) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'charset' must be 'UTF-8' or 'UTF-16', but is '${stream.charset}', ` +
+        'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.'));
+    }
+    if (stream.profile === '') {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'profile' must be a profile designator, which is a URI, ` +
+        'as per RFC 8759 Section 11.2 and the \'application/ttml+xml\' media type registration.'));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 8759 Section 11.2 Test 1 - TTML format parameters \'charset\' and \'profile\' have permitted values.');
   }
   return errors;
 };
@@ -2583,6 +2612,11 @@ const section_43_2021_42 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_8759_112 = (sdp, params) => {
+  let tests = [test_8759_112_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const no_copy = (sdp, params, specSDP, test, example) => {
   if (params.noCopy === false) {
     if (params.verbose) {
@@ -2749,7 +2783,7 @@ const allSections = (sdp, params) => {
     if (typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml') {
       sections = [
         ...st2110_10_sections,
-        section_43_2021_41, section_43_2021_42];
+        section_43_2021_41, section_43_2021_42, section_8759_112];
     }
   }
 
@@ -2791,5 +2825,6 @@ module.exports = {
   section_2022_8_71,
   section_43_2021_41,
   section_43_2021_42,
+  section_8759_112,
   section_23_53
 };
