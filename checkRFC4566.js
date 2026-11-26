@@ -173,7 +173,11 @@ const attributes = {
   // The connection address is not checked, except that it has no whitespace
   'rtcp': { usage: ['media'], value: valuePattern(String.raw`\d+(?: ${token} ${token} ${nonWsString})?`),
     form: 'a=rtcp:<port>[ <network type> <address type> <connection address>]', specification: 'RFC 3605 Section 2.1' },
-  'duplication-delay': { usage: ['session', 'media'], value: valuePattern(String.raw`\d+(?: \d+)*`), form: 'a=duplication-delay:<period>[ <period>]*', specification: 'RFC 7197 Section 3' }
+  'duplication-delay': { usage: ['session', 'media'], value: valuePattern(String.raw`\d+(?: \d+)*`), form: 'a=duplication-delay:<period>[ <period>]*', specification: 'RFC 7197 Section 3' },
+  // The extension name is an absolute URI, as per RFC 3986 Section 4.3, but only its scheme is checked
+  'extmap': { usage: ['session', 'media'],
+    value: valuePattern(String.raw`\d{1,5}(?:/(?:sendonly|recvonly|sendrecv|inactive))? [A-Za-z][-+.0-9A-Za-z]*:[^\x00-\x20\x7f]*(?: ${byteString})?`),
+    form: 'a=extmap:<value>[/<direction>] <URI>[ <extension attributes>]', specification: 'RFC 8285 Section 8' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 const attributeNamePattern = new RegExp(`^${token}$`);

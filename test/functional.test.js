@@ -1175,6 +1175,31 @@ test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 7197 d
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 8285 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const form = '\'a=extmap:<value>[/<direction>] <URI>[ <extension attributes>]\', as per RFC 8285 Section 8.';
+
+  for (const attribute of ['extmap:1 http://example.com/082005/ext.htm#ttime', 'extmap:2/sendrecv http://example.com/082005/ext.htm#xmeta short',
+    'extmap:4096/inactive urn:ietf:params:rtp-hdrext:toffset', 'extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid some attributes  here']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['extmap', 'extmap:', 'extmap:1', 'extmap:1 ', 'extmap: 1 urn:ietf:params:rtp-hdrext:toffset',
+    'extmap:123456 urn:ietf:params:rtp-hdrext:toffset', 'extmap:x urn:ietf:params:rtp-hdrext:toffset', 'extmap:1/send urn:ietf:params:rtp-hdrext:toffset',
+    'extmap:1/sendrecv', 'extmap:1  urn:ietf:params:rtp-hdrext:toffset', 'extmap:1 ext.htm#ttime', 'extmap:1 1urn:ietf:params:rtp-hdrext:toffset']) {
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute 'extmap' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at session level`);
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'extmap' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
 test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
   const message = (line, name, form, section) =>
     `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
