@@ -91,6 +91,58 @@ const addressTypeMismatch = (addrtype, address) => addrtype === 'IP4' ?
   ip4Pattern.test(address) || (address.includes(':') && !ip6Pattern.test(address));
 const addressTypeName = { IP4: 'an IPv4 address', IP6: 'an IPv6 address' };
 
+// Rules of the SDP grammar, as per RFC 8866 Section 9
+const token = String.raw`[!#-'*+\-.0-9A-Z^-~]+`;
+const integer = String.raw`[1-9]\d*`;
+const zeroBasedInteger = `(?:0|${integer})`;
+const nonZeroIntOrReal = String.raw`(?:${integer}|${zeroBasedInteger}\.\d*[1-9])`;
+const byteString = String.raw`[^\0\r\n]+`;
+const nonWsString = String.raw`[^\x00-\x20\x7f]+`;
+// This form includes every RFC 5646 Language-Tag
+const languageTag = '[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*';
+const valuePattern = value => new RegExp(`^(?:${value})$`);
+// A non-zero decimal number, which unlike non-zero-int-or-real can have leading or trailing zeros
+const paddedNonZeroDecimal = valuePattern(String.raw`(?=.*[1-9])\d+(?:\.\d+)?`);
+
+// The levels at which each attribute is permitted, as registered with IANA, and the
+// syntax of its value, or no value for a property attribute. A value that is not that
+// syntax but matches 'tolerated' is reported only with --should.
+const attributes = {
+  'cat': { usage: ['session'], value: valuePattern(nonWsString), form: 'a=cat:<category>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.1' },
+  'keywds': { usage: ['session'], value: valuePattern(byteString), form: 'a=keywds:<keywords>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.2' },
+  'tool': { usage: ['session'], value: valuePattern(byteString), form: 'a=tool:<name and version of tool>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.3' },
+  'ptime': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=ptime:<packet time>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.4',
+    tolerated: { value: paddedNonZeroDecimal, message: 'should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.4 does' } },
+  'maxptime': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=maxptime:<maximum packet time>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.5',
+    tolerated: { value: paddedNonZeroDecimal, message: 'should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.5 does' } },
+  'rtpmap': { usage: ['media'], value: valuePattern(`${zeroBasedInteger} ${token}/${integer}(?:/${integer})?`), form: 'a=rtpmap:<payload type> <encoding name>/<clock rate>[/<encoding parameters>]', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.6' },
+  'recvonly': { usage: ['session', 'media'], form: 'a=recvonly', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.1' },
+  'sendrecv': { usage: ['session', 'media'], form: 'a=sendrecv', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.2' },
+  'sendonly': { usage: ['session', 'media'], form: 'a=sendonly', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.3' },
+  'inactive': { usage: ['session', 'media'], form: 'a=inactive', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.7.4' },
+  'orient': { usage: ['media'], value: valuePattern('portrait|landscape|seascape'), form: 'a=orient:<orientation>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.8' },
+  'type': { usage: ['session'], value: valuePattern('broadcast|meeting|moderated|test|H332'), form: 'a=type:<conference type>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.9' },
+  // A charset name is a MIME parameter value, as per RFC 2978 Section 2.3, which without quotes is a token
+  'charset': { usage: ['session'], value: valuePattern(token), form: 'a=charset:<character set>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.10' },
+  'sdplang': { usage: ['session', 'media'], value: valuePattern(languageTag), form: 'a=sdplang:<language tag>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.11' },
+  'lang': { usage: ['session', 'media'], value: valuePattern(languageTag), form: 'a=lang:<language tag>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.12' },
+  'framerate': { usage: ['media'], value: valuePattern(nonZeroIntOrReal), form: 'a=framerate:<frame rate>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.13' },
+  'quality': { usage: ['media'], value: valuePattern(zeroBasedInteger), form: 'a=quality:<quality>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.14' },
+  'fmtp': { usage: ['media'], value: valuePattern(`${token} ${byteString}`), form: 'a=fmtp:<format> <format specific parameters>', specification: 'RFC 4566 Section 6 and RFC 8866 Section 6.15',
+    tolerated: { value: valuePattern(`${token} ?`), message: 'should not be empty, so it should be omitted when there are no format specific parameters, as per RFC 4566 Section 6 and RFC 8866 Section 6.15' } }
+};
+const attributePattern = /^a=([^:]*)(?::(.*))?$/;
+
+// Whether an attribute line is not one of the attributes above, or has a value of the syntax of that attribute
+const isAcceptableAttribute = line => {
+  let [, name, value] = line.match(attributePattern) ?? [];
+  if (!Object.hasOwn(attributes, name)) {
+    return true;
+  }
+  let pattern = attributes[name].value;
+  return pattern ? value !== undefined && pattern.test(value) : value === undefined;
+};
+
 // RFC 4566 Section 5 Test 1 - Line endings are all CRLF
 const test50_1 = (sdp, params) => {
   if (!params.checkEndings) {
@@ -430,6 +482,62 @@ const test_59_1 = (sdp, params) => {
   return errors;
 };
 
+// RFC 4566 Section 6 Test 1 - Attributes are at a level at which they are permitted
+const test_60_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    let name = lines[x].match(attributePattern)?.[1];
+    if (!Object.hasOwn(attributes, name)) {
+      continue;
+    }
+    let { usage, specification } = attributes[name];
+    if (streamCount === 0 && !usage.includes('session')) {
+      errors.push(new LineError(x + 1, `Attribute '${name}' must be a media-level attribute, as per ${specification}.`));
+    } else if (streamCount > 0 && !usage.includes('media')) {
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute '${name}' must be a session-level attribute, as per ${specification}.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 6 Test 1 - Attributes are at a level at which they are permitted.');
+  }
+  return errors;
+};
+
+// RFC 4566 Section 6 Test 2 - Attributes match an acceptable pattern
+const test_60_2 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for ( let x = 0 ; x < lines.length ; x++ ) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (lines[x].startsWith('a=') && !isAcceptableAttribute(lines[x])) {
+      let [, name, value] = lines[x].match(attributePattern);
+      let { form, specification, tolerated } = attributes[name];
+      let attribute = streamCount ? `For stream ${streamCount}, attribute` : 'Attribute';
+      if (tolerated && value !== undefined && tolerated.value.test(value)) {
+        if (params.should) {
+          errors.push(new LineError(x + 1, `${attribute} '${name}' ${tolerated.message}.`));
+        }
+        continue;
+      }
+      errors.push(new LineError(x + 1, `${attribute} '${name}' is not an acceptable pattern, which must be of the form '${form}', as per ${specification}.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 6 Test 2 - Attributes match an acceptable pattern.');
+  }
+  return errors;
+};
+
 const section_50 = (sdp, params) => {
   let endingTests = [ test50_1, test50_1_1 ];
   let lines = splitLines(sdp);
@@ -462,8 +570,13 @@ const section_59 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_60 = (sdp, params) => {
+  let tests = [ test_60_1, test_60_2 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const allSections = (sdp, params) => {
-  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59 ];
+  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, section_60 ];
   return sections.flatMap(s => s(sdp, params));
 };
 
@@ -474,5 +587,7 @@ module.exports = {
   section_52,
   section_57,
   section_58,
-  section_59
+  section_59,
+  section_60,
+  isAcceptableAttribute
 };

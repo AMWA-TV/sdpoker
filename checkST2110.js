@@ -15,6 +15,7 @@
 */
 
 const { splitLines, LineError } = require('./lines.js');
+const { isAcceptableAttribute } = require('./checkRFC4566.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
@@ -43,7 +44,6 @@ const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
-const frameRateAttributePattern = /a=framerate:([1-9]\d*|(0|[1-9]\d*)\.\d*[1-9])$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
 const rtpmapSound = /a=rtpmap:(\d+)\s+(L16|L24)\/([1-9]\d*)\/([1-9]\d*)/;
 const rtpmapAM824 = /^a=rtpmap:(\d+)\s+(AM824)\/([1-9]\d*)\/([1-9]\d*)$/;
@@ -53,7 +53,6 @@ const multiPattern = /^(((22[4-9]|23[0-9])(\.(\d\d?\d?)){3})|(ff[0-7][123458e]:[
 const ssmPattern = /^((232(\.(\d\d?\d?)){3})|(ff3[0-9a-f]:(0{1,4})?:[0-9a-f:.]*))$/i;
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const ptimePattern = /^a=ptime:(\d+(?:\.\d+)?)$/;
-const maxptimePattern = /^a=maxptime:(\d+(?:\.\d+)?)$/;
 const audioPattern = /audio\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const mediaPattern = /(audio|video|application)\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const channelOrderPattern = /^a=fmtp:(\d+)\s+.*channel-order=([^\s;]+).*$/;
@@ -647,25 +646,7 @@ const test_10_62_2 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 6.2 Test 3 - Every 'rtpmap' attribute matches an acceptable pattern
-const test_10_62_3 = (sdp, params) => {
-  let errors = [];
-  let lines = splitLines(sdp);
-  let streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      continue;
-    }
-    if (lines[x].startsWith('a=rtpmap') && !rtpmapPattern.test(lines[x])) {
-      errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'rtpmap' is not an acceptable pattern, which must be of the form 'a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>]', as per RFC 4566 Section 6.`));
-    }
-  }
-  if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 6.2 Test 3 - Every \'rtpmap\' attribute matches an acceptable pattern.');
-  }
-  return errors;
-};
+// ST 2110-10 Section 6.2 Test 3 is now RFC 4566 Section 6 Test 2
 
 // Connection and source filter addresses can be written in more than one form. IPv6 addresses can use upper or lower case
 // hexadecimal digits, as per RFC 4566 Section 9, and can omit leading zeros and compress zeros, as per RFC 4291 Section 2.2,
@@ -819,7 +800,7 @@ const checkStreamsRtpMap = (sdp, params, type, clockRate, specification) => {
       }
       rtpmapInStream = true;
       let rtpmapMatch = lines[x].match(rtpmapPattern);
-      // An 'rtpmap' that is not an acceptable pattern is reported by test_10_62_3
+      // An 'rtpmap' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
       if (!rtpmapMatch) {
         continue;
       }
@@ -952,7 +933,10 @@ const extractMTParams = (sdp, params = {}) => {
     if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
       let fmtpMatch = lines[x].match(fmtpPattern);
       if (!fmtpMatch) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which must be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
+        // An 'fmtp' that is not an acceptable pattern for any format is reported by RFC 4566 Section 6 Test 2
+        if (isAcceptableAttribute(lines[x])) {
+          errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' is not an acceptable pattern, which must be of the form 'a=fmtp:<format> parameter1=value1; parameter2=value2; ...', as per RFC 4566 Section 6.`));
+        }
         continue;
       }
       // A payload type that is not a format of the media description is reported by test_10_62_2
@@ -1403,7 +1387,10 @@ const checkStreamsAudioRtpmap = (sdp, rtpmapPattern, patternMessage, sampleRateS
     if (payloadType >= 0 && lines[x].startsWith('a=rtpmap')) {
       let soundMatch = lines[x].match(rtpmapPattern);
       if (!soundMatch) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, ${patternMessage}`));
+        // An 'rtpmap' that is not an acceptable pattern for any encoding is reported by RFC 4566 Section 6 Test 2
+        if (isAcceptableAttribute(lines[x])) {
+          errors.push(new LineError(x + 1, `For stream ${streamCount}, ${patternMessage}`));
+        }
         continue;
       }
       if (hasRtpmap) {
@@ -1457,7 +1444,7 @@ const test_30_62_1 = (sdp, params) => {
   return errors;
 };
 
-const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
+const checkStreamsPtime = (sdp, ptimeSpecification) => {
   let errors = [];
   let lines = splitLines(sdp);
   let streamCount = 0;
@@ -1477,22 +1464,12 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
       continue;
     }
     if (lines[x].startsWith('a=ptime') && payloadType >= 0) {
-      let ptimeMatch = lines[x].match(ptimePattern);
-      if (!ptimeMatch) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ptime' is not an acceptable pattern, as per ${ptimeSpecification}.`));
-        continue;
-      }
       if (hasPTime) {
         errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ptime' is specified more than once.`));
         continue;
       }
       hasPTime = true;
       // TODO check ptime by sample rate?
-    }
-    if (lines[x].startsWith('a=maxptime')) {
-      if (!maxptimePattern.test(lines[x])) {
-        errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'maxptime' is not an acceptable pattern, as per ${maxptimeSpecification}.`));
-      }
     }
   }
   if (!hasPTime && payloadType >= 0) {
@@ -1502,13 +1479,12 @@ const checkStreamsPtime = (sdp, ptimeSpecification, maxptimeSpecification) => {
 };
 
 // ST 2110-30 Section 6.2.1 Test 2 is now ST 2110-10 Section 6.2 Test 1
-// ST 2110-30 Section 6.2.1 Test 3 - Attribute 'ptime' is present, and attributes 'ptime' and 'maxptime' match an acceptable pattern
+// ST 2110-30 Section 6.2.1 Test 3 - Attribute 'ptime' is present
+// RFC 4566 Section 6 Test 2 checks that attributes 'ptime' and 'maxptime' match an acceptable pattern
 const test_30_62_3 = (sdp, params) => {
-  let errors = checkStreamsPtime(sdp,
-    'ST 2110-30 Section 6.2.1 and AES67 Section 8.1',
-    'ST 2110-30 Section 6.2.1 and AES67 Section 8.1');
+  let errors = checkStreamsPtime(sdp, 'ST 2110-30 Section 6.2.1 and AES67 Section 8.1');
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 3 - Attribute \'ptime\' is present, and attributes \'ptime\' and \'maxptime\' match an acceptable pattern.');
+    console.log('Test Passed: ST 2110-30 Section 6.2.1 Test 3 - Attribute \'ptime\' is present.');
   }
   return errors;
 };
@@ -1604,7 +1580,7 @@ const test_31_61_1 = (sdp, params) => {
 
 // ST 2110-31 Section 6.1 Test 2 - Packet time is signalled
 const test_31_61_2 = (sdp, params) => {
-  let errors = checkStreamsPtime(sdp, 'ST 2110-31 Section 6.1', 'RFC 4566 Section 6');
+  let errors = checkStreamsPtime(sdp, 'ST 2110-31 Section 6.1');
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-31 Section 6.1 Test 2 - Packet time is signalled.');
   }
@@ -2067,14 +2043,9 @@ const test_22_74_1 = (sdp, params) => {
   }
   for (let s = 0; s < streams.length; s++) {
     let lines = splitLines(streams[s]);
-    // Check for session level framerate attribute
+    // RFC 4566 Section 6 Test 1 reports a session-level framerate attribute
     if (s == 0) {
-      for (let x = 0; x < lines.length; x++) {
-        if (lines[x].startsWith('a=framerate')) {
-          errors.push(new LineError(sdpLineNumb, 'Attribute \'framerate\' must be a media-level attribute, as per RFC 4566 Section 6.'));
-        }
-        sdpLineNumb++;
-      }
+      sdpLineNumb += lines.length;
     }
     // Check each stream for one and only one framerate specification
     else {
@@ -2085,13 +2056,9 @@ const test_22_74_1 = (sdp, params) => {
       if (mtParams.some(stream => stream._streamNumber == s && stream.exactframerate != null)) {
         framerateParameterPresent = true;
       }
-      // Now check if it's present as a media level attribute
+      // Now check if it's present as a media level attribute, which RFC 4566 Section 6 Test 2 checks matches an acceptable pattern
       for (let x = 0; x < lines.length; x++) {
         if (lines[x].startsWith('a=framerate')) {
-          let framerateMatch = lines[x].match(frameRateAttributePattern);
-          if (framerateMatch == null) {
-            errors.push(new LineError(sdpLineNumb, `For stream ${s}, attribute 'framerate' is not an acceptable pattern, which must be a non-zero integer or a decimal with no trailing zeros, as per RFC 8866 Section 6.13.`));
-          }
           framerateAttributePresent = true;
         }
         sdpLineNumb++;
@@ -2422,7 +2389,7 @@ const test_43_2021_42_1 = (sdp, params) => {
 };
 
 const section_10_62 = (sdp, params) => {
-  let tests = [test_10_62_1, test_10_62_2, test_10_62_3];
+  let tests = [test_10_62_1, test_10_62_2];
   return tests.flatMap(t => t(sdp, params));
 };
 

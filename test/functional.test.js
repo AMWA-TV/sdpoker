@@ -143,6 +143,10 @@ const invalidCases = [
     messageIncludes: 'attribute \'rtpmap\' is not an acceptable pattern'
   },
   {
+    file: 'invalid/ptime-pattern.sdp',
+    messageIncludes: 'attribute \'ptime\' is not an acceptable pattern'
+  },
+  {
     file: 'invalid/mediaclk-pattern.sdp',
     messageIncludes: 'attribute \'mediaclk\' is not an acceptable pattern'
   },
@@ -863,7 +867,7 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
 
   const passed = line => line.startsWith('Test Passed: RFC 4');
   const lines = logged(sdp, {});
-  t.equal(lines.length, 17, 'one line for each test');
+  t.equal(lines.length, 19, 'one line for each test');
   t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
     'Test Skipped: RFC 4566 Section 5 Test 1',
     'Test Skipped: RFC 4566 Section 5.2 Test 2',
@@ -873,12 +877,106 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     'the other tests pass');
 
   const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
-  t.equal(withOptions.length, 17, 'one line for each test with the options set');
+  t.equal(withOptions.length, 19, 'one line for each test with the options set');
   t.ok(withOptions.every(passed), 'every test passes with the options set');
 
   const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
   t.notOk(lfLines.some(line => line.startsWith('Test Passed: RFC 4566 Section 5 Test 1 ')),
     'a test that reports an error does not report that it passed');
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 4566 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['cat:foo.bar', 'keywds:SDP session description protocol', 'tool:foobar V3.2', 'recvonly', 'sendrecv',
+    'sendonly', 'inactive', 'type:H332', 'charset:ISO-8859-1', 'sdplang:fr', 'lang:en-GB', 'x-unknown: anything']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+  for (const attribute of ['ptime:20', 'ptime:0.125', 'maxptime:0.5', 'rtpmap:0 PCMU/8000', 'rtpmap:98 L16/16000/2', 'recvonly',
+    'orient:seascape', 'sdplang:fr', 'lang:de', 'framerate:29.97', 'quality:0', 'quality:10', 'fmtp:96 profile-level-id=42e016',
+    'x-unknown: anything']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['ptime:1', 'rtpmap:96 raw/90000', 'framerate:25']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute '${name}' must be a media-level attribute, as per RFC 4566 Section 6 and RFC 8866 Section 6.${{ ptime: 4, rtpmap: 6, framerate: 13 }[name]}.`],
+      `a=${attribute} is reported at session level`);
+  }
+  for (const attribute of ['cat:foo', 'tool:foo', 'type:test']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute '${name}' must be a session-level attribute, as per RFC 4566 Section 6 and RFC 8866 Section 6.${{ cat: 1, tool: 3, type: 9 }[name]}.`],
+      `a=${attribute} is reported at media level`);
+  }
+
+  for (const attribute of ['cat:foo bar', 'type:Broadcast', 'charset:ISO_8859-1:1987', 'sendrecv:yes', 'lang:en_GB']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(sessionLevel(attribute)).map(message => message.split(', which')[0]), [`Line 5: Attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at session level`);
+  }
+  for (const attribute of ['ptime: 0.125', 'ptime:0', 'ptime:0.0', 'ptime:1.', 'ptime', 'maxptime:', 'rtpmap:96 raw/90000/x', 'rtpmap:096 raw/90000',
+    'rtpmap:96  raw/90000', 'recvonly:', 'orient:Portrait', 'sdplang:fr-', 'framerate:30.', 'quality:05', 'fmtp:', 'fmtp: 96']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
+test('a packet time with leading or trailing zeros is reported only with --should', t => {
+  const sdp = readFixture('valid/st2110-30.sdp');
+  const messages = (variant, params) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  for (const ptime of ['1.0', '01', '0.1250']) {
+    const variant = sdp.replace('a=ptime:1', `a=ptime:${ptime}`);
+    t.same(messages(variant, {}), [], `a=ptime:${ptime} is accepted without --should`);
+    t.same(messages(variant, { should: true }),
+      ['Line 11: For stream 1, attribute \'ptime\' should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.4 does.'],
+      `a=ptime:${ptime} is reported with --should`);
+  }
+  const variant = sdp.replace('a=maxptime:1', 'a=maxptime:1.00');
+  t.same(messages(variant, {}), [], 'a=maxptime:1.00 is accepted without --should');
+  t.same(messages(variant, { should: true }),
+    ['Line 12: For stream 1, attribute \'maxptime\' should not have leading or trailing zeros, which RFC 4566 Section 6 does not prohibit but RFC 8866 Section 6.5 does.'],
+    'a=maxptime:1.00 is reported with --should');
+  t.end();
+});
+
+test('an empty format parameters attribute is reported only with --should', t => {
+  const sdp = readFixture('valid/st2110-40.sdp');
+  const messages = (variant, params) => runAllChecks(variant, { ...cliDefaults, ...params }).map(error => error.message);
+  for (const fmtp of ['a=fmtp:105', 'a=fmtp:105 ']) {
+    const variant = sdp.replace('smpte291/90000\r\n', `smpte291/90000\r\n${fmtp}\r\n`);
+    t.same(messages(variant, {}), [], `'${fmtp}' is accepted without --should`);
+    t.same(messages(variant, { should: true }),
+      ['Line 10: For stream 1, attribute \'fmtp\' should not be empty, so it should be omitted when there are no format specific parameters, as per RFC 4566 Section 6 and RFC 8866 Section 6.15.'],
+      `'${fmtp}' is reported with --should`);
+  }
+  t.end();
+});
+
+test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
+  const message = (line, name, form, section) =>
+    `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
+  const messages = (file, edit = sdp => sdp) => runAllChecks(edit(readFixture(file))).map(error => error.message);
+
+  t.same(messages('invalid/ptime-pattern.sdp'), [message(10, 'ptime', '<packet time>', '6.4')], 'a malformed ptime in an ancillary data stream');
+  t.same(messages('valid/st2110-30.sdp', sdp => sdp.replace('a=ptime:1', 'a=ptime: 1')), [message(11, 'ptime', '<packet time>', '6.4')],
+    'a malformed ptime in an ST 2110-30 stream');
+  t.same(messages('valid/st2110-31.sdp', sdp => sdp.replace('a=ptime:1', 'a=ptime: 1')), [message(11, 'ptime', '<packet time>', '6.4')],
+    'a malformed ptime in an ST 2110-31 stream');
+  t.same(messages('valid/st2110-30.sdp', sdp => sdp.replace('a=maxptime:1', 'a=maxptime:1.')), [message(12, 'maxptime', '<maximum packet time>', '6.5')],
+    'a malformed maxptime in an ST 2110-30 stream');
+  t.same(messages('valid/st2110-30.sdp', sdp => sdp.replace('L24/48000/2', 'L24/48000/x')),
+    [message(9, 'rtpmap', '<payload type> <encoding name>/<clock rate>[/<encoding parameters>]', '6.6')],
+    'a malformed rtpmap in an ST 2110-30 stream');
+  t.same(messages('valid/st2110-22.sdp', sdp => sdp.replace('exactframerate=60000/1001; ', '').replace('jxsv/90000\r\n', 'jxsv/90000\r\na=framerate:59.940\r\n')),
+    [message(11, 'framerate', '<frame rate>', '6.13')],
+    'a malformed framerate in an ST 2110-22 stream');
   t.end();
 });
 
