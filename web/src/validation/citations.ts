@@ -44,6 +44,7 @@ const vsfPublic: Record<string, string> = {
   'VSF TR-10-2:2024': `${vsfDownloads}/VSF_TR-10-2_2024-02-23.pdf`,
   'VSF TR-10-3:2024': `${vsfDownloads}/VSF_TR-10-3_2024-02-23.pdf`,
   'VSF TR-10-4:2023': `${vsfDownloads}/VSF_TR-10-4_2023-04-14.pdf`,
+  'VSF TR-10-5:2026': `${vsfDownloads}/VSF_TR-10-5_2026-02-17_v2.pdf`,
   'VSF TR-10-7:2024': `${vsfDownloads}/VSF_TR-10-7_2024-11-22.pdf`,
   'VSF TR-10-9:2025': `${vsfDownloads}/VSF_TR-10-9_v2_2025-05-13.pdf`,
   'VSF TR-10-11:2024': `${vsfDownloads}/VSF_TR-10-11_2024-02-23.pdf`,

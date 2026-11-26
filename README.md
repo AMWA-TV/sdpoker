@@ -18,7 +18,7 @@ This is a fork of the original repository from [Streampunk/sdpoker](https://gith
 Recent activity on the project (newest first):
 
 - Added checks of the VSF TR-10 (IPMX) requirements for the SDP files of IPMX streams, and `--ipmx`, to expect IPMX streams
-- Added checks of the level and syntax of the attributes that RFC 3605, RFC 4566, RFC 4570, RFC 5576, RFC 5888, RFC 7197, RFC 7273 and RFC 8285 define, and of the RFC 8759 `charset` and `profile` format parameters of TTML streams
+- Added checks of the level and syntax of the attributes that RFC 3605, RFC 4566, RFC 4570, RFC 5576, RFC 5888, RFC 7197, RFC 7273, RFC 8285 and VSF TR-10-5:2026 define, and of the RFC 8759 `charset` and `profile` format parameters of TTML streams
 - The syntax checks of the attributes that the ST 2110 tests also use, such as `rtpmap`, `ptime` and `mediaclk`, and of `source-filter`, are skipped by `--skipRFC4566`, not by `--skipST2110` or `--skipRFC4570`
 - Repeated format parameters are reported as per RFC 6838 for every stream, so `--skipRFC4566` skips this check, not `--skipST2110`
 - Added checks of media fields (`m=`), and that the format of each `rtpmap` and `fmtp` attribute is a format of its media description, as per RFC 4566
@@ -89,7 +89,7 @@ The value of a fulfilled promise is the contents of an SDP file as a string. SDP
 
 ### Check RFC 4566
 
-The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. The attribute tests also check the level and syntax of some attributes that other RFCs define, and each message cites that RFC. However, this is not an exhaustive SDP file tester.
+The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. The attribute tests also check the level and syntax of some attributes that other specifications define, and each message cites that specification. However, this is not an exhaustive SDP file tester.
 
 For example:
 
@@ -210,7 +210,7 @@ The following are some possible enhancements to SDPoker that may be added in the
 * Testing whether advertised clocks are available.
 * Testing that, for AES67 audio streams, the `ptime` attribute matches the sample rate and number of channels.
 * Testing ST 2110-30 audio streams against conformance level.
-* Tests of the IPMX `a=hkep`, `a=privacy` and `a=infoframe` attributes, and of the `FECPROFILE` format parameter.
+* Tests of the IPMX `a=privacy` and `a=infoframe` attributes, and of the `FECPROFILE` format parameter.
 * Ability to run the tests within a framework like [tape](https://www.npmjs.com/package/tape).
 * Retrieval of SDP files over HTTPS.
 

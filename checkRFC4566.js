@@ -195,7 +195,12 @@ const attributes = {
   // The extension name is an absolute URI, as per RFC 3986 Section 4.3, but only its scheme is checked
   'extmap': { usage: ['session', 'media'],
     value: valuePattern(String.raw`\d{1,5}(?:/(?:sendonly|recvonly|sendrecv|inactive))? [A-Za-z][-+.0-9A-Za-z]*:[^\x00-\x20\x7f]*(?: ${byteString})?`),
-    form: 'a=extmap:<value>[/<direction>] <URI>[ <extension attributes>]', specification: 'RFC 8285 Section 8' }
+    form: 'a=extmap:<value>[/<direction>] <URI>[ <extension attributes>]', specification: 'RFC 8285 Section 8' },
+  // Not registered with IANA, but permitted at session and media level, as per VSF TR-10-5:2026 Section 17
+  // The unicast address is not checked, except that it has no whitespace
+  'hkep': { usage: ['session', 'media'],
+    value: valuePattern(String.raw`\d+ IN IP[46] ${nonWsString} [0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12} [0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){4}`),
+    form: 'a=hkep:<port> IN <address type> <unicast address> <node id> <port id>', specification: 'VSF TR-10-5:2026 Section 10' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 const attributeNamePattern = new RegExp(`^${token}$`);

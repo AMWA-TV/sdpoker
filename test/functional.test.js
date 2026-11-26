@@ -1218,6 +1218,33 @@ test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 7197 d
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the syntax of the attribute that VSF TR-10-5 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const form = '\'a=hkep:<port> IN <address type> <unicast address> <node id> <port id>\', as per VSF TR-10-5:2026 Section 10.';
+  const nodeId = 'db31de40-19ad-450a-afb9-f4105be7b564';
+
+  for (const attribute of [`hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05`, `hkep:9001 IN IP6 2001:db8::1 ${nodeId.toUpperCase()} 0A-0b-0C-0d-0E`]) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['hkep', 'hkep:', 'hkep:9000', `hkep:9000 IN IP4 192.168.9.142 ${nodeId}`, `hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05-06`,
+    `hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04`, `hkep:9000 IN IP4 192.168.9.142 ${nodeId.replace(/-/g, '')} 01-02-03-04-05`,
+    `hkep:port IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05`, `hkep:9000 ATM NSAP 192.168.9.142 ${nodeId} 01-02-03-04-05`,
+    `hkep:9000 IN IPX 192.168.9.142 ${nodeId} 01-02-03-04-05`, `hkep:9000  IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05`,
+    `hkep:9000 IN IP4 192.168.9.142 ${nodeId} 01-02-03-04-05 `]) {
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute 'hkep' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at session level`);
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'hkep' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
 test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 8285 defines', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
