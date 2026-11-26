@@ -9,7 +9,7 @@ CLI tool, web application, and library for testing SMPTE ST 2110 compliant Sessi
 
 Just because an SDP file passes these tests does not mean it is 100% valid. However, if it fails one of the tests, the file is likely to need some work!
 
-This is an open source tool contributed for the benefit of anyone developing and deploying professional IP media systems. Please use pull requests and issues to help to enhance it. Please do report any false positives or false negatives found by these tests. A list of possible [enhancements](#enhancements) is provided below.
+This is an open source tool contributed for the benefit of anyone developing and deploying professional IP media systems. Please use pull requests and issues to help to enhance it. If SDPoker gives no error for an invalid SDP file, gives an error for a valid one, or gives a wrong or unclear error, [report an incorrect SDP check result](https://github.com/AMWA-TV/sdpoker/issues/new?template=sdp-check-result.yml). A list of possible [enhancements](#enhancements) is provided below.
 
 This is a fork of the original repository from [Streampunk/sdpoker](https://github.com/Streampunk/sdpoker) including additional features and bug fixes. It is intended to be used alongside the [NMOS Testing Tool](https://github.com/AMWA-TV/nmos-testing).
 
