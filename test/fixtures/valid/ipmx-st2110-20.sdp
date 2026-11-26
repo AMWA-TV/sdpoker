@@ -1,0 +1,11 @@
+v=0
+o=- 1618351493884125000 1618351539175204201 IN IP4 25.25.30.151
+s=IP video OUT 1
+t=0 0
+m=video 10000 RTP/AVP 96
+c=IN IP4 239.20.0.1/128
+a=ts-refclk:localmac=00-20-FC-32-2F-40
+a=mediaclk:sender
+a=source-filter: incl IN IP4 239.20.0.1 25.25.30.151
+a=rtpmap:96 raw/90000
+a=fmtp:96 width=1920; height=1080; exactframerate=60000/1001; sampling=YCbCr-4:2:2; depth=10; colorimetry=BT709; TCS=SDR; PM=2110GPM; SSN=ST2110-20:2017; TP=2110TPN; IPMX; measuredpixclk=148550104; vtotal=1125; htotal=2200

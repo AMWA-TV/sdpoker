@@ -21,4 +21,5 @@ export const optionSets: Record<string, ValidationOptions> = {
   shouldMidLast: { ...defaultOptions, should: true, midLast: true },
   duplicateWithEndings: { ...defaultOptions, duplicate: true, checkEndings: true },
   ip6MulticastNoRFC4570: { ...defaultOptions, useIP6: true, multicast: true, skipRFC4570: true },
+  shouldIpmx: { ...defaultOptions, should: true, ipmx: true },
 };

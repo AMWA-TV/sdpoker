@@ -27,6 +27,31 @@ describe('messageParts', () => {
     }
   });
 
+  it('links every VSF document cited by the checks', () => {
+    const source = readFileSync(new URL('../../../checkST2110.js', import.meta.url), 'utf8');
+    const cited = new Set(source.match(/VSF TR-\d+(?:-\d+)*(?::\d{4})?(?= (?:Sections?|Appendix))/g));
+    expect(cited.size).toBeGreaterThan(5);
+    for (const citation of cited) {
+      expect(messageParts(citation)[0].href, citation).toBeDefined();
+    }
+  });
+
+  it('links each VSF document of a citation', () => {
+    expect(messageParts('as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.')).toEqual([
+      { text: 'as per ' },
+      {
+        text: 'VSF TR-10-1:2024',
+        href: 'https://static.vsf.tv/download/technical_recommendations/VSF_TR-10-1_2024-02-23.pdf',
+      },
+      { text: ' Section 10.3 and ' },
+      {
+        text: 'VSF TR-10-9:2025',
+        href: 'https://static.vsf.tv/download/technical_recommendations/VSF_TR-10-9_v2_2025-05-13.pdf',
+      },
+      { text: ' Section 10.' },
+    ]);
+  });
+
   it('links every RFC section cited by the checks', () => {
     const source = ['checkRFC4566.js', 'checkRFC4570.js', 'checkST2110.js']
       .map((file) => readFileSync(new URL(`../../../${file}`, import.meta.url), 'utf8'))

@@ -25,7 +25,7 @@ const cliDefaults = {
   duplicate: false,
   skipRFC4566: false, skipRFC4570: false, skipST2110: false,
   channelOrder: false, useIP4: false, useIP6: false,
-  multicast: false, unicast: false, shaping: true, midLast: false, verbose: false
+  multicast: false, unicast: false, shaping: true, midLast: false, ipmx: false, verbose: false
 };
 const fixturesRoot = path.join(__dirname, 'fixtures');
 const validFixturesDir = path.join(fixturesRoot, 'valid');
@@ -920,6 +920,9 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10:2022 Annex B Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
   t.ok(withoutOptions.includes('Test Skipped: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description. Use --noMedia to test.'));
   t.ok(logged(jxsv, { noCopy: false }).includes('Test Skipped: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example. Use --noCopy to test.'));
+  t.ok(lines.includes('Test Skipped: VSF TR-10-1:2024 Section 10.1 Test 1 - Every stream has the \'IPMX\' declaration. Use --ipmx to test.'));
+  t.ok(lines.includes('Test Skipped: VSF TR-10-9:2025 Section 17 Test 1 - IPMX streams do not use the IPv4 multicast addresses 224.0.0.0 to 224.0.1.255. No stream has the \'IPMX\' declaration. Use --ipmx to test.'));
+  t.ok(logged(readFixture('valid/ipmx-st2110-20.sdp'), {}).includes('Test Skipped: VSF TR-10-2:2024 Section 7 Test 2 - IPMX streams have a UDP destination port greater than 5000. Use --should to test.'));
   t.end();
 });
 
@@ -1483,7 +1486,7 @@ test('every error that starts with a line number has that line as its line prope
     .filter(file => file.endsWith('.sdp')).map(file => `${dir}/${file}`));
   const paramSets = [
     cliDefaults,
-    { ...cliDefaults, checkEndings: true, should: true, duplicate: true, channelOrder: true, midLast: true, multicast: true, useIP6: true }
+    { ...cliDefaults, checkEndings: true, should: true, duplicate: true, channelOrder: true, midLast: true, multicast: true, useIP6: true, ipmx: true }
   ];
   const errors = files.flatMap(file => paramSets.flatMap(params => runAllChecks(readFixture(file), params)));
   const mismatches = errors.filter(error => {
@@ -1551,5 +1554,151 @@ test('a media clock reference other than direct is reported', t => {
   t.same(messages(stream, { should: true }),
     ['Line 11: For stream 1, attribute \'mediaclk\' shall use the \'direct\' or \'sender\' reference, not \'IEEE1722\', as per ST 2110-10:2022 Section 8.3.'],
     'with --should, a stream reference is reported once');
+  t.end();
+});
+
+const tr10Messages = (sdp, params = {}) => runAllChecks(sdp, { ...cliDefaults, ...params })
+  .map(error => error.message).filter(message => message.includes('VSF TR-10'));
+
+test('the VSF TR-10 checks apply to streams with the IPMX declaration, or to every stream with --ipmx', t => {
+  const raw = readFixture('valid/st2110-20.sdp');
+  const ipmx = readFixture('valid/ipmx-st2110-20.sdp');
+  t.same(tr10Messages(raw), [], 'a stream without the declaration is not checked by default');
+  t.same(tr10Messages(raw, { ipmx: true }), [
+    'Line 10: For stream 1, format parameter \'IPMX\' shall be specified, as requested by --ipmx, as per VSF TR-10-1:2024 Section 10.1.',
+    'Line 10: For stream 1, format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' shall be specified, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-9:2025 Section 10.'
+  ], 'with --ipmx, a stream without the declaration is reported');
+  t.same(tr10Messages(ipmx.replace('a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0:37')),
+    ['Line 7: For stream 1, attribute \'ts-refclk\' shall use the \'ptp=IEEE1588-2008\' or \'localmac\' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.'],
+    'a stream with the declaration is checked without --ipmx');
+  const malformed = ipmx.replace('a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:ptp=IEEE1588-2002');
+  t.same(runAllChecks(malformed, cliDefaults).map(error => error.message).filter(message => message.includes('ts-refclk')),
+    ['Line 7: For stream 1, attribute \'ts-refclk\' is not an acceptable pattern, which must be of the form ' +
+      '\'a=ts-refclk:ptp=<ptp version>:<ptp gmid>[:<ptp domain>]\' or \'a=ts-refclk:ptp=<ptp version>:traceable\', as per RFC 7273 Section 4.8.'],
+    'a reference clock that is not an acceptable pattern is reported once');
+  const malformedGroup = ipmx.replace('t=0 0', 't=0 0\r\na=group:FID  1');
+  t.same(runAllChecks(malformedGroup, cliDefaults).map(error => error.message).filter(message => message.includes('\'group\'')),
+    ['Line 5: Attribute \'group\' is not an acceptable pattern, which must be of the form \'a=group:<semantics>[ <identification tag>]*\', as per RFC 5888 Section 5.'],
+    'a grouping that is not an acceptable pattern is reported once');
+  t.same(tr10Messages(readFixture('valid/ipmx-st2110-30.sdp'), { ipmx: true }), [], 'with --ipmx, a stream with the declaration passes');
+  t.end();
+});
+
+test('the VSF TR-10-1:2024 Section 10 format parameters are reported', t => {
+  const raw = readFixture('valid/ipmx-st2110-20.sdp');
+  const audio = readFixture('valid/ipmx-st2110-30.sdp');
+  const at = message => `Line 11: For stream 1, ${message}`;
+  const cases = [
+    [raw.replace('IPMX;', 'IPMX=1;'), [at('the \'IPMX\' declaration shall not have a value, as per VSF TR-10-1:2024 Section 10.1.')], 'a declaration with a value'],
+    [raw.replace(' IPMX;', ''), [], 'video parameters without the declaration'],
+    [raw.replace('; htotal=2200', ''),
+      [at('format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' shall be specified together, as per VSF TR-10-1:2024 Section 10.2.')], 'a missing video parameter'],
+    [raw.replace('raw/90000', 'H266/90000'), [], 'video parameters for an encoding that is not listed'],
+    [raw.replace('vtotal=1125', 'vtotal=1079'),
+      [at('format parameter \'vtotal\' shall be no less than \'height\', because it includes the blanking periods, as per VSF TR-10-1:2024 Section 10.2.')], 'a total less than the active size'],
+    [raw.replace('htotal=2200', 'htotal=65536'),
+      [at('format parameter \'htotal\' shall be a positive integer no greater than 65535, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-2:2024 Section 10.')], 'a total too large for the Info Block'],
+    [raw.replace('measuredpixclk=148550104', 'measuredpixclk=18446744073709551616'),
+      [at('format parameter \'measuredpixclk\' shall be a positive integer no greater than 18446744073709551615, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-2:2024 Section 10.')], 'a pixel clock too large for the Info Block'],
+    [raw.replace('IPMX;', 'IPMX; measuredsamplerate=48000;'),
+      [at('format parameter \'measuredsamplerate\' shall only be specified for an \'L16\', \'L24\' or \'AM824\' audio stream, as per VSF TR-10-1:2024 Section 10.3.')], 'a sample rate for video'],
+    [audio.replace('measuredsamplerate=47952', 'measuredsamplerate=0'),
+      ['Line 9: For stream 1, format parameter \'measuredsamplerate\' shall be a positive integer no greater than 4294967295, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-3:2024 Section 11.'], 'a zero sample rate'],
+    [audio.replace('; IPMX; measuredsamplerate=47952', ''),
+      [], 'audio without the declaration'],
+    [audio.replace('; measuredsamplerate=47952', ''),
+      ['Line 9: For stream 1, format parameter \'measuredsamplerate\' shall be specified, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.'], 'a missing sample rate'],
+    [audio.replace('L24/48000/8', 'AM824/48000/8'), [], 'a sample rate for AES3 audio'],
+    [audio.replace('L24/48000/8', 'AM824/48000/8').replace('; measuredsamplerate=47952', ''),
+      ['Line 9: For stream 1, format parameter \'measuredsamplerate\' shall be specified, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.'], 'a missing sample rate for AES3 audio'],
+    [audio.replace('a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:local'),
+      ['Line 10: For stream 1, attribute \'ts-refclk\' shall use the \'ptp=IEEE1588-2008\' or \'localmac\' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.'], 'another reference clock'],
+    [raw.replace('t=0 0', 't=0 0\r\na=group:FID 1'),
+      ['Line 5: Attribute \'group\' shall not use the \'FID\' semantics in the SDP file of an IPMX Sender, as per VSF TR-10-1:2024 Section 10.'], 'FID grouping']
+  ];
+  for (const [sdp, expected, name] of cases) {
+    t.same(tr10Messages(sdp), expected, name);
+  }
+  t.same(tr10Messages(raw.replace(' IPMX;', ''), { should: true }), [
+    at('format parameter \'measuredpixclk\' is defined for IPMX Senders, so the \'IPMX\' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.'),
+    at('format parameter \'vtotal\' is defined for IPMX Senders, so the \'IPMX\' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.'),
+    at('format parameter \'htotal\' is defined for IPMX Senders, so the \'IPMX\' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.')
+  ], 'with --should, video parameters without the declaration');
+  t.end();
+});
+
+test('a PTP version other than IEEE 1588-2008 of an IPMX stream is reported once with --should', t => {
+  const ipmx = readFixture('valid/ipmx-st2110-20.sdp').replace('a=ts-refclk:localmac=00-20-FC-32-2F-40', 'a=ts-refclk:ptp=IEEE1588-2002:39-A7-94-FF-FE-07-CB-D0:37');
+  const messages = sdp => runAllChecks(sdp, { ...cliDefaults, should: true }).map(error => error.message).filter(m => m.includes('\'ts-refclk\''));
+  t.same(messages(ipmx),
+    ['Line 7: For stream 1, attribute \'ts-refclk\' shall use the \'ptp=IEEE1588-2008\' or \'localmac\' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.'],
+    'an IPMX stream is reported as per VSF TR-10-1:2024 Section 10.4');
+  t.same(messages(ipmx.replace(' IPMX; measuredpixclk=148550104; vtotal=1125; htotal=2200', '')),
+    ['Line 7: Attribute \'ts-refclk\' of type \'ptp\' should specify \'IEEE1588-2008\', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.'],
+    'a stream that is not an IPMX stream is reported as per ST 2110-10:2022');
+  t.end();
+});
+
+test('the UDP destination ports are reported as per Section 7 of VSF TR-10-2:2024, VSF TR-10-3:2024, VSF TR-10-4:2023 and VSF TR-10-11:2024', t => {
+  const raw = readFixture('valid/ipmx-st2110-20.sdp');
+  const port = (sdp, value) => sdp.replace(/^m=(\w+) \d+/m, `m=$1 ${value}`);
+  t.same(tr10Messages(port(raw, 10001)),
+    ['Line 5: For stream 1, UDP destination port \'10001\' shall be even and greater than 1024, as per VSF TR-10-2:2024 Section 7.'], 'an odd port');
+  t.same(tr10Messages(port(raw, 1024)),
+    ['Line 5: For stream 1, UDP destination port \'1024\' shall be even and greater than 1024, as per VSF TR-10-2:2024 Section 7.'], 'port 1024');
+  t.same(tr10Messages(port(raw, 5000)), [], 'port 5000 by default');
+  t.same(tr10Messages(port(raw, 5000), { should: true }),
+    ['Line 5: For stream 1, UDP destination port \'5000\' should be greater than 5000, as per VSF TR-10-2:2024 Section 7.'], 'port 5000 with --should');
+  for (const [fixture, specification] of [
+    ['ipmx-st2110-30', 'VSF TR-10-3:2024 Section 7'],
+    ['ipmx-st2110-40', 'VSF TR-10-4:2023 Section 7'],
+    ['ipmx-st2110-22', 'VSF TR-10-11:2024 Section 7']
+  ]) {
+    t.same(tr10Messages(port(readFixture(`valid/${fixture}.sdp`), 10001)),
+      [`Line 5: For stream 1, UDP destination port '10001' shall be even and greater than 1024, as per ${specification}.`], fixture);
+  }
+  const media = raw.slice(raw.indexOf('m='));
+  const redundant = port(raw.replace(/a=rtpmap:[^\r]*\r\n/, ''), 10001) + media.replace('239.20.0.1', '239.20.0.2').replace('239.20.0.1', '239.20.0.2');
+  t.same(tr10Messages(redundant).filter(m => m.includes('UDP destination port')),
+    ['Line 5: For stream 1, UDP destination port \'10001\' shall be even and greater than 1024, as per VSF TR-10-2:2024 Section 7.'],
+    'the specification is chosen from the first stream whose encoding name is known');
+  t.end();
+});
+
+test('the VSF TR-10-9:2025 Section 10 pixel clock of a Sender that does not convert a Baseband signal is reported', t => {
+  const rgb = readFixture('valid/ipmx-st2110-20-not-baseband.sdp');
+  const jxsv = readFixture('valid/ipmx-st2110-22.sdp');
+  t.same(tr10Messages(rgb.replace('measuredpixclk=497664000', 'measuredpixclk=497664001')),
+    ['Line 11: For stream 1, format parameter \'measuredpixclk\' shall be \'497664000\', the product of \'width\', \'height\' and \'exactframerate\', when \'htotal\' and \'vtotal\' are the same as \'width\' and \'height\', as per VSF TR-10-9:2025 Section 10.'],
+    'an integer frame rate');
+  t.same(tr10Messages(jxsv.replace('measuredpixclk=124291708', 'measuredpixclk=124291709')), [], 'a fractional frame rate rounded up');
+  t.same(tr10Messages(jxsv.replace('measuredpixclk=124291708', 'measuredpixclk=124416000')),
+    ['Line 10: For stream 1, format parameter \'measuredpixclk\' shall be \'124291708\' or \'124291709\', the product of \'width\', \'height\' and \'exactframerate\', when \'htotal\' and \'vtotal\' are the same as \'width\' and \'height\', as per VSF TR-10-9:2025 Section 10.'],
+    'a fractional frame rate');
+  t.same(tr10Messages(rgb.replace('measuredpixclk=497664000; vtotal=2160', 'measuredpixclk=500000000; vtotal=2161')), [], 'a Sender that converts a Baseband signal');
+  t.end();
+});
+
+test('the VSF TR-10-9:2025 Section 17 multicast addresses and source filters are reported', t => {
+  const raw = readFixture('valid/ipmx-st2110-20.sdp');
+  const noFilter = raw.replace(/a=source-filter:[^\r\n]*\r\n/, '');
+  t.same(tr10Messages(raw.replace(/239\.20\.0\.1/g, '224.0.1.5')),
+    ['Line 5: For stream 1, destination address \'224.0.1.5\' shall not be in the range 224.0.0.0 to 224.0.1.255, as per VSF TR-10-9:2025 Section 17.'],
+    'an address in 224.0.1.x');
+  t.same(tr10Messages(noFilter),
+    ['Line 5: For stream 1, destination address \'239.20.0.1\' is multicast, so an inclusive \'source-filter\' attribute shall be included, as per VSF TR-10-9:2025 Section 17.'],
+    'a missing source filter');
+  t.notOk(runAllChecks(noFilter, { ...cliDefaults, should: true }).some(error => error.message.includes('ST 2110-10:2022 Section 8.4')),
+    'a missing source filter is not also reported as per ST 2110-10:2022 Section 8.4 with --should');
+  t.end();
+});
+
+test('the sender media clock reference is not reported for IPMX streams with --should', t => {
+  const reported = sdp => checkST2110(sdp, { ...cliDefaults, should: true }).some(error => error.message.includes('should use the \'direct\' reference'));
+  const ipmx = readFixture('valid/ipmx-st2110-20.sdp');
+  const session = ipmx.replace('a=mediaclk:sender\r\n', '').replace('t=0 0', 't=0 0\r\na=mediaclk:sender');
+  t.notOk(reported(ipmx), 'a media-level attribute of an IPMX stream');
+  t.notOk(reported(session), 'a session-level attribute when every stream is an IPMX stream');
+  t.ok(reported(ipmx.replace(' IPMX; measuredpixclk=148550104; vtotal=1125; htotal=2200', '')), 'a stream that is not an IPMX stream');
   t.end();
 });

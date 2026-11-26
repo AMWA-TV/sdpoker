@@ -186,7 +186,8 @@ const test_10_81_1 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.1 Test 2 - Attribute 'mediaclk' uses the direct reference
-// Only the sender reference is reported, because ST 2110-10:2022 Section 8.3 Test 1 reports any other
+// Only the sender reference is reported, because ST 2110-10:2022 Section 8.3 Test 1 reports any other.
+// IPMX streams are not reported, because an IPMX Sender uses the sender reference for Async Media, as per VSF TR-10-1:2024 Section 10.5.
 const test_10_81_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
@@ -196,14 +197,16 @@ const test_10_81_2 = (sdp, params) => {
   }
   let errors = [];
   let lines = splitLines(sdp);
+  let streams = extractIpmxStreams(sdp, params);
   let streamCount = 0;
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       streamCount++;
       continue;
     }
+    let ipmx = streamCount ? streams[streamCount - 1].ipmx : streams.length > 0 && streams.every(stream => stream.ipmx);
     let typeMatch = lines[x].match(mediaclkTypePattern);
-    if (typeMatch && typeMatch[1] === 'sender') {
+    if (typeMatch && typeMatch[1] === 'sender' && !ipmx) {
       errors.push(new LineError(x + 1, `For ${streamCount ? 'stream ' + streamCount : 'all streams'}, attribute 'mediaclk' should use the 'direct' reference, not 'sender', as per ST 2110-10 Section 8.1.`));
     }
   }
@@ -289,15 +292,18 @@ const test_10_2022_82_1 = (sdp, params) => {
 };
 
 // ST 2110-10 Section 8.2 Test 3 - PTP parameters of attribute 'ts-refclk' are acceptable values
+// IPMX streams are not reported with --should for a version other than IEEE 1588-2008, because VSF TR-10-1:2024 Section 10.4 Test 1 reports it.
 const test_10_82_3 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let mediaLevel = false;
+  let streams = extractIpmxStreams(sdp, params);
+  let streamCount = 0;
   for (let x = 0; x < lines.length; x++) {
-    if (!mediaLevel) {
-      if (lines[x].startsWith('m=')) {
-        mediaLevel = true;
-      }
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (!streamCount) {
       continue;
     }
     // A 'ts-refclk' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
@@ -308,7 +314,7 @@ const test_10_82_3 = (sdp, params) => {
         errors.push(new LineError(x + 1, `Attribute 'ts-refclk' of type 'ptp' must specify PTP version 'IEEE1588-2002', 'IEEE1588-2008' or 'IEEE802.1AS-2011', but specifies '${ptpVersion}', as per RFC 7273 Section 4.8.`));
         continue;
       }
-      if (params.should && ptpVersion !== 'IEEE1588-2008') {
+      if (params.should && ptpVersion !== 'IEEE1588-2008' && !streams[streamCount - 1].ipmx) {
         errors.push(new LineError(x + 1, 'Attribute \'ts-refclk\' of type \'ptp\' should specify \'IEEE1588-2008\', the version of the Common Reference Clock, as per ST 2110-10:2022 Sections 7.2 and 8.2.'));
       }
       let ptpMatch = ptpDetails.slice(ptpVersion.length + 1).match(ptpPattern);
@@ -708,6 +714,7 @@ const test_10_2022_84_1 = (sdp, params) => {
 };
 
 // ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address have an inclusive source filter
+// IPMX streams are reported by VSF TR-10-9:2025 Section 17 Test 2, which requires the source filter
 const test_10_2022_84_2 = (sdp, params) => {
   if (!params.should) {
     if (params.verbose) {
@@ -715,8 +722,9 @@ const test_10_2022_84_2 = (sdp, params) => {
     }
     return [];
   }
+  let streams = extractIpmxStreams(sdp, params);
   let errors = streamsWithoutSourceFilter(sdp)
-    .filter(stream => !ssmPattern.test(stream.address))
+    .filter(stream => !ssmPattern.test(stream.address) && !streams[stream.streamNumber - 1].ipmx)
     .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute should be included to support source-specific multicast, as per ST 2110-10:2022 Section 8.4.`));
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.4 Test 2 - Streams with another multicast destination address have an inclusive source filter.');
@@ -2322,6 +2330,395 @@ const test_8759_112_1 = (sdp, params) => {
   return errors;
 };
 
+// The encodings of the video and audio IPMX streams that have the format parameters of VSF TR-10-1:2024 Sections 10.2 and 10.3:
+// 'raw' as per VSF TR-10-2:2024, 'jxsv' as per VSF TR-10-11:2024, 'H264' and 'H265' as per VSF TR-10-7:2024,
+// 'L16' and 'L24' as per VSF TR-10-3:2024, and 'AM824' as per VSF TR-10-12:2023
+const ipmxVideoEncodings = ['raw', 'jxsv', 'H264', 'H265'];
+const ipmxVideoParams = ['measuredpixclk', 'vtotal', 'htotal'];
+const ipmxAudioEncodings = ['L16', 'L24', 'AM824'];
+const ipmxAudioParams = ['measuredsamplerate'];
+// The IPMX Info Block carries the same values, in fields of these sizes, as per VSF TR-10-2:2024 Section 10 and VSF TR-10-3:2024 Section 11
+const ipmxParamMaximums = {
+  measuredpixclk: 2n ** 64n - 1n,
+  vtotal: 2n ** 16n - 1n,
+  htotal: 2n ** 16n - 1n,
+  measuredsamplerate: 2n ** 32n - 1n
+};
+// The document that requires an even UDP destination port greater than 1024 for the IPMX streams of each encoding
+const ipmxPortSpecifications = {
+  raw: 'VSF TR-10-2:2024 Section 7',
+  L16: 'VSF TR-10-3:2024 Section 7',
+  L24: 'VSF TR-10-3:2024 Section 7',
+  smpte291: 'VSF TR-10-4:2023 Section 7',
+  H264: 'VSF TR-10-7:2024 Section 7',
+  H265: 'VSF TR-10-7:2024 Section 7',
+  jxsv: 'VSF TR-10-11:2024 Section 7',
+  AM824: 'VSF TR-10-12:2023 Section 7'
+};
+
+// The media descriptions, with their format parameters, and whether each is checked as an IPMX stream.
+// With --ipmx, every stream is. Otherwise, a stream is when its format parameters have the 'IPMX' declaration,
+// which identifies an IPMX Sender, as per VSF TR-10-9:2025 Section 11.
+const extractIpmxStreams = (sdp, params) => {
+  return extractStreams(sdp).map(stream => {
+    let fmtp = stream.fmtp.find(fmtp => fmtp.params && fmtp.format === stream.formats[0]);
+    let declared = fmtp !== undefined && Object.hasOwn(fmtp.params, 'IPMX');
+    return {
+      streamNumber: stream.streamNumber,
+      line: stream.line,
+      port: stream.port,
+      encodingName: encodingNameOf(stream),
+      fmtp: fmtp?.params ?? {},
+      // A missing format parameter is reported at the 'fmtp' attribute, or at the media description when there is none
+      fmtpLine: fmtp?.line ?? stream.line,
+      declared,
+      ipmx: params.ipmx === true || declared
+    };
+  });
+};
+
+const skipWithoutIpmx = (streams, params, test) => {
+  if (streams.some(stream => stream.ipmx)) {
+    return false;
+  }
+  if (params.verbose) {
+    console.log(`Test Skipped: ${test}. No stream has the 'IPMX' declaration. Use --ipmx to test.`);
+  }
+  return true;
+};
+
+// VSF TR-10-1:2024 Section 10 Test 1 - IPMX streams are not grouped with the 'FID' semantics
+// A 'group' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+const test_tr10_1_10_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10 Test 1 - IPMX streams are not grouped with the \'FID\' semantics';
+  if (skipWithoutIpmx(extractIpmxStreams(sdp, params), params, test)) {
+    return [];
+  }
+  let errors = splitLines(sdp).flatMap((line, x) => /^a=group:FID(\s|$)/.test(line) && isAcceptableAttribute(line) ?
+    [new LineError(x + 1, 'Attribute \'group\' shall not use the \'FID\' semantics in the SDP file of an IPMX Sender, as per VSF TR-10-1:2024 Section 10.')] : []);
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.1 Test 1 - Every stream has the 'IPMX' declaration, as requested by --ipmx
+const test_tr10_1_101_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.1 Test 1 - Every stream has the \'IPMX\' declaration';
+  if (!params.ipmx) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test}. Use --ipmx to test.`);
+    }
+    return [];
+  }
+  let errors = extractIpmxStreams(sdp, params)
+    .filter(stream => !stream.declared)
+    .map(stream => new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'IPMX' shall be specified, as requested by --ipmx, as per VSF TR-10-1:2024 Section 10.1.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.1 Test 2 - The 'IPMX' declaration has no value
+const test_tr10_1_101_2 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.1 Test 2 - The \'IPMX\' declaration has no value';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = streams
+    .filter(stream => stream.declared && stream.fmtp.IPMX !== '')
+    .map(stream => new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, the 'IPMX' declaration shall not have a value, as per VSF TR-10-1:2024 Section 10.1.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.1 Test 3 - Streams with the IPMX format parameters have the 'IPMX' declaration
+// VSF TR-10-1:2024 does not forbid these parameters without the declaration, but they suggest an IPMX Sender, which shall include it
+const test_tr10_1_101_3 = (sdp, params) => {
+  if (!params.should) {
+    if (params.verbose) {
+      console.log('Test Skipped: VSF TR-10-1:2024 Section 10.1 Test 3 - Streams with the IPMX format parameters have the \'IPMX\' declaration. Use --should to test.');
+    }
+    return [];
+  }
+  let errors = [];
+  for (let stream of extractIpmxStreams(sdp, params).filter(stream => !stream.ipmx)) {
+    for (let param of ipmxVideoParams) {
+      if (Object.hasOwn(stream.fmtp, param)) {
+        errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${param}' is defined for IPMX Senders, so the 'IPMX' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.2.`));
+      }
+    }
+    for (let param of ipmxAudioParams) {
+      if (Object.hasOwn(stream.fmtp, param)) {
+        errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${param}' is defined for IPMX Senders, so the 'IPMX' declaration should be specified, as per VSF TR-10-1:2024 Sections 10.1 and 10.3.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: VSF TR-10-1:2024 Section 10.1 Test 3 - Streams with the IPMX format parameters have the \'IPMX\' declaration.');
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.2 Test 1 - Format parameters 'measuredpixclk', 'vtotal' and 'htotal' are specified together
+const test_tr10_1_102_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.2 Test 1 - Format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' are specified together';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx)) {
+    let present = ipmxVideoParams.filter(param => Object.hasOwn(stream.fmtp, param));
+    if (present.length > 0 && present.length < ipmxVideoParams.length) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameters 'measuredpixclk', 'vtotal' and 'htotal' shall be specified together, as per VSF TR-10-1:2024 Section 10.2.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// Check that a format parameter of VSF TR-10-1:2024 Sections 10.2 and 10.3 is a positive integer that fits its IPMX Info Block field
+const checkIpmxParam = (stream, param, specification) => {
+  let value = stream.fmtp[param];
+  if (!integerPattern.test(value) || BigInt(value) > ipmxParamMaximums[param]) {
+    return [new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${param}' shall be a positive integer no greater than ${ipmxParamMaximums[param]}, as per ${specification}.`)];
+  }
+  return [];
+};
+
+// VSF TR-10-1:2024 Section 10.2 Test 2 - Format parameters 'measuredpixclk', 'vtotal' and 'htotal' have acceptable values
+const test_tr10_1_102_2 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.2 Test 2 - Format parameters \'measuredpixclk\', \'vtotal\' and \'htotal\' have acceptable values';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && ipmxVideoEncodings.includes(stream.encodingName))) {
+    for (let param of ipmxVideoParams.filter(param => Object.hasOwn(stream.fmtp, param))) {
+      errors.push(...checkIpmxParam(stream, param, 'VSF TR-10-1:2024 Section 10.2 and VSF TR-10-2:2024 Section 10'));
+    }
+    // The totals include the blanking periods as well as the active picture
+    for (let [total, active] of [['htotal', 'width'], ['vtotal', 'height']]) {
+      if (integerPattern.test(stream.fmtp[total]) && integerPattern.test(stream.fmtp[active]) &&
+        BigInt(stream.fmtp[total]) < BigInt(stream.fmtp[active])) {
+        errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter '${total}' shall be no less than '${active}', because it includes the blanking periods, as per VSF TR-10-1:2024 Section 10.2.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.3 Test 1 - Format parameter 'measuredsamplerate' is specified for audio, with an acceptable value
+const test_tr10_1_103_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.3 Test 1 - Format parameter \'measuredsamplerate\' is specified for audio, with an acceptable value';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && Object.hasOwn(stream.fmtp, 'measuredsamplerate'))) {
+    if (!ipmxAudioEncodings.includes(stream.encodingName)) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'measuredsamplerate' shall only be specified for an 'L16', 'L24' or 'AM824' audio stream, as per VSF TR-10-1:2024 Section 10.3.`));
+    } else {
+      errors.push(...checkIpmxParam(stream, 'measuredsamplerate', 'VSF TR-10-1:2024 Section 10.3 and VSF TR-10-3:2024 Section 11'));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-1:2024 Section 10.4 Test 1 - IPMX streams use the 'ptp=IEEE1588-2008' or 'localmac' reference clock
+// An IPMX Sender uses the IEEE 1588-2008 Common Reference Clock when there is one, as per VSF TR-10-1:2024 Section 7.2,
+// and its Internal Clock otherwise. Forms that are not acceptable patterns are reported by RFC 4566 Section 6 Test 2
+// and ST 2110-10:2022 Section 8.2 Test 1.
+const test_tr10_1_104_1 = (sdp, params) => {
+  const test = 'VSF TR-10-1:2024 Section 10.4 Test 1 - IPMX streams use the \'ptp=IEEE1588-2008\' or \'localmac\' reference clock';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  let lines = splitLines(sdp);
+  let streamCount = 0;
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      continue;
+    }
+    if (streamCount > 0 && streams[streamCount - 1].ipmx && isAcceptableAttribute(lines[x]) &&
+      (/^a=ts-refclk:ptp=(?:IEEE1588-2002|IEEE802\.1AS-2011)(?::|$)/.test(lines[x]) || otherRefclkPattern.test(lines[x]))) {
+      errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'ts-refclk' shall use the 'ptp=IEEE1588-2008' or 'localmac' form, as per VSF TR-10-1:2024 Sections 7.2 and 10.4.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// Check the UDP destination ports of the IPMX streams, citing the document for the encoding of the streams, from ipmxPortSpecifications
+const checkIpmxPorts = (sdp, params, testNumber) => {
+  let streams = extractIpmxStreams(sdp, params);
+  let specification = ipmxPortSpecifications[streams.find(stream => stream.encodingName !== undefined)?.encodingName];
+  if (!specification) {
+    return [];
+  }
+  const test = testNumber == 1 ?
+    `${specification} Test 1 - IPMX streams have an even UDP destination port greater than 1024` :
+    `${specification} Test 2 - IPMX streams have a UDP destination port greater than 5000`;
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  if (testNumber == 2 && !params.should) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test}. Use --should to test.`);
+    }
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && stream.port !== undefined)) {
+    if (testNumber == 1 && (stream.port % 2 != 0 || stream.port <= 1024)) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, UDP destination port '${stream.port}' shall be even and greater than 1024, as per ${specification}.`));
+    } else if (testNumber == 2 && stream.port > 1024 && stream.port <= 5000) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, UDP destination port '${stream.port}' should be greater than 5000, as per ${specification}.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-2:2024, VSF TR-10-3:2024, VSF TR-10-4:2023, VSF TR-10-7:2024, VSF TR-10-11:2024 and VSF TR-10-12:2023
+// Section 7 Test 1 - IPMX streams have an even UDP destination port greater than 1024
+const test_tr10_x_7_1 = (sdp, params) => checkIpmxPorts(sdp, params, 1);
+
+// VSF TR-10-2:2024, VSF TR-10-3:2024, VSF TR-10-4:2023, VSF TR-10-7:2024, VSF TR-10-11:2024 and VSF TR-10-12:2023
+// Section 7 Test 2 - IPMX streams have a UDP destination port greater than 5000
+const test_tr10_x_7_2 = (sdp, params) => checkIpmxPorts(sdp, params, 2);
+
+// VSF TR-10-9:2025 Section 10 Test 1 - IPMX video and audio streams have the measured format parameters
+// VSF TR-10-1:2024 requires them for a Sender that converts a Baseband signal, and VSF TR-10-9:2025 gives the values for any other Sender
+const test_tr10_9_10_1 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 10 Test 1 - IPMX video and audio streams have the measured format parameters';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx)) {
+    // Some, but not all, of the video parameters are reported by VSF TR-10-1:2024 Section 10.2 Test 1
+    if (ipmxVideoEncodings.includes(stream.encodingName) && !ipmxVideoParams.some(param => Object.hasOwn(stream.fmtp, param))) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameters 'measuredpixclk', 'vtotal' and 'htotal' shall be specified, as per VSF TR-10-1:2024 Section 10.2 and VSF TR-10-9:2025 Section 10.`));
+    } else if (ipmxAudioEncodings.includes(stream.encodingName) && !Object.hasOwn(stream.fmtp, 'measuredsamplerate')) {
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'measuredsamplerate' shall be specified, as per VSF TR-10-1:2024 Section 10.3 and VSF TR-10-9:2025 Section 10.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-9:2025 Section 10 Test 2 - Format parameter 'measuredpixclk' of a Sender that does not convert a Baseband signal has an acceptable value
+// A Baseband signal has blanking periods, so 'htotal' and 'vtotal' are the same as 'width' and 'height' only for a Sender that does not convert one.
+// VSF TR-10-9:2025 does not say how to round the product for a fractional frame rate, so it can be rounded either way.
+const test_tr10_9_10_2 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 10 Test 2 - Format parameter \'measuredpixclk\' of a Sender that does not convert a Baseband signal has an acceptable value';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  for (let stream of streams.filter(stream => stream.ipmx && ipmxVideoEncodings.includes(stream.encodingName))) {
+    let { width, height, htotal, vtotal, measuredpixclk, exactframerate } = stream.fmtp;
+    let rateMatch = frameRatePattern.exec(exactframerate);
+    if (!integerPattern.test(width) || !integerPattern.test(height) || htotal !== width || vtotal !== height ||
+      !integerPattern.test(measuredpixclk) || !rateMatch) {
+      continue;
+    }
+    let product = BigInt(width) * BigInt(height) * BigInt(rateMatch[1]);
+    let denominator = BigInt(rateMatch[2] ?? 1);
+    let floor = product / denominator;
+    let ceiling = (product + denominator - 1n) / denominator;
+    if (BigInt(measuredpixclk) !== floor && BigInt(measuredpixclk) !== ceiling) {
+      let expected = floor === ceiling ? `'${floor}'` : `'${floor}' or '${ceiling}'`;
+      errors.push(new LineError(stream.fmtpLine, `For stream ${stream.streamNumber}, format parameter 'measuredpixclk' shall be ${expected}, the product of 'width', 'height' and 'exactframerate', when 'htotal' and 'vtotal' are the same as 'width' and 'height', as per VSF TR-10-9:2025 Section 10.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-9:2025 Section 17 Test 1 - IPMX streams do not use the IPv4 multicast addresses 224.0.0.0 to 224.0.1.255
+const test_tr10_9_17_1 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 17 Test 1 - IPMX streams do not use the IPv4 multicast addresses 224.0.0.0 to 224.0.1.255';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = [];
+  let lines = splitLines(sdp);
+  let sessionAddress;
+  let streamCount = 0;
+  let addresses = [];
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+      addresses[streamCount - 1] = sessionAddress;
+    } else if (lines[x].startsWith('c=')) {
+      let cMatch = lines[x].match(cPattern);
+      if (cMatch && streamCount == 0) {
+        sessionAddress = cMatch[2];
+      } else if (cMatch) {
+        addresses[streamCount - 1] = cMatch[2];
+      }
+    }
+  }
+  for (let stream of streams.filter(stream => stream.ipmx)) {
+    let address = addresses[stream.streamNumber - 1];
+    if (/^224\.0\.[01]\.\d{1,3}$/.test(address ?? '')) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${address}' shall not be in the range 224.0.0.0 to 224.0.1.255, as per VSF TR-10-9:2025 Section 17.`));
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
+// VSF TR-10-9:2025 Section 17 Test 2 - IPMX streams with a multicast destination address have an inclusive source filter
+// Streams with a source-specific multicast destination address are reported by ST 2110-10:2022 Section 8.4 Test 1
+const test_tr10_9_17_2 = (sdp, params) => {
+  const test = 'VSF TR-10-9:2025 Section 17 Test 2 - IPMX streams with a multicast destination address have an inclusive source filter';
+  let streams = extractIpmxStreams(sdp, params);
+  if (skipWithoutIpmx(streams, params, test)) {
+    return [];
+  }
+  let errors = streamsWithoutSourceFilter(sdp)
+    .filter(stream => streams[stream.streamNumber - 1].ipmx && !ssmPattern.test(stream.address))
+    .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, destination address '${stream.address}' is multicast, so an inclusive 'source-filter' attribute shall be included, as per VSF TR-10-9:2025 Section 17.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
 const section_10_62 = (sdp, params) => {
   let tests = [test_10_62_1, test_10_62_2];
   return tests.flatMap(t => t(sdp, params));
@@ -2504,6 +2901,58 @@ const section_8759_112 = (sdp, params) => {
   let tests = [test_8759_112_1];
   return tests.flatMap(t => t(sdp, params));
 };
+
+const section_tr10_1_10 = (sdp, params) => {
+  let tests = [test_tr10_1_10_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_101 = (sdp, params) => {
+  let tests = [test_tr10_1_101_1, test_tr10_1_101_2, test_tr10_1_101_3];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_102 = (sdp, params) => {
+  let tests = [test_tr10_1_102_1, test_tr10_1_102_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_103 = (sdp, params) => {
+  let tests = [test_tr10_1_103_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_1_104 = (sdp, params) => {
+  let tests = [test_tr10_1_104_1];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_x_7 = (sdp, params) => {
+  let tests = [test_tr10_x_7_1, test_tr10_x_7_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_9_10 = (sdp, params) => {
+  let tests = [test_tr10_9_10_1, test_tr10_9_10_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+const section_tr10_9_17 = (sdp, params) => {
+  let tests = [test_tr10_9_17_1, test_tr10_9_17_2];
+  return tests.flatMap(t => t(sdp, params));
+};
+
+// The VSF TR-10 (IPMX) tests run for every essence, and check the streams that have the 'IPMX' declaration, or every stream with --ipmx
+const tr10_sections = [
+  section_tr10_1_10,
+  section_tr10_1_101,
+  section_tr10_1_102,
+  section_tr10_1_103,
+  section_tr10_1_104,
+  section_tr10_x_7,
+  section_tr10_9_10,
+  section_tr10_9_17,
+];
 
 const no_copy = (sdp, params, specSDP, test, example) => {
   if (params.noCopy === false) {
@@ -2692,7 +3141,7 @@ const allSections = (sdp, params) => {
     }
   }
 
-  return sections.flatMap(s => s(sdp, params));
+  return [...sections, ...tr10_sections].flatMap(s => s(sdp, params));
 };
 
 module.exports = {
@@ -2731,5 +3180,13 @@ module.exports = {
   section_43_2021_41,
   section_43_2021_42,
   section_8759_112,
-  section_23_53
+  section_23_53,
+  section_tr10_1_10,
+  section_tr10_1_101,
+  section_tr10_1_102,
+  section_tr10_1_103,
+  section_tr10_1_104,
+  section_tr10_x_7,
+  section_tr10_9_10,
+  section_tr10_9_17
 };

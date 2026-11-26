@@ -1,0 +1,11 @@
+v=0
+o=- 1618351493884125000 1618351493884125000 IN IP4 192.168.1.2
+s=IPMX video not based upon the conversion of a Baseband signal
+t=0 0
+m=video 5004 RTP/AVP 96
+c=IN IP4 239.1.2.1/64
+a=source-filter: incl IN IP4 239.1.2.1 192.168.1.2
+a=ts-refclk:ptp=IEEE1588-2008:EC-46-70-FF-FE-00-CE-DE:127
+a=mediaclk:direct=0
+a=rtpmap:96 raw/90000
+a=fmtp:96 sampling=RGB; width=3840; height=2160; exactframerate=60; depth=8; colorimetry=BT709; PM=2110GPM; SSN=ST2110-20:2017; TP=2110TPW; IPMX; measuredpixclk=497664000; vtotal=2160; htotal=3840
