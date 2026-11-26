@@ -595,6 +595,8 @@ test('RFC 8759 Section 11.2 tests check the TTML format parameters charset and p
     'each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.';
   t.same(messages('charset=;codecs=im3t'), [fmtpMessage], 'an empty charset is reported once, by the fmtp pattern test');
   t.same(messages('codecs=im3t;profile='), [fmtpMessage], 'an empty profile is reported once, by the fmtp pattern test');
+  t.same(messages('CODECS=im3t'), ['Line 10: For stream 1, format parameter \'codecs\' shall be specified, as per ST 2110-43:2021 Section 4.1 and RFC 8759 Section 11.2.'],
+    'format parameter names are read in their canonical case');
   t.end();
 });
 

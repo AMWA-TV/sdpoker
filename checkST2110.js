@@ -34,9 +34,9 @@ const ssrcPattern = /^a=ssrc:(\d+)/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
-const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
-const charsetPattern = /[\s;]charset(?:=([^\s;]*))?(?=[\s;]|$)/i;
-const profilePattern = /[\s;]profile(?:=([^\s;]*))?(?=[\s;]|$)/i;
+const codecsPattern = /[\s;]codecs=([^\s;]+)/;
+const charsetPattern = /[\s;]charset(?:=([^\s;]*))?(?=[\s;]|$)/;
+const profilePattern = /[\s;]profile(?:=([^\s;]*))?(?=[\s;]|$)/;
 const integerPattern = /^[1-9]\d*$/;
 const frameRatePattern = /^([1-9]\d*)(?:\/([1-9]\d*))?$/;
 const parPattern = /^([1-9]\d*):([1-9]\d*)$/;
@@ -570,34 +570,28 @@ const test_10_84_1 = (sdp, params) => {
 const test_10_62_1 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (!lines[x].startsWith('m=')) {
-      continue;
-    }
-    streamCount++;
-
-    let mediaMatch = lines[x].match(mediaPattern);
+  for (let stream of extractStreams(sdp)) {
+    let mediaMatch = lines[stream.line - 1].match(mediaPattern);
     if (!mediaMatch) {
       // A media field that is not an acceptable pattern for RFC 4566 is reported by RFC 4566 Section 5.14 Test 1
-      if (isAcceptableMedia(lines[x])) {
-        errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2.'));
+      if (isAcceptableMedia(lines[stream.line - 1])) {
+        errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2.'));
       }
       continue;
     }
     // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
     let port = +mediaMatch[2];
     if (isNaN(port) || port < 0 || port > 65535) {
-      errors.push(new LineError(x + 1, `For stream ${streamCount}, port '${port}' shall be a UDP port in the range 0 to 65535 inclusive, as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, port '${port}' shall be a UDP port in the range 0 to 65535 inclusive, as per ST 2110-10 Section 6.2.`));
     }
     // Check RTP type - ST 2110-10 Section 6.2 says shall be RTP, no allowance for SRTP
     if (mediaMatch[4] === 'RTP/SAVP') {
-      errors.push(new LineError(x + 1, `For stream ${streamCount}, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`));
     }
     // Check dynamic range - assume ST 2110-20 is always dynamic
     let payloadType = +mediaMatch[5];
     if (isNaN(payloadType) || payloadType < 96 || payloadType > 127) {
-      errors.push(new LineError(x + 1, `For stream ${streamCount}, payload type '${mediaMatch[5]}' shall be a dynamic payload type in the range 96 to 127 inclusive, as per ST 2110-10 Section 6.2.`));
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, payload type '${mediaMatch[5]}' shall be a dynamic payload type in the range 96 to 127 inclusive, as per ST 2110-10 Section 6.2.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -613,30 +607,14 @@ All RTP streams shall use dynamic payload types chosen in the range of 96 throug
 const test_10_62_2 = (sdp, params) => {
   let errors = [];
   let lines = splitLines(sdp);
-  let streams = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      let mediaMatch = lines[x].match(mediaPattern);
-      streams.push({
-        line: x + 1,
-        payloadTypes: mediaMatch ? lines[x].trim().split(/\s+/).slice(3).map(Number) : [],
-        rtpmaps: []
-      });
-      continue;
-    }
-    let rtpmapMatch = lines[x].match(/^a=rtpmap:(\d+)/);
-    if (!rtpmapMatch || streams.length == 0) {
-      continue;
-    }
-    streams[streams.length - 1].rtpmaps.push(+rtpmapMatch[1]);
-  }
-  streams.forEach((stream, s) => {
-    for (let payloadType of stream.payloadTypes) {
-      if (payloadType >= 96 && payloadType <= 127 && !stream.rtpmaps.includes(payloadType)) {
-        errors.push(new LineError(stream.line, `For stream ${s + 1}, dynamic payload type '${payloadType}' shall have an 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
+  for (let stream of extractStreams(sdp).filter(stream => mediaPattern.test(lines[stream.line - 1]))) {
+    for (let format of stream.formats) {
+      let payloadType = +format;
+      if (payloadType >= 96 && payloadType <= 127 && !stream.rtpmap.some(rtpmap => +rtpmap.format === payloadType)) {
+        errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, dynamic payload type '${payloadType}' shall have an 'rtpmap' attribute, as per ST 2110-10 Section 6.2.`));
       }
     }
-  });
+  }
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10 Section 6.2 Test 2 - Each dynamic payload type has an \'rtpmap\' attribute.');
   }
@@ -2265,55 +2243,29 @@ const test_2022_8_71_1 = (sdp, params) => {
 // Collect the rtpmap of each stream with encoding name 'ttml+xml' for a format of the media description,
 // and the fmtp with the same payload type, as 'rtpmap' and 'fmtp' may be in either order
 const extractTTMLStreams = sdp => {
-  let streams = [];
   let lines = splitLines(sdp);
-  let streamCount = 0;
-  let mediaLine = 0;
-  let payloadTypes = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      mediaLine = x + 1;
-      payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
-      continue;
+  return extractStreams(sdp).flatMap(stream => stream.rtpmap.flatMap(rtpmap => {
+    // Payload types that are not formats of the media description are reported by RFC 4566 Section 6 Test 3
+    let rtpmapMatch = lines[rtpmap.line - 1].match(rtpmapPattern);
+    if (!rtpmapMatch || !stream.formats.map(Number).includes(+rtpmapMatch[1]) || rtpmapMatch[2].toLowerCase() !== 'ttml+xml') {
+      return [];
     }
-    // Payload types that are not formats of the media description are reported by test_10_62_2
-    if (lines[x].startsWith('a=rtpmap') && streamCount > 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch && payloadTypes.includes(+rtpmapMatch[1]) && rtpmapMatch[2].toLowerCase() === 'ttml+xml') {
-        streams.push({
-          streamNumber: streamCount,
-          mediaLine,
-          payloadType: +rtpmapMatch[1],
-          rtpmapLine: x + 1,
-          clockRate: rtpmapMatch[3],
-          fmtpLine: null,
-          codecs: null,
-          charset: null,
-          profile: null
-        });
-      }
-    }
-  }
-  streamCount = 0;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      streamCount++;
-      continue;
-    }
-    let fmtpMatch = lines[x].match(/^a=fmtp:(\d+)/);
-    let stream = fmtpMatch && streams.find(s => s.streamNumber === streamCount && s.payloadType === +fmtpMatch[1]);
-    if (stream) {
-      let codecsMatch = lines[x].match(codecsPattern);
-      let charsetMatch = lines[x].match(charsetPattern);
-      let profileMatch = lines[x].match(profilePattern);
-      stream.fmtpLine = x + 1;
-      stream.codecs = codecsMatch ? codecsMatch[1] : null;
-      stream.charset = charsetMatch ? charsetMatch[1] ?? '' : null;
-      stream.profile = profileMatch ? profileMatch[1] ?? '' : null;
-    }
-  }
-  return streams;
+    let fmtp = stream.fmtp.findLast(fmtp => /^\d+$/.test(fmtp.format) && +fmtp.format === +rtpmapMatch[1]);
+    let codecsMatch = fmtp && lines[fmtp.line - 1].match(codecsPattern);
+    let charsetMatch = fmtp && lines[fmtp.line - 1].match(charsetPattern);
+    let profileMatch = fmtp && lines[fmtp.line - 1].match(profilePattern);
+    return [{
+      streamNumber: stream.streamNumber,
+      mediaLine: stream.line,
+      payloadType: +rtpmapMatch[1],
+      rtpmapLine: rtpmap.line,
+      clockRate: rtpmapMatch[3],
+      fmtpLine: fmtp ? fmtp.line : null,
+      codecs: codecsMatch ? codecsMatch[1] : null,
+      charset: charsetMatch ? charsetMatch[1] ?? '' : null,
+      profile: profileMatch ? profileMatch[1] ?? '' : null
+    }];
+  }));
 };
 
 // ST 2110-43:2021 Section 4.1 Test 1 - TTML streams have an 'fmtp' attribute with format parameter 'codecs'
