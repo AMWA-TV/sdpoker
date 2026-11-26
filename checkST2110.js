@@ -2572,6 +2572,24 @@ const no_media = (sdp, params) => {
   return [];
 };
 
+// SDPoker Test 2 - Each media description has one format
+const single_format = (sdp, params) => {
+  const test = 'SDPoker Test 2 - Each media description has one format';
+  if (!params.should) {
+    if (params.verbose) {
+      console.log(`Test Skipped: ${test}. Use --should to test.`);
+    }
+    return [];
+  }
+  let errors = extractStreams(sdp)
+    .filter(stream => stream.formats.length > 1)
+    .map(stream => new LineError(stream.line, `For stream ${stream.streamNumber}, the media description should have one format, but has '${stream.formats.join(' ')}'. RFC 4566 Section 5.14 allows more than one, but receivers might use only one of them, or only one 'rtpmap' or 'fmtp' attribute, and SDPoker chooses its tests by the encoding name of the first.`));
+  if (params.verbose && errors.length == 0) {
+    console.log(`Test Passed: ${test}.`);
+  }
+  return errors;
+};
+
 const st2110_10_sections = [
   section_10_62,
   section_10_74,
@@ -2584,6 +2602,7 @@ const st2110_10_sections = [
   section_10_2022_87,
   section_23_53,
   no_media,
+  single_format,
 ];
 
 // The stream that the tests of the essence are chosen from, which is the first stream whose encoding name is known

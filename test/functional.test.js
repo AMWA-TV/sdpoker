@@ -910,6 +910,8 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.ok(lines.includes('Test Passed: ST 2110-10 Section 8.1 Test 4 - The SDP file includes at least one media description.'));
   t.ok(logged(jxsv, {}).includes('Test Passed: VSF TR-08:2022 Appendix A Test 1 - The SDP file is not a copy of the example.'));
   t.ok(lines.includes('Test Passed: SDPoker Test 1 - The SDP file describes a single essence.'));
+  t.ok(lines.includes('Test Skipped: SDPoker Test 2 - Each media description has one format. Use --should to test.'));
+  t.ok(logged(raw, { should: true }).includes('Test Passed: SDPoker Test 2 - Each media description has one format.'));
   t.ok(logged(raw.replace('depth=10', 'depth=10; depth=10'), {}).includes('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.'),
     'a repeated format parameter other than TSMODE or TSDELAY does not remove the TSMODE and TSDELAY pass line');
 
@@ -1308,6 +1310,18 @@ test('RFC 4566 Section 5.14 tests report a media field that is not an acceptable
   t.same(messages(text), [`Line ${mLine}: Media field ('m=') is not an acceptable pattern, which shall be of the form 'm=<media> <port> RTP/AVP <payload type>', as per ST 2110-10 Section 6.2.`],
     'a media field that is an acceptable pattern for RFC 4566 but not for ST 2110 is reported by the ST 2110 tests');
   t.same(messages(text, { ...cliDefaults, skipST2110: true }), [], 'a media type other than audio, video or application is an acceptable pattern for RFC 4566');
+  t.end();
+});
+
+test('SDPoker Test 2 reports a media description with more than one format, with --should', t => {
+  const raw = readFixture('valid/st2110-20.sdp');
+  const mLine = raw.split('\r\n').findIndex(line => line.startsWith('m=')) + 1;
+  const twoFormats = raw.replace('RTP/AVP 97', 'RTP/AVP 97 98').replace(/(a=rtpmap:97 .*\r\n)/, '$1a=rtpmap:98 raw/90000\r\n');
+  const messages = (sdp, params) => runAllChecks(sdp, { ...cliDefaults, ...params }).map(error => error.message).filter(m => m.includes('should have one format'));
+  t.same(messages(twoFormats, { should: true }), [`Line ${mLine}: For stream 1, the media description should have one format, but has '97 98'. RFC 4566 Section 5.14 allows more than one, but receivers might use only one of them, or only one 'rtpmap' or 'fmtp' attribute, and SDPoker chooses its tests by the encoding name of the first.`],
+    'a media description with two formats is reported');
+  t.same(messages(twoFormats, {}), [], 'a media description with two formats is not reported without --should');
+  t.same(messages(raw, { should: true }), [], 'a media description with one format is not reported');
   t.end();
 });
 

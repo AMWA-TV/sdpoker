@@ -21,6 +21,7 @@ Recent activity on the project (newest first):
 - The syntax checks of the attributes that the ST 2110 tests also use, such as `rtpmap`, `ptime` and `mediaclk`, and of `source-filter`, are skipped by `--skipRFC4566`, not by `--skipST2110` or `--skipRFC4570`
 - Repeated format parameters are reported as per RFC 6838 for every stream, so `--skipRFC4566` skips this check, not `--skipST2110`
 - Added checks of media fields (`m=`), and that the format of each `rtpmap` and `fmtp` attribute is a format of its media description, as per RFC 4566
+- With `--should`, each media description with more than one format is reported
 - Released v0.6.0
 - Added `--midLast`, to check that each media description ends with `a=mid`, as expected by SMPTE RP 2110-23
 - The traffic shaping checks of ST 2110-21, ST 2022-8 and ST 2110-40 run by default, and `--no-shaping` skips them
@@ -125,7 +126,7 @@ An error found at a line of the SDP file has a `line` property with that line nu
 
 The `checkST2110(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs through the relevant clauses of the ST 2110-10/-20/-21/-22/-30/-31/-40/-43 and ST 2022-8 documents, and referenced standards such as AES67, RFC 8331, RFC 8759, RFC 9134 and ST 2022-7, applying appropriate tests.
 
-The SDP file must describe a single essence, as an ST 2110 sender's SDP file does. It may contain more than one media description only for ST 2022-7 redundant streams, and every media description must have the same media type and encoding name. Otherwise, `checkST2110` reports that and runs no other tests.
+The SDP file must describe a single essence, as an ST 2110 sender's SDP file does. It may contain more than one media description only for ST 2022-7 redundant streams, and every media description must have the same media type and encoding name. Otherwise, `checkST2110` reports that and runs no other tests. When the SDP file does describe a single essence, `checkST2110` chooses its tests by the encoding name of the first format of a media description, and with `should`, it also reports each media description with more than one format.
 
 `checkST2110` reads each media field (`m=`) that `checkRFC4566` accepts. When a media field is not an acceptable pattern for RFC 4566, `checkST2110` runs no tests and reports nothing, so run `checkRFC4566` as well.
 
