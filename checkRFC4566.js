@@ -163,7 +163,9 @@ const attributes = {
       { value: /^(?:id=\S* +)?direct(?:[= ]|$)/, form: 'a=mediaclk:[id=<media clock identifier> ]direct[=<offset>][ rate=<numerator>/<denominator>]' }
     ] },
   'group': { usage: ['session'], value: valuePattern(`${token}(?: ${token})*`), form: 'a=group:<semantics>[ <identification tag>]*', specification: 'RFC 5888 Section 5' },
-  'mid': { usage: ['media'], value: valuePattern(token), form: 'a=mid:<identification tag>', specification: 'RFC 5888 Section 4' }
+  'mid': { usage: ['media'], value: valuePattern(token), form: 'a=mid:<identification tag>', specification: 'RFC 5888 Section 4' },
+  'ssrc': { usage: ['media'], value: valuePattern(`${zeroBasedInteger} ${token}(?::${byteString})?`), form: 'a=ssrc:<ssrc-id> <attribute>[:<value>]', specification: 'RFC 5576 Section 4.1' },
+  'ssrc-group': { usage: ['media'], value: valuePattern(`${token}(?: ${zeroBasedInteger})*`), form: 'a=ssrc-group:<semantics>[ <ssrc-id>]*', specification: 'RFC 5576 Section 4.2' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 

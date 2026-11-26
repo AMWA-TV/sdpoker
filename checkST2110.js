@@ -30,7 +30,7 @@ const macPattern = /^(([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2})$/;
 const dupPattern = /[\r\n]m=[\s\S]+a=ssrc-group:DUP|[\r\n]a=group:DUP[\s\S]+m=/;
 const ssrcGroupPattern = /a=ssrc-group:DUP\s+(\d+)\s+(\d+)/;
 const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
-const ssrcPattern = /a=ssrc:(\d+)\s/;
+const ssrcPattern = /^a=ssrc:(\d+)/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
 const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
@@ -411,8 +411,9 @@ const test_10_83_2 = (sdp, params) => {
     }
     if (lines[x].startsWith('a=ssrc:')) {
       let ssrcMatch = lines[x].match(ssrcPattern);
+      // An 'ssrc' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2,
+      // so one that starts with an SSRC identifier counts as defining it, and that SSRC is not reported again as undefined
       if (!ssrcMatch) {
-        errors.push(new LineError(x + 1, `For ${streamCounter ? 'stream ' + streamCounter : 'all streams'}, attribute 'ssrc' is not an acceptable pattern, which must be of the form 'a=ssrc:<ssrc-id> <attribute>', as per RFC 5576 Section 4.1.`));
         continue;
       }
       ssrcs[streamCounter].push(+ssrcMatch[1]);
@@ -423,12 +424,15 @@ const test_10_83_2 = (sdp, params) => {
     if (lines[x].startsWith('m=')) {
       streamCounter++;
     }
-    if (!lines[x].startsWith('a=ssrc-group') || (streamCounter === 0)) {
+    if (!/^a=ssrc-group:DUP(?:\s|$)/.test(lines[x]) || (streamCounter === 0)) {
       continue;
     }
     let groupMatch = lines[x].match(ssrcGroupPattern);
     if (!groupMatch) {
-      errors.push(new LineError(x + 1, `For stream ${streamCounter}, attribute 'ssrc-group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.2.`));
+      // An 'ssrc-group' that is not an acceptable pattern for any semantics is reported by RFC 4566 Section 6 Test 2
+      if (isAcceptableAttribute(lines[x])) {
+        errors.push(new LineError(x + 1, `For stream ${streamCounter}, attribute 'ssrc-group:DUP' is not an acceptable pattern, as per RFC 7104 Section 3.2.`));
+      }
       continue;
     }
     for (let groupID of groupMatch.slice(1, 3)) {

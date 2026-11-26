@@ -1027,6 +1027,33 @@ test('RFC 4566 Section 6 tests check the level and syntax of the attributes that
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 5576 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+
+  for (const attribute of ['ssrc:0 cname:nmos@nmos.tv', 'ssrc:4294967295 cname:user@example.com', 'ssrc:1009 previous-ssrc:1008', 'ssrc:1009 recvonly',
+    'ssrc-group:DUP 1009 1010', 'ssrc-group:FID 11111 22222', 'ssrc-group:FEC']) {
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['ssrc:1009 cname:x', 'ssrc-group:DUP 1009 1010']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute '${name}' must be a media-level attribute, as per RFC 5576 Section 4.${{ ssrc: 1, 'ssrc-group': 2 }[name]}.`],
+      `a=${attribute} is reported at session level`);
+  }
+
+  for (const attribute of ['ssrc:', 'ssrc:1009', 'ssrc:1009 ', 'ssrc:1009  cname:x', 'ssrc:01009 cname:x', 'ssrc:-1 cname:x',
+    'ssrc-group:', 'ssrc-group:DUP 1009,1010', 'ssrc-group:DUP 1009  1010', 'ssrc-group:DUP 1009 ']) {
+    const name = attribute.split(':')[0];
+    t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
 test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
   const message = (line, name, form, section) =>
     `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
@@ -1061,6 +1088,18 @@ test('an attribute that the ST 2110 checks also use is reported once if it is no
   t.same(messages('valid/st2110-22.sdp', sdp => sdp.replace('a=mid:primary', 'a=mid: primary')),
     ['Line 14: For stream 1, attribute \'mid\' is not an acceptable pattern, which must be of the form \'a=mid:<identification tag>\', as per RFC 5888 Section 4.'],
     'a malformed mid in an SDP file with duplicate streams');
+  t.same(messages('valid/rfc7104_sep_source.sdp', sdp => sdp.replace('a=ssrc-group:DUP 1009 1010', 'a=ssrc-group:DUP 1009,1010')),
+    ['Line 9: For stream 1, attribute \'ssrc-group\' is not an acceptable pattern, which must be of the form \'a=ssrc-group:<semantics>[ <ssrc-id>]*\', as per RFC 5576 Section 4.2.'],
+    'a malformed ssrc-group in an SDP file with duplicate streams');
+  t.same(messages('valid/rfc7104_sep_source.sdp', sdp => sdp.replace('a=ssrc:1010 cname:ch1@example.com', 'a=ssrc:1010')),
+    ['Line 11: For stream 1, attribute \'ssrc\' is not an acceptable pattern, which must be of the form \'a=ssrc:<ssrc-id> <attribute>[:<value>]\', as per RFC 5576 Section 4.1.'],
+    'a malformed ssrc in an SDP file with duplicate streams');
+  t.end();
+});
+
+test('an ssrc-group with semantics other than DUP is not checked as a DUP group', t => {
+  const sdp = readFixture('valid/rfc7104_sep_source.sdp').replace('a=ssrc-group:DUP 1009 1010', 'a=ssrc-group:FID 1009 1010');
+  t.same(runAllChecks(sdp).map(error => error.message), [], 'a=ssrc-group:FID');
   t.end();
 });
 
