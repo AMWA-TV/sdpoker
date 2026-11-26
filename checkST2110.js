@@ -15,7 +15,7 @@
 */
 
 const { splitLines, LineError } = require('./lines.js');
-const { isAcceptableAttribute, extractStreams, rtpmapPattern, fmtpElement, fmtpSeparator, repeatableParams } = require('./checkRFC4566.js');
+const { isAcceptableAttribute, extractStreams, rtpmapPattern, fmtpElement, fmtpSeparator } = require('./checkRFC4566.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
@@ -757,9 +757,7 @@ const tsmodePermitted2022 = ['SAMP', 'NEW', 'PRES'];
 
 // ST 2110-10:2022 Section 8.7 Test 1 - Format parameters 'TSMODE' and 'TSDELAY' are acceptable values
 const test_10_2022_87_1 = (sdp, params) => {
-  // This test runs for every stream format, so it also reports any repeated format parameter
-  let [mtParams, dupErrors] = extractMTParams(sdp, { checkDups: true });
-  let errors = [];
+  let [mtParams, errors] = extractMTParams(sdp, params);
   for (let stream of mtParams) {
     let keys = Object.keys(stream);
     if (keys.indexOf('TSMODE') >= 0) {
@@ -777,7 +775,7 @@ const test_10_2022_87_1 = (sdp, params) => {
   if (params.verbose && errors.length == 0) {
     console.log('Test Passed: ST 2110-10:2022 Section 8.7 Test 1 - Format parameters \'TSMODE\' and \'TSDELAY\' are acceptable values.');
   }
-  return dupErrors.concat(errors);
+  return errors;
 };
 
 // Function to check that rtpmap has passed in type and clockRate.
@@ -894,9 +892,8 @@ const encodingNameOf = stream => stream.encodingNames[stream.formats[0]];
 
 // The format parameters of each 'fmtp' attribute, with the stream and format it belongs to, for each stream whose
 // media field is an acceptable pattern
-// Test for duplicate parameters by setting params.checkDups
 /** @returns {[object[], Error[]]} */
-const extractMTParams = (sdp, params = {}) => {
+const extractMTParams = sdp => {
   let mtParams = [];
   let errors = [];
   let lines = splitLines(sdp);
@@ -919,18 +916,6 @@ const extractMTParams = (sdp, params = {}) => {
       let encodingName = stream.encodingNames[fmtp.format] ?? -1;
       if (!stream.formats.includes(fmtp.format) || skipVideoTypes.includes(encodingName)) {
         continue;
-      }
-      if (params.checkDups) {
-        let keys = fmtp.names;
-        let reported = [];
-        for (let y = 0; y < keys.length; y++) {
-          if (!repeatableParams.includes(keys[y]) && keys.filter(k => keys[y] === k).length >= 2) {
-            if (reported.indexOf(keys[y]) < 0) {
-              errors.push(new LineError(fmtp.line, `For stream ${stream.streamNumber}, format parameter '${keys[y]}' is specified more than once.`));
-              reported.push(keys[y]);
-            }
-          }
-        }
       }
       mtParams.push({
         ...fmtp.params,

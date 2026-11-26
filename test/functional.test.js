@@ -919,7 +919,7 @@ test('tests that do not apply, or need an option, report that they are skipped i
   t.end();
 });
 
-test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose mode', t => {
+test('RFC 4566, RFC 4570 and RFC 6838 tests report each passed or skipped test in verbose mode', t => {
   const sdp = readFixture('valid/st2110-20.sdp');
   const logged = (variant, params) => {
     const lines = [];
@@ -934,9 +934,9 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     return lines;
   };
 
-  const passed = line => line.startsWith('Test Passed: RFC 4');
+  const passed = line => line.startsWith('Test Passed: RFC ');
   const lines = logged(sdp, {});
-  t.equal(lines.length, 19, 'one line for each test');
+  t.equal(lines.length, 20, 'one line for each test');
   t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
     'Test Skipped: RFC 4566 Section 5 Test 1',
     'Test Skipped: RFC 4566 Section 5.2 Test 2',
@@ -946,7 +946,7 @@ test('RFC 4566 and RFC 4570 tests report each passed or skipped test in verbose 
     'the other tests pass');
 
   const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
-  t.equal(withOptions.length, 19, 'one line for each test with the options set');
+  t.equal(withOptions.length, 20, 'one line for each test with the options set');
   t.ok(withOptions.every(passed), 'every test passes with the options set');
 
   const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
@@ -1284,12 +1284,26 @@ test('an ssrc-group with semantics other than DUP is not checked as a DUP group'
   t.end();
 });
 
-test('a repeated format parameter is reported once for every stream format', t => {
+test('RFC 6838 Section 4.3 tests report a repeated format parameter once for every stream format', t => {
+  const repeats = (sdp, params = cliDefaults) => runAllChecks(sdp, params).map(error => error.message).filter(m => m.includes('more than once'));
+  const fmtpLine = sdp => sdp.split('\r\n').findIndex(line => line.startsWith('a=fmtp')) + 1;
+  const message = (sdp, name) => `Line ${fmtpLine(sdp)}: For stream 1, format parameter '${name}' is specified more than once, as per RFC 6838 Section 4.3.`;
+
   for (const fixture of ['st2110-20', 'st2110-22', 'st2110-40-2023']) {
     const sdp = readFixture(`valid/${fixture}.sdp`).replace(/(a=fmtp:\d+ )/, '$1TSMODE=SAMP; TSMODE=SAMP; ');
-    const repeats = runAllChecks(sdp).map(error => error.message).filter(m => m.includes('format parameter \'TSMODE\' is specified more than once'));
-    t.equal(repeats.length, 1, `${fixture} reports a repeated format parameter once`);
+    t.same(repeats(sdp), [message(sdp, 'TSMODE')], `${fixture} reports a repeated format parameter once`);
   }
+  const raw = readFixture('valid/st2110-20.sdp');
+  const vc2 = raw.replace('raw/90000', 'vc2/90000').replace('depth=10', 'depth=10; depth=10');
+  t.same(repeats(vc2), [message(vc2, 'depth')], 'a repeated format parameter is reported for a vc2 stream');
+  const differentCase = raw.replace('depth=10', 'depth=10; DEPTH=10');
+  t.same(repeats(differentCase), [message(differentCase, 'depth')], 'format parameter names that differ only in case are the same parameter');
+  t.same(repeats(differentCase, { ...cliDefaults, skipST2110: true }), [message(differentCase, 'depth')], 'a repeated format parameter is reported without the ST 2110 tests');
+  const anc = readFixture('valid/st2110-40-2023.sdp').replace('DID_SDID={0x61,0x02}', 'DID_SDID={0x61,0x02}; DID_SDID={0x41,0x05}');
+  t.same(repeats(anc), [], 'DID_SDID can be repeated, as per RFC 8331 Section 4');
+  const lowerCase = anc.replace('DID_SDID={0x61,0x02}; DID_SDID', 'did_sdid={0x61,0x02}; did_sdid');
+  t.same(repeats(lowerCase), [message(lowerCase, 'did_sdid')], 'only DID_SDID in its canonical case can be repeated');
+  t.same(repeats(differentCase, { ...cliDefaults, skipRFC4566: true }), [], 'a repeated format parameter is not reported without the RFC 4566 tests');
   t.end();
 });
 

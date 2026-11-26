@@ -652,6 +652,31 @@ const test_60_2 = (sdp, params) => {
   return errors;
 };
 
+// RFC 6838 Section 4.3 Test 1 - Format parameters are not repeated
+// A payload format copies the parameters of its media type to the 'fmtp' attribute, as per RFC 4855 Section 3, and
+// the names of media type parameters are case-insensitive
+const test_6838_43_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  for (let stream of extractStreams(sdp)) {
+    // An 'fmtp' that is not an acceptable pattern is reported by RFC 4566 Section 6 Test 2
+    for (let fmtp of stream.fmtp.filter(fmtp => fmtp.params && isAcceptableAttribute(lines[fmtp.line - 1]))) {
+      let names = fmtp.names.map(name => name.toLowerCase());
+      let reported = [];
+      for (let y = 0; y < names.length; y++) {
+        if (!repeatableParams.includes(fmtp.names[y]) && names.indexOf(names[y]) < y && !reported.includes(names[y])) {
+          errors.push(new LineError(fmtp.line, `For stream ${stream.streamNumber}, format parameter '${fmtp.names[names.indexOf(names[y])]}' is specified more than once, as per RFC 6838 Section 4.3.`));
+          reported.push(names[y]);
+        }
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 6838 Section 4.3 Test 1 - Format parameters are not repeated.');
+  }
+  return errors;
+};
+
 const section_50 = (sdp, params) => {
   let endingTests = [ test50_1, test50_1_1 ];
   let lines = splitLines(sdp);
@@ -689,8 +714,13 @@ const section_60 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_6838_43 = (sdp, params) => {
+  let tests = [ test_6838_43_1 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const allSections = (sdp, params) => {
-  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, section_60 ];
+  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, section_60, section_6838_43 ];
   return sections.flatMap(s => s(sdp, params));
 };
 
@@ -703,6 +733,7 @@ module.exports = {
   section_58,
   section_59,
   section_60,
+  section_6838_43,
   isAcceptableAttribute,
   extractStreams,
   rtpmapPattern,

@@ -19,6 +19,7 @@ Recent activity on the project (newest first):
 
 - Added checks of the level and syntax of the attributes that RFC 3605, RFC 4566, RFC 4570, RFC 5576, RFC 5888, RFC 7197, RFC 7273 and RFC 8285 define, and of the RFC 8759 `charset` and `profile` format parameters of TTML streams
 - The syntax checks of the attributes that the ST 2110 tests also use, such as `rtpmap`, `ptime` and `mediaclk`, and of `source-filter`, are skipped by `--skipRFC4566`, not by `--skipST2110` or `--skipRFC4570`
+- Repeated format parameters are reported as per RFC 6838 for every stream, so `--skipRFC4566` skips this check, not `--skipST2110`
 - Released v0.6.0
 - Added `--midLast`, to check that each media description ends with `a=mid`, as expected by SMPTE RP 2110-23
 - The traffic shaping checks of ST 2110-21, ST 2022-8 and ST 2110-40 run by default, and `--no-shaping` skips them
