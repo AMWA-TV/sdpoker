@@ -83,7 +83,7 @@ The value of a fulfilled promise is the contents of an SDP file as a string. SDP
 
 ### Check RFC 4566
 
-The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. This is not an exhaustive SDP file tester.
+The `checkRFC4566(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs structural tests, format tests and some field specific tests relevant to ST 2110. The attribute tests also check the level and syntax of some attributes that other RFCs define, and each message cites that RFC. However, this is not an exhaustive SDP file tester.
 
 For example:
 
@@ -101,7 +101,7 @@ An error found at a line of the SDP file has a `line` property with that line nu
 
 ### Check RFC 4570
 
-The `checkRFC4570(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and runs source-filter tests relevant to SMPTE ST 2110.
+The `checkRFC4570(sdp, params)` takes a string representation of the contents of an SDP file (`sdp`) and checks that the addresses of each source filter match its address type and a connection address. `checkRFC4566` checks the syntax of the `source-filter` attribute.
 
 For example:
 

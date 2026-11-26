@@ -124,7 +124,11 @@ const invalidCases = [
   },
   {
     file: 'invalid/source-filter-value-pattern.sdp',
-    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'source-filter\' is not an acceptable pattern'
+  },
+  {
+    file: 'invalid/source-filter-address-type.sdp',
+    messageIncludes: 'attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\''
   },
   {
     file: 'invalid/fmtp-pattern.sdp',
@@ -156,7 +160,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/source-filter-pattern.sdp',
-    messageIncludes: 'Attribute \'source-filter\' is not an acceptable pattern'
+    messageIncludes: 'attribute \'source-filter\' is not an acceptable pattern'
   },
   {
     file: 'invalid/bad-maxudp.sdp',
@@ -455,14 +459,14 @@ test('a source filter address that is not of its address type is reported', t =>
   const messages = filter => checkRFC4570(sdp.replace(/a=source-filter:[^\r\n]*/, filter), cliDefaults).map(error => error.message);
 
   t.same(messages('a=source-filter: incl IN IP6 232.80.177.113 172.29.80.65'), [
-    'Line 7: Attribute \'source-filter\' address \'232.80.177.113\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.',
-    'Line 7: Attribute \'source-filter\' address \'172.29.80.65\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.'
+    'Line 7: For stream 1, attribute \'source-filter\' address \'232.80.177.113\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.',
+    'Line 7: For stream 1, attribute \'source-filter\' address \'172.29.80.65\' must be an IPv6 address to match address type \'IP6\', as per RFC 4570 Section 3.'
   ]);
   t.same(messages('a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65 2001:db8::1'),
-    ['Line 7: Attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4570 Section 3.'],
+    ['Line 7: For stream 1, attribute \'source-filter\' address \'2001:db8::1\' must be an IPv4 address to match address type \'IP4\', as per RFC 4570 Section 3.'],
     'each source address is checked');
   t.same(messages('a=source-filter: incl IN * 232.80.177.113 172.29.80.65'),
-    ['Line 7: Attribute \'source-filter\' destination address \'232.80.177.113\' must be a domain name or \'*\' when the address type is \'*\', as per RFC 4570 Section 3.1.']);
+    ['Line 7: For stream 1, attribute \'source-filter\' destination address \'232.80.177.113\' must be a domain name or \'*\' when the address type is \'*\', as per RFC 4570 Section 3.1.']);
 
   t.same(messages('a=source-filter: incl IN IP4 232.80.177.113 src-1.example.com'), [], 'a domain name source address is accepted');
   t.same(messages('a=source-filter: incl IN IP4 * 172.29.80.65'), [], 'a \'*\' destination address is accepted');
@@ -540,7 +544,7 @@ test('ts-refclk and source-filter attributes must match a pattern to the end of 
     ['a=ts-refclk:ptp=IEEE1588-2008:nottraceablex', 'is not an acceptable pattern'],
     ['a=ts-refclk:ptp=IEEE1588-2008:junk39-A7-94-FF-FE-07-CB-D0:37', 'is not an acceptable pattern'],
     ['a=ts-refclk:localmac=7C-E9-D3-1B-9A-AFjunk', 'shall specify a MAC address of the form'],
-    ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'Attribute \'source-filter\' is not an acceptable pattern']
+    ['a=source-filter: incl IN IP4 232.80.177.113 172.29.80.65  172.29.80.66', 'attribute \'source-filter\' is not an acceptable pattern']
   ];
 
   for (const [attribute, message] of cases) {
@@ -669,6 +673,11 @@ test('RFC 4570 Section 3 tests check source filters match a connection address',
   t.ok(
     messages(sessionLevel.replace('232.130.55.188 172', '232.130.55.189 172')).includes(message),
     'a session-level source filter that matches no connection address is reported'
+  );
+  t.same(
+    messages(sdp.replace('232.130.55.188 172', '232.130.55.189 172')),
+    `Line ${sdp.split('\r\n').indexOf(sourceFilter.trim()) + 1}: For stream 1, source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`,
+    'a media-level source filter that matches no connection address is reported for its stream'
   );
   t.same(
     messages(sdp.replace(/c=IN IP4 \S+/, 'c=IN IP6 FF3E::8000:1').replace(/a=source-filter:[^\r\n]*/, 'a=source-filter: incl IN IP6 ff3e::8000:1 2001:db8::1')),
@@ -1051,6 +1060,48 @@ test('RFC 4566 Section 6 tests check the level and syntax of the attributes that
     t.same(messages(mediaLevel(attribute)).map(message => message.split(', which')[0]), [`Line ${lastLine}: For stream 1, attribute '${name}' is not an acceptable pattern`],
       `a=${attribute} is reported at media level`);
   }
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 4570 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp.replace(/a=source-filter:[^\r\n]*/, `a=${attribute}`);
+  const messages = (check, variant) => check(variant, cliDefaults).map(error => error.message);
+  const form = 'which must be of the form \'a=source-filter: <filter-mode> <filter-spec>\', as per RFC 4570 Section 3.';
+
+  for (const attribute of ['source-filter: incl IN IP4 232.80.177.113 172.29.80.65', 'source-filter: excl IN IP4 232.80.177.113 172.29.80.65 172.29.80.66',
+    'source-filter: incl IN IP4 * 172.29.80.65', 'source-filter: incl IN * src.example.com src-1.example.com']) {
+    t.same(messages(checkRFC4566, mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+    t.same(messages(checkRFC4566, sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+  }
+
+  t.same(messages(checkRFC4566, sessionLevel('source-filter:incl IN IP4 232.80.177.113 172.29.80.65')),
+    [`Line 5: Attribute 'source-filter' is not an acceptable pattern, ${form}`], 'a session-level source filter is reported without a stream');
+  for (const attribute of ['source-filter', 'source-filter:', 'source-filter:incl IN IP4 232.80.177.113 172.29.80.65',
+    'source-filter:  incl IN IP4 232.80.177.113 172.29.80.65', 'source-filter: incl\tIN IP4 232.80.177.113 172.29.80.65',
+    'source-filter: incl IN IP4 232.80.177.113', 'source-filter: incl IN IP4 232.80.177.113 172.29.80.65 ',
+    'source-filter: include IN IP4 232.80.177.113 172.29.80.65', 'source-filter: incl ATM IP4 232.80.177.113 172.29.80.65',
+    'source-filter: incl IN IP5 232.80.177.113 172.29.80.65', 'source-filter: incl IN IP6  232.80.177.113 172.29.80.65']) {
+    const variant = mediaLevel(attribute);
+    t.same(messages(checkRFC4566, variant), [`Line 7: For stream 1, attribute 'source-filter' is not an acceptable pattern, ${form}`],
+      `a=${attribute} is reported at media level`);
+    t.same(messages(checkRFC4570, variant), [], `a=${attribute} is not also reported by the RFC 4570 tests`);
+  }
+  t.end();
+});
+
+test('RFC 4566 Section 6 Test 2 reports an attribute name that is not a token', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+
+  t.same(messages(sdp.replace('a=source-filter:', 'a=source-filter')),
+    ['Line 7: For stream 1, attribute name \'source-filter incl IN IP4 232.80.177.113 172.29.80.65\' must be a token, as per RFC 4566 Section 9.'],
+    'a media-level attribute with a space in place of the colon');
+  t.same(messages(sdp.replace('t=0 0\r\n', 't=0 0\r\na=:x\r\n')), ['Line 5: Attribute name \'\' must be a token, as per RFC 4566 Section 9.'],
+    'a session-level attribute with an empty name');
+  t.same(messages(sdp.replace('t=0 0\r\n', 't=0 0\r\na=\r\n')).filter(message => message.includes('must be a token')), [],
+    'an empty attribute line is reported only by RFC 4566 Section 5 Test 2');
   t.end();
 });
 

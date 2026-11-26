@@ -15,6 +15,7 @@
 */
 
 const { splitLines, LineError } = require('./lines.js');
+const { isAcceptableAttribute } = require('./checkRFC4566.js');
 
 const sourceFilterPattern = /^a=source-filter:\s(incl|excl)\sIN\s(IP4|IP6|\*)\s(\S+)(?:\s(\S+))+$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
@@ -40,35 +41,40 @@ const canonicalAddress = address => {
   }
 };
 
-// RFC 4570 Section 3 Test 1 - Source filters match an acceptable pattern
+// RFC 4570 Section 3 Test 1 - Source filter addresses match the address type
 const test_30_1 = (sdp, params) => {
   let lines = splitLines(sdp);
   let errors = [];
+  let streamCount = 0;
   for ( let x = 0 ; x < lines.length ; x++ ) {
-    if (lines[x].startsWith('a=source-filter')) {
+    if (lines[x].startsWith('m=')) {
+      streamCount++;
+    }
+    if (lines[x].startsWith('a=source-filter') && isAcceptableAttribute(lines[x])) {
       let sourceFilterMatch = lines[x].match(sourceFilterPattern);
       if (!sourceFilterMatch) {
-        errors.push(new LineError(x + 1, 'Attribute \'source-filter\' is not an acceptable pattern, which must be of the form \'a=source-filter: <filter-mode> <filter-spec>\', as per RFC 4570 Section 3.'));
+        // The pattern is checked by RFC 4566 Section 6 Test 2
         continue;
       }
+      let attribute = streamCount ? `For stream ${streamCount}, attribute` : 'Attribute';
       let addrtype = sourceFilterMatch[2];
       let destAddr = sourceFilterMatch[3];
       if (addrtype === '*') {
         if (ip4Pattern.test(destAddr) || destAddr.includes(':')) {
-          errors.push(new LineError(x + 1, `Attribute 'source-filter' destination address '${destAddr}' must be a domain name or '*' when the address type is '*', as per RFC 4570 Section 3.1.`));
+          errors.push(new LineError(x + 1, `${attribute} 'source-filter' destination address '${destAddr}' must be a domain name or '*' when the address type is '*', as per RFC 4570 Section 3.1.`));
         }
         continue;
       }
       // The destination address is followed by the source addresses
       for (let address of lines[x].split(/\s/).slice(4)) {
         if (addressTypeMismatch(addrtype, address)) {
-          errors.push(new LineError(x + 1, `Attribute 'source-filter' address '${address}' must be ${addressTypeName[addrtype]} to match address type '${addrtype}', as per RFC 4570 Section 3.`));
+          errors.push(new LineError(x + 1, `${attribute} 'source-filter' address '${address}' must be ${addressTypeName[addrtype]} to match address type '${addrtype}', as per RFC 4570 Section 3.`));
         }
       }
     }
   }
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: RFC 4570 Section 3 Test 1 - Source filters match an acceptable pattern.');
+    console.log('Test Passed: RFC 4570 Section 3 Test 1 - Source filter addresses match the address type.');
   }
   return errors;
 };
@@ -85,6 +91,7 @@ const test_30_3 = (sdp, params) => {
   let mediaAddrs = [];
   let globalFilters = [];
   let inMedia = false;
+  let streamCount = 0;
   for ( let x = 0 ; x < lines.length ; x++ ) {
     if (lines[x].startsWith('c=')) {
       let addrMatch = lines[x].match(cPattern);
@@ -101,8 +108,9 @@ const test_30_3 = (sdp, params) => {
     if (lines[x].startsWith('m=')) {
       inMedia = true;
       mediaAddr = null;
+      streamCount++;
     }
-    if (lines[x].startsWith('a=source-filter:')) {
+    if (lines[x].startsWith('a=source-filter:') && isAcceptableAttribute(lines[x])) {
       let sourceFilterMatch = lines[x].match(sourceFilterPattern);
       if (!sourceFilterMatch) {
         continue;
@@ -111,7 +119,7 @@ const test_30_3 = (sdp, params) => {
       if (!inMedia) {
         globalFilters.push({ line: x + 1, destAddr });
       } else if (destAddr != globalAddr && destAddr != mediaAddr && destAddr != '*') {
-        errors.push(new LineError(x + 1, 'Source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.'));
+        errors.push(new LineError(x + 1, `For stream ${streamCount}, source filter destination addresses must match one or more connection addresses, as per RFC 4570 Section 3.`));
       }
     }
   }

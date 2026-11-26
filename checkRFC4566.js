@@ -165,13 +165,20 @@ const attributes = {
   'group': { usage: ['session'], value: valuePattern(`${token}(?: ${token})*`), form: 'a=group:<semantics>[ <identification tag>]*', specification: 'RFC 5888 Section 5' },
   'mid': { usage: ['media'], value: valuePattern(token), form: 'a=mid:<identification tag>', specification: 'RFC 5888 Section 4' },
   'ssrc': { usage: ['media'], value: valuePattern(`${zeroBasedInteger} ${token}(?::${byteString})?`), form: 'a=ssrc:<ssrc-id> <attribute>[:<value>]', specification: 'RFC 5576 Section 4.1' },
-  'ssrc-group': { usage: ['media'], value: valuePattern(`${token}(?: ${zeroBasedInteger})*`), form: 'a=ssrc-group:<semantics>[ <ssrc-id>]*', specification: 'RFC 5576 Section 4.2' }
+  'ssrc-group': { usage: ['media'], value: valuePattern(`${token}(?: ${zeroBasedInteger})*`), form: 'a=ssrc-group:<semantics>[ <ssrc-id>]*', specification: 'RFC 5576 Section 4.2' },
+  // Only the 'IN' network type and its address types are accepted, not any token as in the grammar of RFC 4570
+  'source-filter': { usage: ['session', 'media'], value: valuePattern(String.raw` (?:incl|excl) IN (?:IP4|IP6|\*) ${nonWsString}(?: ${nonWsString})+`),
+    form: 'a=source-filter: <filter-mode> <filter-spec>', specification: 'RFC 4570 Section 3' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
+const attributeNamePattern = new RegExp(`^${token}$`);
 
-// Whether an attribute line is not one of the attributes above, or has a value of the syntax of that attribute
+// Whether an attribute line has a token as its name, and is not one of the attributes above, or has a value of the syntax of that attribute
 const isAcceptableAttribute = line => {
   let [, name, value] = line.match(attributePattern) ?? [];
+  if (!attributeNamePattern.test(name)) {
+    return false;
+  }
   if (!Object.hasOwn(attributes, name)) {
     return true;
   }
@@ -557,8 +564,15 @@ const test_60_2 = (sdp, params) => {
     }
     if (lines[x].startsWith('a=') && !isAcceptableAttribute(lines[x])) {
       let [, name, value] = lines[x].match(attributePattern);
-      let { form, forms = [], specification, tolerated } = attributes[name];
       let attribute = streamCount ? `For stream ${streamCount}, attribute` : 'Attribute';
+      if (!attributeNamePattern.test(name)) {
+        // A line that is not of the form '<type>=<value>' is reported by RFC 4566 Section 5 Test 2
+        if (linePattern.test(lines[x])) {
+          errors.push(new LineError(x + 1, `${attribute} name '${name}' must be a token, as per RFC 4566 Section 9.`));
+        }
+        continue;
+      }
+      let { form, forms = [], specification, tolerated } = attributes[name];
       if (tolerated && value !== undefined && tolerated.value.test(value)) {
         if (params.should) {
           errors.push(new LineError(x + 1, `${attribute} '${name}' ${tolerated.message}.`));
