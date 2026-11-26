@@ -195,6 +195,60 @@ const isAcceptableAttribute = line => {
   return pattern ? value !== undefined && pattern.test(value) : value === undefined;
 };
 
+const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
+// A name with no value is allowed, because payload format registrations such as RFC 4175 define them, and whitespace
+// after a semicolon and a semicolon after the last parameter are allowed, because the ST 2110 specifications disagree about them
+const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
+const fmtpSeparator = '(?:;\\s*)';
+const fmtpListPattern = new RegExp('^a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
+const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
+// Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
+// extractStreams returns each one that is present as an array of its values, even if it is specified only once.
+const repeatableParams = ['DID_SDID'];
+
+// The media descriptions, numbered in order, each with the media type, port, transport protocol and formats of its media
+// field, as per RFC 4566 Section 5.14, the encoding names of its RTP payload types that have an 'rtpmap' attribute, and its
+// 'fmtp' attributes. An 'fmtp' attribute that is not a list of format specific parameters has no format or parameters.
+const extractStreams = sdp => {
+  let streams = [];
+  let lines = splitLines(sdp);
+  for (let x = 0; x < lines.length; x++) {
+    if (lines[x].startsWith('m=')) {
+      let [mediaType, port, proto, ...formats] = lines[x].slice(2).trim().split(/\s+/);
+      streams.push({ streamNumber: streams.length + 1, line: x + 1, mediaType, port: parseInt(port), proto, formats, encodingNames: {}, fmtp: [] });
+      continue;
+    }
+    let stream = streams[streams.length - 1];
+    if (!stream) {
+      continue;
+    }
+    if (lines[x].startsWith('a=rtpmap')) {
+      let rtpmapMatch = lines[x].match(rtpmapPattern);
+      if (rtpmapMatch) {
+        stream.encodingNames[rtpmapMatch[1]] = rtpmapMatch[2];
+      }
+    } else if (lines[x].startsWith('a=fmtp')) {
+      let fmtpMatch = lines[x].match(fmtpListPattern);
+      if (!fmtpMatch) {
+        stream.fmtp.push({ line: x + 1 });
+        continue;
+      }
+      let fmtParams = lines[x].split(/a=fmtp:\S+\s+/)[1];
+      let paramsMatch = [];
+      let paramMatch;
+      while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
+        paramsMatch.push(paramMatch);
+      let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
+      let params = splitParams.reduce((x, y) => {
+        x[y[0]] = repeatableParams.includes(y[0]) ? [...(x[y[0]] ?? []), y[1]] : y[1];
+        return x;
+      }, {});
+      stream.fmtp.push({ format: fmtpMatch[1], line: x + 1, names: splitParams.map(p => p[0]), params });
+    }
+  }
+  return streams;
+};
+
 // RFC 4566 Section 5 Test 1 - Line endings are all CRLF
 const test50_1 = (sdp, params) => {
   if (!params.checkEndings) {
@@ -649,5 +703,10 @@ module.exports = {
   section_58,
   section_59,
   section_60,
-  isAcceptableAttribute
+  isAcceptableAttribute,
+  extractStreams,
+  rtpmapPattern,
+  fmtpElement,
+  fmtpSeparator,
+  repeatableParams
 };

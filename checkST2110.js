@@ -15,7 +15,7 @@
 */
 
 const { splitLines, LineError } = require('./lines.js');
-const { isAcceptableAttribute } = require('./checkRFC4566.js');
+const { isAcceptableAttribute, extractStreams, rtpmapPattern, fmtpElement, fmtpSeparator, repeatableParams } = require('./checkRFC4566.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
@@ -32,14 +32,8 @@ const ssrcGroupPattern = /a=ssrc-group:DUP\s+(\d+)\s+(\d+)/;
 const groupPattern = /a=group:DUP\s+(\S+)\s+(\S+)/;
 const ssrcPattern = /^a=ssrc:(\d+)/;
 const videoPattern = /video\s+(\d+)(\/\d+)?\s+(RTP\/S?AVP)\s+(\d+)/;
-const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
 const bandwidthPattern = /b=([a-zA-Z]+):(\d+$)/;
-// A name with no value is allowed, because payload format registrations such as RFC 4175 define them, and whitespace
-// after a semicolon and a semicolon after the last parameter are allowed, because the ST 2110 specifications disagree about them
-const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
-const fmtpSeparator = '(?:;\\s*)';
 const fmtpPattern = new RegExp('a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
-const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 const codecsPattern = /[\s;]codecs=([^\s;]+)/i;
 const charsetPattern = /[\s;]charset(?:=([^\s;]*))?(?=[\s;]|$)/i;
 const profilePattern = /[\s;]profile(?:=([^\s;]*))?(?=[\s;]|$)/i;
@@ -65,9 +59,6 @@ const smpteChannelPattern31 =
   new RegExp('^SMPTE2110\\.\\((' + smpteChannelSymbols31 + ')(,(' + smpteChannelSymbols31 + '))*\\)$');
 // Skip the following 'video' media types until we have more complete validation for them
 const skipVideoTypes = ['vc2'];
-// Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
-// extractMTParams returns each one that is present as an array of its values, even if it is specified only once.
-const repeatableParams = ['DID_SDID'];
 
 // Example SDP data from ST 2110-10 Annex B
 const specExample20 = `v=0
@@ -897,105 +888,76 @@ const test_20_71_4 = (sdp, params) => {
   return errors;
 };
 
+// The encoding name of the first format of a stream, which is its default format, as per RFC 4566 Section 5.14,
+// and which the tests of its essence are chosen from
+const encodingNameOf = stream => stream.encodingNames[stream.formats[0]];
+
+// The format parameters of each 'fmtp' attribute, with the stream and format it belongs to, for each stream whose
+// media field is an acceptable pattern
 // Test for duplicate parameters by setting params.checkDups
 /** @returns {[object[], Error[]]} */
 const extractMTParams = (sdp, params = {}) => {
   let mtParams = [];
   let errors = [];
   let lines = splitLines(sdp);
-  let streamCount = 0;
-  let payloadType = -1;
-  let payloadTypes = [];
-  let mediaType = -1;
-  let encodingName = -1;
-  let mediaLine = 0;
-
-  // Encoding names by payload type for each media description, as 'rtpmap' and 'fmtp' may be in either order
-  let encodingNames = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      encodingNames.push({});
-    } else if (lines[x].startsWith('a=rtpmap') && encodingNames.length > 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      if (rtpmapMatch) {
-        encodingNames[encodingNames.length - 1][+rtpmapMatch[1]] = rtpmapMatch[2];
-      }
-    }
-  }
-
-  let section = -1;
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      section++;
-      let mediaMatch = lines[x].match(mediaPattern);
-      if (mediaMatch) {
-        mediaType = mediaMatch[1];
-        payloadType = +mediaMatch[5];
-        payloadTypes = lines[x].trim().split(/\s+/).slice(3).map(Number);
-        encodingName = encodingNames[section][payloadType] ?? -1;
-      }
-      else {
-        errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
-        payloadTypes = [];
-        continue;
-      }
-      streamCount++;
-      mediaLine = x + 1;
+  let lastStream;
+  for (let stream of extractStreams(sdp)) {
+    if (!mediaPattern.test(lines[stream.line - 1])) {
+      errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
       continue;
     }
-    if (lines[x].startsWith('a=fmtp') && payloadType >= 0) {
-      let fmtpMatch = lines[x].match(fmtpPattern);
-      if (!fmtpMatch) {
+    lastStream = stream;
+    for (let fmtp of stream.fmtp) {
+      if (!fmtp.params) {
         // An 'fmtp' that is not an acceptable pattern for any format is reported by RFC 4566 Section 6 Test 2
-        if (isAcceptableAttribute(lines[x])) {
-          errors.push(new LineError(x + 1, `For stream ${streamCount}, attribute 'fmtp' must be a list of format specific parameters separated by semicolons, each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.`));
+        if (isAcceptableAttribute(lines[fmtp.line - 1])) {
+          errors.push(new LineError(fmtp.line, `For stream ${stream.streamNumber}, attribute 'fmtp' must be a list of format specific parameters separated by semicolons, each a name or a name=value pair with no whitespace, as per RFC 8866 Section 6.15 and RFC 4855 Section 3.`));
         }
         continue;
       }
       // A payload type that is not a format of the media description is reported by test_10_62_2
-      let fmtpPayloadType = +fmtpMatch[1];
-      let fmtpEncodingName = encodingNames[section][fmtpPayloadType] ?? -1;
-      if (!payloadTypes.includes(fmtpPayloadType) || skipVideoTypes.includes(fmtpEncodingName)) {
+      let encodingName = stream.encodingNames[fmtp.format] ?? -1;
+      if (!stream.formats.includes(fmtp.format) || skipVideoTypes.includes(encodingName)) {
         continue;
       }
-      let fmtParams = lines[x].split(/a=fmtp:\d+\s+/)[1];
-      let paramsMatch = [];
-      let paramMatch;
-      while ((paramMatch = fmtpParams.exec(fmtParams)) !== null)
-        paramsMatch.push(paramMatch);
-      let splitParams = paramsMatch.map(p => [p[1], p[2] || '']);
       if (params.checkDups) {
-        let keys = splitParams.map(p => p[0]);
+        let keys = fmtp.names;
         let reported = [];
         for (let y = 0; y < keys.length; y++) {
           if (!repeatableParams.includes(keys[y]) && keys.filter(k => keys[y] === k).length >= 2) {
             if (reported.indexOf(keys[y]) < 0) {
-              errors.push(new LineError(x + 1, `For stream ${streamCount}, format parameter '${keys[y]}' is specified more than once.`));
+              errors.push(new LineError(fmtp.line, `For stream ${stream.streamNumber}, format parameter '${keys[y]}' is specified more than once.`));
               reported.push(keys[y]);
             }
           }
         }
       }
-      let paramsObject = splitParams.reduce((x, y) => {
-        x[y[0]] = repeatableParams.includes(y[0]) ? [...(x[y[0]] ?? []), y[1]] : y[1];
-        return x;
-      }, {});
-      paramsObject._payloadType = fmtpPayloadType;
-      paramsObject._line = x + 1;
-      paramsObject._streamNumber = streamCount;
-      paramsObject._mediaType = mediaType;
-      paramsObject._encodingName = fmtpEncodingName;
-      mtParams.push(paramsObject);
+      mtParams.push({
+        ...fmtp.params,
+        _payloadType: +fmtp.format,
+        _line: fmtp.line,
+        _streamNumber: stream.streamNumber,
+        _mediaType: stream.mediaType,
+        _encodingName: encodingName
+      });
     }
   }
   // If no fmtp parameters still load up the other valid items (audio files for example)
   if (mtParams.length == 0) {
     let paramsObject = [];
-    paramsObject._payloadType = payloadType;
-    paramsObject._line = mediaLine || lines.length;
-    paramsObject._streamNumber = streamCount;
-    paramsObject._mediaType = mediaType;
-    paramsObject._encodingName = encodingName;
+    if (lastStream) {
+      paramsObject._payloadType = +lastStream.formats[0];
+      paramsObject._line = lastStream.line;
+      paramsObject._streamNumber = lastStream.streamNumber;
+      paramsObject._mediaType = lastStream.mediaType;
+      paramsObject._encodingName = encodingNameOf(lastStream) ?? -1;
+    } else {
+      paramsObject._payloadType = -1;
+      paramsObject._line = lines.length;
+      paramsObject._streamNumber = 0;
+      paramsObject._mediaType = -1;
+      paramsObject._encodingName = -1;
+    }
     mtParams.push(paramsObject);
   }
   return [mtParams, errors];
@@ -2692,32 +2654,23 @@ const st2110_10_sections = [
   no_media,
 ];
 
+// The stream that the tests of the essence are chosen from, which is the first stream whose encoding name is known
+const essenceStreamOf = streams => streams.find(stream => encodingNameOf(stream) !== undefined) ?? streams[0];
+
 // SDPoker Test 1 - The SDP file describes a single essence
-// The tests for each essence are chosen from the first media description, so further
+// The tests for each essence are chosen from the media description that essenceStreamOf finds, so further
 // media descriptions are only supported as ST 2022-7 redundant streams of the same essence
 const checkSingleEssence = (sdp, params) => {
   let errors = [];
-  let lines = splitLines(sdp);
-  let streams = [];
-  for (let x = 0; x < lines.length; x++) {
-    if (lines[x].startsWith('m=')) {
-      let mediaMatch = lines[x].match(mediaPattern);
-      streams.push({ line: x + 1, mediaType: mediaMatch[1], payloadType: +mediaMatch[5] });
-    } else if (lines[x].startsWith('a=rtpmap') && streams.length > 0) {
-      let rtpmapMatch = lines[x].match(rtpmapPattern);
-      let stream = streams[streams.length - 1];
-      if (rtpmapMatch && +rtpmapMatch[1] === stream.payloadType) {
-        stream.encodingName = rtpmapMatch[2];
-      }
-    }
-  }
-  let essence = stream => stream.encodingName ? `${stream.mediaType}/${stream.encodingName}` : stream.mediaType;
-  for (let s = 1; s < streams.length; s++) {
+  let streams = extractStreams(sdp);
+  let reference = essenceStreamOf(streams);
+  let essence = stream => encodingNameOf(stream) ? `${stream.mediaType}/${encodingNameOf(stream)}` : stream.mediaType;
+  for (let stream of streams.filter(stream => stream !== reference)) {
     // Encoding names are case-insensitive, as per RFC 4855 Section 3
-    if (streams[s].mediaType !== streams[0].mediaType ||
-      (streams[s].encodingName && streams[0].encodingName &&
-        streams[s].encodingName.toLowerCase() !== streams[0].encodingName.toLowerCase())) {
-      errors.push(new LineError(streams[s].line, `For stream ${s + 1}, the essence '${essence(streams[s])}' differs from the essence '${essence(streams[0])}' of stream 1. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
+    if (stream.mediaType !== reference.mediaType ||
+      (encodingNameOf(stream) && encodingNameOf(reference) &&
+        encodingNameOf(stream).toLowerCase() !== encodingNameOf(reference).toLowerCase())) {
+      errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, the essence '${essence(stream)}' differs from the essence '${essence(reference)}' of stream ${reference.streamNumber}. SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.`));
     }
   }
   if (params.verbose && errors.length == 0) {
@@ -2730,7 +2683,7 @@ const allSections = (sdp, params) => {
   // The array of test functions, defaulting to ST 2110-10 tests. May be overridden below.
   let sections = st2110_10_sections;
   // Pull out the media type
-  let [mtParams, errors] = extractMTParams(sdp, params);
+  let [, errors] = extractMTParams(sdp, params);
   if (errors.length != 0) {
     return errors;
   }
@@ -2739,30 +2692,33 @@ const allSections = (sdp, params) => {
     return errors;
   }
   // Load tests for video, audio or application mediaTypes
-  if (mtParams[0]._mediaType == 'video') {
+  let stream = essenceStreamOf(extractStreams(sdp));
+  let mediaType = stream?.mediaType;
+  let encodingName = stream && encodingNameOf(stream);
+  if (mediaType == 'video') {
     // Load tests based on encoding name
-    if (mtParams[0]._encodingName == 'jxsv') {
+    if (encodingName == 'jxsv') {
       sections = [
         ...st2110_10_sections,
         section_21_81, section_21_82,
         section_22_60, section_22_72, section_22_73, section_22_74, section_22_2022_72,
         section_9134_71, no_copy_22];
-    } else if (mtParams[0]._encodingName == 'raw') {
+    } else if (encodingName == 'raw') {
       sections = [
         ...st2110_10_sections,
         section_20_71, section_20_72, section_20_73, section_20_74,
         section_20_75, section_20_76, section_21_81, section_21_82, no_copy_20, no_copy_20_2022];
-    } else if (mtParams[0]._encodingName == 'smpte291') {
+    } else if (encodingName == 'smpte291') {
       sections = [
         ...st2110_10_sections,
         section_40_2023_53, section_40_2023_7, section_8331_4];
-    } else if (mtParams[0]._encodingName == 'SMPTE2022-6') {
+    } else if (encodingName == 'SMPTE2022-6') {
       sections = [
         ...st2110_10_sections,
         section_2022_8_53, section_2022_8_60, section_2022_8_71];
     }
-  } else if (mtParams[0]._mediaType == 'audio') {
-    if (mtParams[0]._encodingName == 'AM824') {
+  } else if (mediaType == 'audio') {
+    if (encodingName == 'AM824') {
       sections = [
         ...st2110_10_sections,
         section_31_61, section_31_62];
@@ -2771,9 +2727,8 @@ const allSections = (sdp, params) => {
         ...st2110_10_sections,
         section_30_62];
     }
-  } else if (mtParams[0]._mediaType == 'application') {
+  } else if (mediaType == 'application') {
     // Encoding names are case-insensitive, as per RFC 4855 Section 3
-    let encodingName = mtParams[0]._encodingName;
     if (typeof encodingName === 'string' && encodingName.toLowerCase() === 'ttml+xml') {
       sections = [
         ...st2110_10_sections,

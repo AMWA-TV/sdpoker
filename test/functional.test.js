@@ -403,6 +403,22 @@ test('invalid SDP fixtures are rejected', t => {
   }
 });
 
+test('the tests for an essence are chosen from the first stream whose encoding name is known', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const stream = sdp.slice(sdp.indexOf('m='));
+  const noRtpmap = stream.replace('a=rtpmap:97 raw/90000\r\n', '');
+  const messages = variant => runAllChecks(variant, cliDefaults).map(error => error.message);
+
+  const laterRtpmap = messages(sdp.replace(stream, noRtpmap + stream.replace('depth=10', 'depth=11')));
+  t.ok(laterRtpmap.includes('Line 16: For stream 2, format parameter \'depth\' shall be \'8\', \'10\', \'12\', \'16\' or \'16f\', but is \'11\', as per ST 2110-20 Section 7.4.2.'),
+    'the ST 2110-20 tests run when only a later stream has an rtpmap');
+  const laterEncoding = messages(sdp.replace(stream, noRtpmap + stream + stream.replace('raw/90000', 'jxsv/90000')));
+  t.same(laterEncoding, ['Line 18: For stream 3, the essence \'video/jxsv\' differs from the essence \'video/raw\' of stream 2. ' +
+    'SDPoker only checks SDP files that describe a single essence, with more than one media description only for ST 2022-7 redundant streams.'],
+  'a stream is compared with the first stream whose encoding name is known');
+  t.end();
+});
+
 test('the ST 2110-10:2022 Annex B example is reported only as a copy and for its missing TP parameters', t => {
   const messages = runAllChecks(readFixture('invalid/st2110-10-annex-b.sdp')).map(error => error.message);
   t.same(messages, [
