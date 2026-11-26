@@ -172,7 +172,8 @@ const attributes = {
   // A space separates the port and the network type, as per RFC 3605 Verified erratum 1050
   // The connection address is not checked, except that it has no whitespace
   'rtcp': { usage: ['media'], value: valuePattern(String.raw`\d+(?: ${token} ${token} ${nonWsString})?`),
-    form: 'a=rtcp:<port>[ <network type> <address type> <connection address>]', specification: 'RFC 3605 Section 2.1' }
+    form: 'a=rtcp:<port>[ <network type> <address type> <connection address>]', specification: 'RFC 3605 Section 2.1' },
+  'duplication-delay': { usage: ['session', 'media'], value: valuePattern(String.raw`\d+(?: \d+)*`), form: 'a=duplication-delay:<period>[ <period>]*', specification: 'RFC 7197 Section 3' }
 };
 const attributePattern = /^a=([^:]*)(?::(.*))?$/;
 const attributeNamePattern = new RegExp(`^${token}$`);

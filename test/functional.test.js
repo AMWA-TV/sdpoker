@@ -1152,6 +1152,29 @@ test('RFC 4566 Section 6 tests check the level and syntax of the attribute that 
   t.end();
 });
 
+test('RFC 4566 Section 6 tests check the syntax of the attribute that RFC 7197 defines', t => {
+  const sdp = readFixture('valid/st2110-20.sdp');
+  const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
+  const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
+  const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
+  const lastLine = mediaLevel('x').split('\r\n').length - 1;
+  const form = '\'a=duplication-delay:<period>[ <period>]*\', as per RFC 7197 Section 3.';
+
+  for (const attribute of ['duplication-delay:100', 'duplication-delay:50 100', 'duplication-delay:0']) {
+    t.same(messages(sessionLevel(attribute)), [], `a=${attribute} is accepted at session level`);
+    t.same(messages(mediaLevel(attribute)), [], `a=${attribute} is accepted at media level`);
+  }
+
+  for (const attribute of ['duplication-delay', 'duplication-delay:', 'duplication-delay: 100', 'duplication-delay:100 ', 'duplication-delay:50  100',
+    'duplication-delay:50,100', 'duplication-delay:1.5', 'duplication-delay:-1']) {
+    t.same(messages(sessionLevel(attribute)), [`Line 5: Attribute 'duplication-delay' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at session level`);
+    t.same(messages(mediaLevel(attribute)), [`Line ${lastLine}: For stream 1, attribute 'duplication-delay' is not an acceptable pattern, which must be of the form ${form}`],
+      `a=${attribute} is reported at media level`);
+  }
+  t.end();
+});
+
 test('an attribute that the ST 2110 checks also use is reported once if it is not an acceptable pattern', t => {
   const message = (line, name, form, section) =>
     `Line ${line}: For stream 1, attribute '${name}' is not an acceptable pattern, which must be of the form 'a=${name}:${form}', as per RFC 4566 Section 6 and RFC 8866 Section ${section}.`;
