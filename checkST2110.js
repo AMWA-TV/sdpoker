@@ -15,7 +15,7 @@
 */
 
 const { splitLines, LineError } = require('./lines.js');
-const { isAcceptableAttribute, extractStreams, rtpmapPattern, fmtpElement, fmtpSeparator } = require('./checkRFC4566.js');
+const { isAcceptableAttribute, isAcceptableMedia, extractStreams, rtpmapPattern, fmtpElement, fmtpSeparator } = require('./checkRFC4566.js');
 
 const mediaclkPattern = /[\r\n]a=mediaclk/;
 const mediaclkTypePattern = /^a=mediaclk:(?:id=\S+\s+)?([^\s=]+)/;
@@ -579,7 +579,10 @@ const test_10_62_1 = (sdp, params) => {
 
     let mediaMatch = lines[x].match(mediaPattern);
     if (!mediaMatch) {
-      errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
+      // A media field that is not an acceptable pattern for RFC 4566 is reported by RFC 4566 Section 5.14 Test 1
+      if (isAcceptableMedia(lines[x])) {
+        errors.push(new LineError(x + 1, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2.'));
+      }
       continue;
     }
     // Check port number - ST 2110-10 Section 6.2 says shall be UDP, so assume 0-65535
@@ -603,13 +606,9 @@ const test_10_62_1 = (sdp, params) => {
   return errors;
 };
 
-// ST 2110-10 Section 6.2 Test 2 - Payload types of 'rtpmap' and 'fmtp' attributes are formats of the media description, and each dynamic payload type has an 'rtpmap' attribute
+// ST 2110-10 Section 6.2 Test 2 - Each dynamic payload type has an 'rtpmap' attribute
 /* ST 2110-10 Section 6.2 says:
 All RTP streams shall use dynamic payload types chosen in the range of 96 through 127, signaled as specified in section 6 of IETF RFC 4566 ...
-RFC 4566 Section 6 says of 'rtpmap':
-Up to one rtpmap attribute can be defined for each media format specified.
-and of 'fmtp':
-The format must be one of the formats specified for the media.
 */
 const test_10_62_2 = (sdp, params) => {
   let errors = [];
@@ -625,17 +624,11 @@ const test_10_62_2 = (sdp, params) => {
       });
       continue;
     }
-    let attributeMatch = lines[x].match(/^a=(rtpmap|fmtp):(\d+)/);
-    if (!attributeMatch || streams.length == 0) {
+    let rtpmapMatch = lines[x].match(/^a=rtpmap:(\d+)/);
+    if (!rtpmapMatch || streams.length == 0) {
       continue;
     }
-    let stream = streams[streams.length - 1];
-    let payloadType = +attributeMatch[2];
-    if (!stream.payloadTypes.includes(payloadType)) {
-      errors.push(new LineError(x + 1, `For stream ${streams.length}, payload type '${payloadType}' of attribute '${attributeMatch[1]}' must be a format of the media description, as per RFC 4566 Section 6.`));
-    } else if (attributeMatch[1] === 'rtpmap') {
-      stream.rtpmaps.push(payloadType);
-    }
+    streams[streams.length - 1].rtpmaps.push(+rtpmapMatch[1]);
   }
   streams.forEach((stream, s) => {
     for (let payloadType of stream.payloadTypes) {
@@ -645,7 +638,7 @@ const test_10_62_2 = (sdp, params) => {
     }
   });
   if (params.verbose && errors.length == 0) {
-    console.log('Test Passed: ST 2110-10 Section 6.2 Test 2 - Payload types of \'rtpmap\' and \'fmtp\' attributes are formats of the media description, and each dynamic payload type has an \'rtpmap\' attribute.');
+    console.log('Test Passed: ST 2110-10 Section 6.2 Test 2 - Each dynamic payload type has an \'rtpmap\' attribute.');
   }
   return errors;
 };
@@ -900,7 +893,9 @@ const extractMTParams = sdp => {
   let lastStream;
   for (let stream of extractStreams(sdp)) {
     if (!mediaPattern.test(lines[stream.line - 1])) {
-      errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2 and RFC 4566 Section 5.14.'));
+      if (isAcceptableMedia(lines[stream.line - 1])) {
+        errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which shall be of the form \'m=<media> <port> RTP/AVP <payload type>\', as per ST 2110-10 Section 6.2.'));
+      }
       continue;
     }
     lastStream = stream;
@@ -912,7 +907,7 @@ const extractMTParams = sdp => {
         }
         continue;
       }
-      // A payload type that is not a format of the media description is reported by test_10_62_2
+      // A format that is not a format of the media description is reported by RFC 4566 Section 6 Test 3
       let encodingName = stream.encodingNames[fmtp.format] ?? -1;
       if (!stream.formats.includes(fmtp.format) || skipVideoTypes.includes(encodingName)) {
         continue;
@@ -2667,6 +2662,11 @@ const checkSingleEssence = (sdp, params) => {
 const allSections = (sdp, params) => {
   // The array of test functions, defaulting to ST 2110-10 tests. May be overridden below.
   let sections = st2110_10_sections;
+  // The tests cannot read a media field that is not an acceptable pattern, which is reported by RFC 4566 Section 5.14 Test 1
+  let lines = splitLines(sdp);
+  if (extractStreams(sdp).some(stream => !isAcceptableMedia(lines[stream.line - 1]))) {
+    return [];
+  }
   // Pull out the media type
   let [, errors] = extractMTParams(sdp, params);
   if (errors.length != 0) {

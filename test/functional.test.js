@@ -234,7 +234,7 @@ const invalidCases = [
   },
   {
     file: 'invalid/fmtp-payload-type.sdp',
-    messageIncludes: 'payload type \'106\' of attribute \'fmtp\' must be a format of the media description'
+    messageIncludes: 'format \'106\' of attribute \'fmtp\' must be a format of the media description'
   },
   {
     file: 'invalid/missing-rtpmap.sdp',
@@ -936,7 +936,7 @@ test('RFC 4566, RFC 4570 and RFC 6838 tests report each passed or skipped test i
 
   const passed = line => line.startsWith('Test Passed: RFC ');
   const lines = logged(sdp, {});
-  t.equal(lines.length, 20, 'one line for each test');
+  t.equal(lines.length, 22, 'one line for each test');
   t.same(lines.filter(line => line.startsWith('Test Skipped')).map(line => line.split(' - ')[0]), [
     'Test Skipped: RFC 4566 Section 5 Test 1',
     'Test Skipped: RFC 4566 Section 5.2 Test 2',
@@ -946,7 +946,7 @@ test('RFC 4566, RFC 4570 and RFC 6838 tests report each passed or skipped test i
     'the other tests pass');
 
   const withOptions = logged(sdp, { checkEndings: true, useIP4: true, multicast: true });
-  t.equal(withOptions.length, 20, 'one line for each test with the options set');
+  t.equal(withOptions.length, 22, 'one line for each test with the options set');
   t.ok(withOptions.every(passed), 'every test passes with the options set');
 
   const lfLines = logged(sdp.replace(/\r\n/g, '\n'), { checkEndings: true });
@@ -956,7 +956,8 @@ test('RFC 4566, RFC 4570 and RFC 6838 tests report each passed or skipped test i
 });
 
 test('RFC 4566 Section 6 tests check the level and syntax of the attributes that RFC 4566 defines', t => {
-  const sdp = readFixture('valid/st2110-20.sdp');
+  // The media description has the formats of the 'rtpmap' and 'fmtp' attributes below
+  const sdp = readFixture('valid/st2110-20.sdp').replace('RTP/AVP 97', 'RTP/AVP 97 0 96 98');
   const sessionLevel = attribute => sdp.replace('t=0 0\r\n', `t=0 0\r\na=${attribute}\r\n`);
   const mediaLevel = attribute => sdp + `a=${attribute}\r\n`;
   const messages = variant => checkRFC4566(variant, cliDefaults).map(error => error.message);
@@ -1281,6 +1282,44 @@ test('an attribute that the ST 2110 checks also use is reported once if it is no
 test('an ssrc-group with semantics other than DUP is not checked as a DUP group', t => {
   const sdp = readFixture('valid/rfc7104_sep_source.sdp').replace('a=ssrc-group:DUP 1009 1010', 'a=ssrc-group:FID 1009 1010');
   t.same(runAllChecks(sdp).map(error => error.message), [], 'a=ssrc-group:FID');
+  t.end();
+});
+
+test('RFC 4566 Section 5.14 tests report a media field that is not an acceptable pattern once', t => {
+  const raw = readFixture('valid/st2110-20.sdp');
+  const mLine = raw.split('\r\n').findIndex(line => line.startsWith('m=')) + 1;
+  const messages = (sdp, params = cliDefaults) => runAllChecks(sdp, params).map(error => error.message);
+  const pattern = `Line ${mLine}: Media field ('m=') is not an acceptable pattern, which must be of the form 'm=<media> <port>[/<number of ports>] <proto> <fmt> ...', as per RFC 4566 Section 5.14.`;
+  const payloadType = format => `Line ${mLine}: For stream 1, format '${format}' must be an RTP payload type number in the range 0 to 127 inclusive, as per RFC 4566 Section 5.14, RFC 8866 Section 6.6 and RFC 3550 Section 5.1.`;
+
+  const noFormat = raw.replace('RTP/AVP 97', 'RTP/AVP');
+  t.same(messages(noFormat), [pattern], 'a media field with no format is reported once');
+  t.same(messages(noFormat, { ...cliDefaults, skipST2110: true }), [pattern], 'a media field with no format is reported without the ST 2110 tests');
+  t.same(messages(raw.replace('RTP/AVP 97', 'RTP/AVP 97 x')), [payloadType('x')], 'an RTP format that is not a number is reported');
+  t.same(messages(raw.replace('RTP/AVP 97', 'RTP/AVP 97 128')), [payloadType('128')], 'an RTP format that is not a payload type number is reported');
+  t.same(messages(raw.replace('RTP/AVP 97', 'RTP/AVP 97 096')), [payloadType('096')], 'an RTP format with a leading zero is reported');
+  t.same(messages(raw.replace('RTP/AVP 97', 'UDP/TLS/RTP/SAVPF 97 128'), { ...cliDefaults, skipST2110: true }), [payloadType('128')],
+    'a format of another RTP profile that is not a payload type number is reported');
+  t.same(messages(raw.replace('m=video 27346 RTP/AVP', 'm=video  27346\tRTP/SAVP')), [`Line ${mLine}: For stream 1, the transport protocol shall be 'RTP/AVP', as per ST 2110-10 Section 6.2.`],
+    'a media field with other whitespace between its subfields is an acceptable pattern');
+  const text = raw.replace('m=video', 'm=text');
+  t.same(messages(text), [`Line ${mLine}: Media field ('m=') is not an acceptable pattern, which shall be of the form 'm=<media> <port> RTP/AVP <payload type>', as per ST 2110-10 Section 6.2.`],
+    'a media field that is an acceptable pattern for RFC 4566 but not for ST 2110 is reported by the ST 2110 tests');
+  t.same(messages(text, { ...cliDefaults, skipST2110: true }), [], 'a media type other than audio, video or application is an acceptable pattern for RFC 4566');
+  t.end();
+});
+
+test('RFC 4566 Section 6 tests report an rtpmap or fmtp attribute for a format that is not a format of the media description', t => {
+  const messages = (file, params) => runAllChecks(readFixture(file), params).map(error => error.message).filter(m => m.includes('must be a format of the media description'));
+  for (const params of [cliDefaults, { ...cliDefaults, skipST2110: true }]) {
+    t.same(messages('invalid/rtpmap-payload-type.sdp', params), ['Line 10: For stream 1, payload type \'106\' of attribute \'rtpmap\' must be a format of the media description, as per RFC 4566 Section 6.'],
+      `the payload type of an rtpmap attribute is reported${params.skipST2110 ? ' without the ST 2110 tests' : ''}`);
+    t.same(messages('invalid/fmtp-payload-type.sdp', params), ['Line 10: For stream 1, format \'106\' of attribute \'fmtp\' must be a format of the media description, as per RFC 4566 Section 6.'],
+      `the format of an fmtp attribute is reported${params.skipST2110 ? ' without the ST 2110 tests' : ''}`);
+  }
+  const extension = readFixture('valid/st2110-20.sdp').replace(/(a=rtpmap:[^\r]*\r\n)/, '$1a=rtpmapx:foo\r\na=fmtp-x\r\n');
+  t.same(runAllChecks(extension, cliDefaults).map(error => error.message).filter(m => m.includes('of the media description')), [],
+    'an attribute whose name starts with rtpmap or fmtp is not an rtpmap or fmtp attribute');
   t.end();
 });
 

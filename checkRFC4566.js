@@ -75,6 +75,8 @@ for (const rows of Object.values(followedBy)) {
     }
   }
 }
+// The patterns of the fields accept any whitespace between subfields, where the grammar of RFC 4566 Section 9 has a
+// single space, so that the other tests can still read a field with extra whitespace
 const oPattern = /^o=(\S+)\s+(\d+)\s+(\d+)\s+IN\s+(IP[46])\s+(\S+)$/;
 const cPattern = /^c=IN\s+(IP[46])\s+([^\s/]+)(\/\d+)?(\/[1-9]\d*)?$/;
 const bPattern = /^b=[^\s:]+:\d+$/;
@@ -103,6 +105,22 @@ const languageTag = '[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*';
 const valuePattern = value => new RegExp(`^(?:${value})$`);
 // A non-zero decimal number, which unlike non-zero-int-or-real can have leading or trailing zeros
 const paddedNonZeroDecimal = valuePattern(String.raw`(?=.*[1-9])\d+(?:\.\d+)?`);
+// Like the other field patterns, this accepts any whitespace between subfields
+const mPattern = new RegExp(String.raw`^m=(${token})\s+(\d+)(?:/${integer})?\s+(${token}(?:/${token})*)((?:\s+${token})+)$`);
+// The transport protocols in the IANA registry of SDP 'proto' values that use RTP, as per
+// https://www.iana.org/assignments/sdp-parameters/sdp-parameters.xhtml#sdp-parameters-2
+// Their formats are RTP payload type numbers, which have no leading zeros, as per the payload-type rule
+// of RFC 8866 Section 6.6, and are from 0 to 127, because the field is 7 bits, as per RFC 3550 Section 5.1
+const rtpProtos = [
+  'RTP/AVP', 'RTP/SAVP', 'RTP/AVPF', 'RTP/SAVPF',
+  'TCP/RTP/AVP', 'TCP/RTP/SAVP', 'TCP/RTP/AVPF', 'TCP/RTP/SAVPF',
+  'TCP/TLS/RTP/AVP', 'TCP/TLS/RTP/AVPF', 'TCP/DTLS/RTP/SAVP', 'TCP/DTLS/RTP/SAVPF',
+  'UDP/TLS/RTP/SAVP', 'UDP/TLS/RTP/SAVPF',
+  'DCCP/RTP/AVP', 'DCCP/RTP/SAVP', 'DCCP/RTP/AVPF', 'DCCP/RTP/SAVPF',
+  'DCCP/TLS/RTP/SAVP', 'DCCP/TLS/RTP/SAVPF',
+  'UDP/MBMS-FEC/RTP/AVP', 'UDP/MBMS-FEC/RTP/SAVP'
+];
+const isPayloadType = format => valuePattern(zeroBasedInteger).test(format) && +format <= 127;
 
 // Rules of the clock source grammar, as per RFC 7273 Sections 4.8 and 5.4, and Verified erratum 4450,
 // in which a PTP domain has no 'domain-name=' or 'domain-nmbr=' prefix
@@ -195,42 +213,51 @@ const isAcceptableAttribute = line => {
   return pattern ? value !== undefined && pattern.test(value) : value === undefined;
 };
 
+// A media field is an acceptable pattern when it matches the grammar of RFC 4566 Section 5.14 and, for RTP, each of its
+// formats is a payload type number
+const isAcceptableMedia = line => {
+  let mMatch = line.match(mPattern);
+  return mMatch !== null && (!rtpProtos.includes(mMatch[3]) || mMatch[4].trim().split(/\s+/).every(isPayloadType));
+};
+
 const rtpmapPattern = /^a=rtpmap:(\d+)\s+([^\s/]+)\/(\d+)(?:\/(\S+))?$/;
 // A name with no value is allowed, because payload format registrations such as RFC 4175 define them, and whitespace
 // after a semicolon and a semicolon after the last parameter are allowed, because the ST 2110 specifications disagree about them
 const fmtpElement = '([^\\s=;]+)(?:=([^\\s;]+))?';
 const fmtpSeparator = '(?:;\\s*)';
-const fmtpListPattern = new RegExp('^a=fmtp:(\\d+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
+const fmtpListPattern = new RegExp('^a=fmtp:(\\S+)\\s*(\\s' + fmtpElement + '(' + fmtpSeparator + fmtpElement + ')*' + fmtpSeparator + '?)?$');
 const fmtpParams = new RegExp(fmtpElement + fmtpSeparator + '?', 'g');
 // Format parameters that can be specified more than once, such as DID_SDID as per RFC 8331 Section 4.
 // extractStreams returns each one that is present as an array of its values, even if it is specified only once.
 const repeatableParams = ['DID_SDID'];
 
 // The media descriptions, numbered in order, each with the media type, port, transport protocol and formats of its media
-// field, as per RFC 4566 Section 5.14, the encoding names of its RTP payload types that have an 'rtpmap' attribute, and its
-// 'fmtp' attributes. An 'fmtp' attribute that is not a list of format specific parameters has no format or parameters.
+// field, as per RFC 4566 Section 5.14, its 'rtpmap' attributes, the encoding names of its RTP payload types that have an
+// 'rtpmap' attribute, and its 'fmtp' attributes. An 'fmtp' attribute that is not a list of format specific parameters
+// has no parameters.
 const extractStreams = sdp => {
   let streams = [];
   let lines = splitLines(sdp);
   for (let x = 0; x < lines.length; x++) {
     if (lines[x].startsWith('m=')) {
       let [mediaType, port, proto, ...formats] = lines[x].slice(2).trim().split(/\s+/);
-      streams.push({ streamNumber: streams.length + 1, line: x + 1, mediaType, port: parseInt(port), proto, formats, encodingNames: {}, fmtp: [] });
+      streams.push({ streamNumber: streams.length + 1, line: x + 1, mediaType, port: parseInt(port), proto, formats, rtpmap: [], encodingNames: {}, fmtp: [] });
       continue;
     }
     let stream = streams[streams.length - 1];
     if (!stream) {
       continue;
     }
-    if (lines[x].startsWith('a=rtpmap')) {
+    if (lines[x].startsWith('a=rtpmap:')) {
+      stream.rtpmap.push({ format: lines[x].match(/^a=rtpmap:(\S+)/)?.[1], line: x + 1 });
       let rtpmapMatch = lines[x].match(rtpmapPattern);
       if (rtpmapMatch) {
         stream.encodingNames[rtpmapMatch[1]] = rtpmapMatch[2];
       }
-    } else if (lines[x].startsWith('a=fmtp')) {
+    } else if (lines[x].startsWith('a=fmtp:')) {
       let fmtpMatch = lines[x].match(fmtpListPattern);
       if (!fmtpMatch) {
-        stream.fmtp.push({ line: x + 1 });
+        stream.fmtp.push({ format: lines[x].match(/^a=fmtp:(\S+)/)?.[1], line: x + 1 });
         continue;
       }
       let fmtParams = lines[x].split(/a=fmtp:\S+\s+/)[1];
@@ -588,6 +615,28 @@ const test_59_1 = (sdp, params) => {
   return errors;
 };
 
+// RFC 4566 Section 5.14 Test 1 - Media fields match an acceptable pattern
+const test_514_1 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  for (let stream of extractStreams(sdp)) {
+    let mMatch = lines[stream.line - 1].match(mPattern);
+    if (!mMatch) {
+      errors.push(new LineError(stream.line, 'Media field (\'m=\') is not an acceptable pattern, which must be of the form \'m=<media> <port>[/<number of ports>] <proto> <fmt> ...\', as per RFC 4566 Section 5.14.'));
+      continue;
+    }
+    if (rtpProtos.includes(mMatch[3])) {
+      for (let format of mMatch[4].trim().split(/\s+/).filter(format => !isPayloadType(format))) {
+        errors.push(new LineError(stream.line, `For stream ${stream.streamNumber}, format '${format}' must be an RTP payload type number in the range 0 to 127 inclusive, as per RFC 4566 Section 5.14, RFC 8866 Section 6.6 and RFC 3550 Section 5.1.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 5.14 Test 1 - Media fields match an acceptable pattern.');
+  }
+  return errors;
+};
+
 // RFC 4566 Section 6 Test 1 - Attributes are at a level at which they are permitted
 const test_60_1 = (sdp, params) => {
   let errors = [];
@@ -652,6 +701,25 @@ const test_60_2 = (sdp, params) => {
   return errors;
 };
 
+// RFC 4566 Section 6 Test 3 - Formats of 'rtpmap' and 'fmtp' attributes are formats of the media description
+const test_60_3 = (sdp, params) => {
+  let errors = [];
+  let lines = splitLines(sdp);
+  // A media field or attribute that is not an acceptable pattern is reported by RFC 4566 Section 5.14 Test 1 or Section 6 Test 2
+  for (let stream of extractStreams(sdp).filter(stream => isAcceptableMedia(lines[stream.line - 1]))) {
+    let attributes = [...stream.rtpmap.map(rtpmap => ({ name: 'rtpmap', ...rtpmap })), ...stream.fmtp.map(fmtp => ({ name: 'fmtp', ...fmtp }))];
+    for (let { name, format, line } of attributes.sort((a, b) => a.line - b.line)) {
+      if (isAcceptableAttribute(lines[line - 1]) && !stream.formats.includes(format)) {
+        errors.push(new LineError(line, `For stream ${stream.streamNumber}, ${name === 'rtpmap' ? 'payload type' : 'format'} '${format}' of attribute '${name}' must be a format of the media description, as per RFC 4566 Section 6.`));
+      }
+    }
+  }
+  if (params.verbose && errors.length == 0) {
+    console.log('Test Passed: RFC 4566 Section 6 Test 3 - Formats of \'rtpmap\' and \'fmtp\' attributes are formats of the media description.');
+  }
+  return errors;
+};
+
 // RFC 6838 Section 4.3 Test 1 - Format parameters are not repeated
 // A payload format copies the parameters of its media type to the 'fmtp' attribute, as per RFC 4855 Section 3, and
 // the names of media type parameters are case-insensitive
@@ -709,8 +777,13 @@ const section_59 = (sdp, params) => {
   return tests.flatMap(t => t(sdp, params));
 };
 
+const section_514 = (sdp, params) => {
+  let tests = [ test_514_1 ];
+  return tests.flatMap(t => t(sdp, params));
+};
+
 const section_60 = (sdp, params) => {
-  let tests = [ test_60_1, test_60_2 ];
+  let tests = [ test_60_1, test_60_2, test_60_3 ];
   return tests.flatMap(t => t(sdp, params));
 };
 
@@ -720,7 +793,7 @@ const section_6838_43 = (sdp, params) => {
 };
 
 const allSections = (sdp, params) => {
-  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, section_60, section_6838_43 ];
+  let sections = [ section_50, section_51, section_52, section_57, section_58, section_59, section_514, section_60, section_6838_43 ];
   return sections.flatMap(s => s(sdp, params));
 };
 
@@ -732,9 +805,11 @@ module.exports = {
   section_57,
   section_58,
   section_59,
+  section_514,
   section_60,
   section_6838_43,
   isAcceptableAttribute,
+  isAcceptableMedia,
   extractStreams,
   rtpmapPattern,
   fmtpElement,
