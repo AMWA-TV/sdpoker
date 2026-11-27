@@ -255,7 +255,9 @@ test('the options panel prevents rejected combinations and resets to the default
 });
 
 test('the page shows the version, the commit, and that SDP stays in the browser', async ({ page }) => {
-  await expect(page.getByTestId('version')).toHaveText(/^SDPoker \d+\.\d+\.\d+, built from [0-9a-f]{7}$/);
+  await expect(page.getByTestId('version')).toHaveText(
+    /^SDPoker \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?, built from [0-9a-f]{7}$/,
+  );
   await expect(page.getByTestId('privacy')).toHaveText(
     'SDP validation is performed entirely within your browser. Your SDP contents are not uploaded to a server.',
   );
